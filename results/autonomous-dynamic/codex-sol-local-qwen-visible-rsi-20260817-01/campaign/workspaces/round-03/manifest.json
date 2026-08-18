@@ -1,0 +1,62 @@
+{
+  "candidate_name": "dynamic-visible-r3",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 64,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 0,
+    "researcher_output_tokens": 0,
+    "wall_seconds": 0.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible atlas failures show that unrestricted identifier joins can surface incorrect relay-bearing records, while the existing consensus coverage succeeds.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "For atlas queries, identify only the exact queried card relation, follow its named relay to an exact relay-bearing record, and order card before answer; for other queries, retain query-identifier records plus lexically relevant governing rules, packing whole provenance-preserving chunks within budget.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "f3a766541faf4ead7d3a1d5058dcbe9571b12818c15480c1dcfb2d5d25da319b",
+  "predictions": [
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-8e17a109347f7e0863c0",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.9, "regress": 0.02, "unchanged": 0.08}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-4079240b4ed102177a27",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.9, "regress": 0.02, "unchanged": 0.08}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-10da66c1a15a03717cc1",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.0, "regress": 0.03, "unchanged": 0.97}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-0317d584c3470d0ad6ee",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.0, "regress": 0.03, "unchanged": 0.97}
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.45,
+    "max_regression_probability": 0.03,
+    "rationale": "Promote: the explicit atlas relation traversal directly targets both visible failures, while the already successful consensus selection path is unchanged."
+  },
+  "schema_version": 1
+}

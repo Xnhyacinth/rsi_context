@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r0",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 64,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 20300,
+    "researcher_output_tokens": 1800,
+    "wall_seconds": 180.0
+  },
+  "evidence": [
+    {
+      "claim": "The visible atlas failures require a content-derived second hop from the queried card to its relay record, while the successful meridian items require retaining all query-matching reports for the stated consensus.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Seed retrieval with hyphenated identifiers found in the query, expand once to chunks containing identifiers introduced by direct matches so relay and signature-linked evidence is covered, order direct matches before expanded matches, then use BM25-like lexical backfill within the fixed whole-chunk budget; abstain when no whole source chunk fits and preserve every selected source chunk verbatim in ContextPack.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-76642e2db1d3614698da",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.9,
+        "regress": 0.02,
+        "unchanged": 0.08
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-5907d6a3290df94de0c5",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.9,
+        "regress": 0.02,
+        "unchanged": 0.08
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-e99a27774d8783ebda41",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.05,
+        "unchanged": 0.95
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-f2f5cc740edb1f1ba080",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.05,
+        "unchanged": 0.95
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.45,
+    "max_regression_probability": 0.05,
+    "rationale": "Promote for evaluation: the one-hop expansion directly targets both visible failures, and direct query matches remain first so the two already-correct consensus predictions are expected to hold."
+  },
+  "schema_version": 1
+}

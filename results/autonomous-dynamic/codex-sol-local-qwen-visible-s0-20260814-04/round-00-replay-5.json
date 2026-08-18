@@ -1,0 +1,131 @@
+{
+  "candidate_files": [
+    "policy.py",
+    "seed.py"
+  ],
+  "candidate_sha256": "6cd32d33fd0394f268c940cd597c75a754a2e633862bb105bff17a380136aa54",
+  "dataset_fingerprint": "fea93daa140bbbc9763332f977ed3a172b748d424a65b5dbfd752d2d8ef9bcdd",
+  "entrypoint": "policy.py",
+  "items_per_profile": 2,
+  "observations": [
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Orion-63",
+        "dx-a7fb97a77e74a4ca9758": "teal, amber, violet, silver, cerulean, magenta, ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean, violet"
+      },
+      "reader_input_tokens": 35740,
+      "reader_output_tokens": 37,
+      "repeat_index": 0,
+      "score": 0.0,
+      "wall_seconds": 1.5047565777786076
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Orion-63",
+        "dx-a7fb97a77e74a4ca9758": "teal, amber, violet, silver, cerulean, magenta, ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean, violet"
+      },
+      "reader_input_tokens": 35740,
+      "reader_output_tokens": 37,
+      "repeat_index": 1,
+      "score": 0.0,
+      "wall_seconds": 1.505068170838058
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Orion-63",
+        "dx-a7fb97a77e74a4ca9758": "teal, amber, violet, silver, cerulean, magenta, ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean, violet"
+      },
+      "reader_input_tokens": 35740,
+      "reader_output_tokens": 37,
+      "repeat_index": 2,
+      "score": 0.0,
+      "wall_seconds": 1.4875050699338317
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Orion-63",
+        "dx-a7fb97a77e74a4ca9758": "teal, amber, violet, silver, cerulean, magenta, ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean, violet"
+      },
+      "reader_input_tokens": 35740,
+      "reader_output_tokens": 37,
+      "repeat_index": 3,
+      "score": 0.0,
+      "wall_seconds": 1.4995898702181876
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Orion-63",
+        "dx-a7fb97a77e74a4ca9758": "teal, amber, violet, silver, cerulean, magenta, ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean, violet"
+      },
+      "reader_input_tokens": 35740,
+      "reader_output_tokens": 37,
+      "repeat_index": 4,
+      "score": 0.0,
+      "wall_seconds": 1.4910791828297079
+    }
+  ],
+  "policy_budget_tokens": 8192,
+  "qualification_only": true,
+  "reader_calls": 20,
+  "reader_identity": {
+    "chat_template_enable_thinking": false,
+    "max_model_len": 131072,
+    "max_output_tokens": 512,
+    "profile_hash": "6b22e89479fe976c735e40f049031a339b4df6b67f4d6f29860bc1e28850ba2b",
+    "profile_id": "local-qwen3.6-27b-128k-bf16-h200x8",
+    "provider": "vllm-0.25.1",
+    "provider_revision": "1b559cf7215ebe67ff10758e14f6293ba883223b",
+    "requested_model": "Qwen/Qwen3.6-27B",
+    "seed": 42,
+    "serving_profile_hash": "00182bf242e57f2168c3524e1bcdf59bb22cacccc0b54fd502d58ad8e87d1b8c",
+    "serving_profile_id": "qwen3.6-27b-128k-bf16-h200x8",
+    "temperature": 0.0
+  },
+  "reader_input_tokens": 178700,
+  "reader_output_tokens": 185,
+  "repeats": 5,
+  "schema_version": 2,
+  "source_tokens": 32768,
+  "split": "visible",
+  "wall_seconds": 7.487998871598393
+}

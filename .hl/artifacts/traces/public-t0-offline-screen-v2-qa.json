@@ -1,0 +1,199 @@
+{
+  "cells": [
+    {
+      "failures": [
+        "packer answer-in-pack range is below 0.20"
+      ],
+      "gold_chunk_in_any_packer_rate": 0.90625,
+      "gold_chunk_rate": 0.96875,
+      "measurements": {
+        "answer_in_source_rate": 0.96875,
+        "cell_id": "helmet-recall-qa2-32k-to-8k",
+        "median_source_tokens": 27660.5,
+        "n_items": 32,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 8192,
+        "packer_answer_disagreement": 0.25,
+        "packer_answer_rates": [
+          [
+            "head",
+            0.6875
+          ],
+          [
+            "lexical",
+            0.875
+          ],
+          [
+            "hand-hybrid",
+            0.875
+          ]
+        ]
+      },
+      "passed": false,
+      "source_token_max": 29095,
+      "source_token_min": 25280
+    },
+    {
+      "failures": [],
+      "gold_chunk_in_any_packer_rate": 0.8125,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-recall-qa2-128k-to-8k",
+        "median_source_tokens": 114415.0,
+        "n_items": 32,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 8192,
+        "packer_answer_disagreement": 0.65625,
+        "packer_answer_rates": [
+          [
+            "head",
+            0.15625
+          ],
+          [
+            "lexical",
+            0.8125
+          ],
+          [
+            "hand-hybrid",
+            0.8125
+          ]
+        ]
+      },
+      "passed": true,
+      "source_token_max": 116307,
+      "source_token_min": 109293
+    },
+    {
+      "failures": [],
+      "gold_chunk_in_any_packer_rate": 0.625,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-recall-qa2-128k-to-4k",
+        "median_source_tokens": 114415.0,
+        "n_items": 32,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 4096,
+        "packer_answer_disagreement": 0.53125,
+        "packer_answer_rates": [
+          [
+            "head",
+            0.125
+          ],
+          [
+            "lexical",
+            0.59375
+          ],
+          [
+            "hand-hybrid",
+            0.59375
+          ]
+        ]
+      },
+      "passed": true,
+      "source_token_max": 116307,
+      "source_token_min": 109293
+    },
+    {
+      "failures": [],
+      "gold_chunk_in_any_packer_rate": 0.875,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-recall-qa2-256k-to-8k",
+        "median_source_tokens": 229108.5,
+        "n_items": 32,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 8192,
+        "packer_answer_disagreement": 0.65625,
+        "packer_answer_rates": [
+          [
+            "head",
+            0.28125
+          ],
+          [
+            "lexical",
+            0.8125
+          ],
+          [
+            "hand-hybrid",
+            0.8125
+          ]
+        ]
+      },
+      "passed": true,
+      "source_token_max": 232419,
+      "source_token_min": 223379
+    },
+    {
+      "failures": [
+        "a non-oracle packer already places the answer on >=90% of items"
+      ],
+      "gold_chunk_in_any_packer_rate": 0.9375,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-recall-qa1-128k-to-8k",
+        "median_source_tokens": 114175.0,
+        "n_items": 32,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 8192,
+        "packer_answer_disagreement": 0.71875,
+        "packer_answer_rates": [
+          [
+            "head",
+            0.25
+          ],
+          [
+            "lexical",
+            0.90625
+          ],
+          [
+            "hand-hybrid",
+            0.90625
+          ]
+        ]
+      },
+      "passed": false,
+      "source_token_max": 115605,
+      "source_token_min": 111817
+    },
+    {
+      "failures": [],
+      "gold_chunk_in_any_packer_rate": 0.875,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-recall-qa1-128k-to-4k",
+        "median_source_tokens": 114175.0,
+        "n_items": 32,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 4096,
+        "packer_answer_disagreement": 0.75,
+        "packer_answer_rates": [
+          [
+            "head",
+            0.125
+          ],
+          [
+            "lexical",
+            0.875
+          ],
+          [
+            "hand-hybrid",
+            0.875
+          ]
+        ]
+      },
+      "passed": true,
+      "source_token_max": 115605,
+      "source_token_min": 111817
+    }
+  ],
+  "max_items": 32,
+  "official_helmet_score": false,
+  "reader_calls": 0,
+  "synthetic_t0_unchanged": true,
+  "tokenizer_id": "Qwen/Qwen3.6-27B@1b559cf7215ebe67ff10758e14f6293ba883223b"
+}

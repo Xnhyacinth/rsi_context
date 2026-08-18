@@ -1,0 +1,62 @@
+{
+  "candidate_name": "dynamic-visible-r2",
+  "cost": {
+    "evaluation_input_tokens": 0,
+    "evaluation_output_tokens": 0,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 0,
+    "researcher_output_tokens": 0,
+    "wall_seconds": 0.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures show that transit queries need the referenced relay record, while consensus queries need complete target-report coverage and the governing consensus rule.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Select all chunks whose leading statement exactly matches a structured query identifier, add governing-rule chunks by query-language overlap, expand one hop through newly discovered identifiers, order answer-bearing linked records before direct records, abstain only when no evidence fits, and format the pack as unchanged provenance-valid source chunks within budget.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "5e2ba668528597f294dced631715909bfc44bf9ee8dfaff54d168b51f90c6975",
+  "predictions": [
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-8e17a109347f7e0863c0",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.72, "regress": 0.03, "unchanged": 0.25}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-4079240b4ed102177a27",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.62, "regress": 0.08, "unchanged": 0.30}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-10da66c1a15a03717cc1",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.68, "regress": 0.05, "unchanged": 0.27}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-0317d584c3470d0ad6ee",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.66, "regress": 0.06, "unchanged": 0.28}
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.65,
+    "max_regression_probability": 0.08,
+    "rationale": "Promote for evaluation: the policy directly addresses the observed missing-hop and incomplete-rule coverage failures, with moderate uncertainty from frozen-reader sensitivity to whole-chunk ordering."
+  },
+  "schema_version": 1
+}

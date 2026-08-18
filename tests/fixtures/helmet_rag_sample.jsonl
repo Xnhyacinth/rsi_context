@@ -1,0 +1,2 @@
+{"item_id": "nq-fixture-1", "query": "Who wrote Hamlet?", "answer": "Shakespeare", "passages": ["William Shakespeare wrote Hamlet in the early 1600s.", "Unrelated cricket scores from 1998 sit in this distractor passage."]}
+{"item_id": "niah-fixture-1", "query": "What is the special magic number for uuid-9f3a?", "answer": "84921", "passages": ["haystack padding about rivers and cities with no needle here", "The special magic number for uuid-9f3a is 84921 according to the sealed log.", "more haystack about weather and trains"]}

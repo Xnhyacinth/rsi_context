@@ -1,0 +1,116 @@
+{
+  "candidate_files": [
+    "policy.py",
+    "seed.py"
+  ],
+  "candidate_sha256": "8b518ee1587f43b87e17d39842f417ee11a237ec5d1ed34fcaf3d04ddecbaebf",
+  "dataset_fingerprint": "fea93daa140bbbc9763332f977ed3a172b748d424a65b5dbfd752d2d8ef9bcdd",
+  "items_per_profile": 2,
+  "observations": [
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 1.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Sable-51",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "<think:6124c78e></think:6124c78e>",
+        "dx-ffedc9d65537922cdc3b": "<think:6124c78e></think:6124c78e>"
+      },
+      "reader_input_tokens": 35202,
+      "reader_output_tokens": 18,
+      "repeat_index": 0,
+      "score": 0.25,
+      "wall_seconds": 13.607219847850502
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "<think:6124c78e></think:6124c78e>",
+        "dx-ffedc9d65537922cdc3b": "<think:6124c78e></think:6124c78e>"
+      },
+      "reader_input_tokens": 35202,
+      "reader_output_tokens": 18,
+      "repeat_index": 1,
+      "score": 0.0,
+      "wall_seconds": 12.511622679419816
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "<think:6124c78e></think:6124c78e>",
+        "dx-ffedc9d65537922cdc3b": "<think:6124c78e></think:6124c78e>"
+      },
+      "reader_input_tokens": 35202,
+      "reader_output_tokens": 18,
+      "repeat_index": 2,
+      "score": 0.0,
+      "wall_seconds": 12.207230785861611
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "<think:6124c78e></think:6124c78e>",
+        "dx-ffedc9d65537922cdc3b": "<think:6124c78e></think:6124c78e>"
+      },
+      "reader_input_tokens": 35202,
+      "reader_output_tokens": 18,
+      "repeat_index": 3,
+      "score": 0.0,
+      "wall_seconds": 11.845869517885149
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 0.0,
+        "dx-ffedc9d65537922cdc3b": 0.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "<think:6124c78e></think:6124c78e>",
+        "dx-ffedc9d65537922cdc3b": "<think:6124c78e></think:6124c78e>"
+      },
+      "reader_input_tokens": 35202,
+      "reader_output_tokens": 18,
+      "repeat_index": 4,
+      "score": 0.0,
+      "wall_seconds": 12.982161689084023
+    }
+  ],
+  "policy_budget_tokens": 8192,
+  "qualification_only": true,
+  "reader_calls": 20,
+  "reader_input_tokens": 176010,
+  "reader_output_tokens": 90,
+  "repeats": 5,
+  "schema_version": 1,
+  "source_tokens": 32768,
+  "split": "visible",
+  "wall_seconds": 63.1541045201011
+}

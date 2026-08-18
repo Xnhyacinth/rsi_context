@@ -1,0 +1,239 @@
+{
+  "schema_version": 1,
+  "entries": [
+    {
+      "id": "qwen3.6-27b",
+      "name": "Qwen3.6-27B",
+      "kind": "model",
+      "integration": "direct",
+      "source_type": "huggingface",
+      "url": "https://huggingface.co/Qwen/Qwen3.6-27B",
+      "revision": "1b559cf7215ebe67ff10758e14f6293ba883223b",
+      "license": "Apache-2.0",
+      "size_bytes": 55600000000,
+      "access": "public",
+      "checksum": {
+        "algorithm": "hf-revision",
+        "value": "1b559cf7215ebe67ff10758e14f6293ba883223b",
+        "verified": true
+      },
+      "notes": "Revision existence verified on 2026-08-14. Native 262144-token model; test a newer immutable revision if later model-card updates are required."
+    },
+    {
+      "id": "llama-3.3-70b-instruct",
+      "name": "Llama-3.3-70B-Instruct",
+      "kind": "model",
+      "integration": "direct",
+      "source_type": "huggingface",
+      "url": "https://huggingface.co/meta-llama/Llama-3.3-70B-Instruct",
+      "revision": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
+      "license": "Llama-3.3-Community-License",
+      "size_bytes": 141100000000,
+      "access": "gated",
+      "checksum": {
+        "algorithm": "hf-revision",
+        "value": "6f6073b423013f6a7d4d9f39144961bfbfbc386b",
+        "verified": true
+      },
+      "notes": "Revision existence verified on 2026-08-14. Requires license acceptance and an authorized Hugging Face token; supported context is 131072 tokens."
+    },
+    {
+      "id": "ruler-v1",
+      "name": "RULER v1",
+      "kind": "dataset",
+      "integration": "direct",
+      "source_type": "git",
+      "url": "https://github.com/NVIDIA/RULER.git",
+      "revision": "c3f5e3b4f87f97e048793bb510a3a6b19a46bf3a",
+      "license": "Apache-2.0",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "c3f5e3b4f87f97e048793bb510a3a6b19a46bf3a",
+        "verified": true
+      },
+      "notes": "Generator-based synthetic benchmark. Upstream HEAD resolved and verified on 2026-08-14."
+    },
+    {
+      "id": "helmet",
+      "name": "HELMET",
+      "kind": "dataset",
+      "integration": "direct",
+      "source_type": "git",
+      "url": "https://github.com/princeton-nlp/HELMET.git",
+      "revision": "af609c4d51b97fc35012099380aa889da961c42d",
+      "license": "MIT; audit dataset-specific terms",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "af609c4d51b97fc35012099380aa889da961c42d",
+        "verified": true
+      },
+      "notes": "Upstream HEAD verified on 2026-08-14. Exact-RAG source datasets may have separate licenses or access requirements. Task jsonl lives in helmet-data, not this git tree."
+    },
+    {
+      "id": "helmet-data",
+      "name": "HELMET evaluation data",
+      "kind": "dataset",
+      "integration": "direct",
+      "source_type": "huggingface",
+      "url": "https://huggingface.co/datasets/princeton-nlp/HELMET",
+      "revision": "bc560a6b8165c696ad4bc3d1612c64b5794ba328",
+      "license": "MIT; audit KILT/RULER source terms",
+      "size_bytes": 11271916108,
+      "access": "public",
+      "checksum": {
+        "algorithm": "hf-revision",
+        "value": "bc560a6b8165c696ad4bc3d1612c64b5794ba328",
+        "verified": true
+      },
+      "notes": "Original paper data.tar.gz (11.27 GB, LFS sha256 9d693981aa3c065b8b2ff82ddf946141cdc4ece4524f18bff6f3fbd2a86982d9). Do not follow dataset main: later commits add data_v2.tar.gz. Matches the pinned HELMET code download_data.sh payload, not HELMET v2."
+    },
+    {
+      "id": "longmemeval-v2",
+      "name": "LongMemEval-V2",
+      "kind": "dataset",
+      "integration": "direct",
+      "source_type": "git",
+      "url": "https://github.com/xiaowu0162/LongMemEval-V2.git",
+      "revision": "2cc8c540bdb87fe6761629b585e727e1c4704520",
+      "license": "Apache-2.0; audit released dataset terms",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "2cc8c540bdb87fe6761629b585e727e1c4704520",
+        "verified": true
+      },
+      "notes": "Code HEAD verified on 2026-08-14. Large 25M/115M trajectory datasets remain separate downloads with their own provenance."
+    },
+    {
+      "id": "longbench-v2-data",
+      "name": "LongBench v2 data",
+      "kind": "dataset",
+      "integration": "direct",
+      "source_type": "huggingface",
+      "url": "https://huggingface.co/datasets/zai-org/LongBench-v2",
+      "revision": "2b48e494f2c7a2f0af81aae178e05c7e1dde0fe9",
+      "license": "Apache-2.0",
+      "size_bytes": 465500000,
+      "access": "public",
+      "checksum": {
+        "algorithm": "hf-revision",
+        "value": "2b48e494f2c7a2f0af81aae178e05c7e1dde0fe9",
+        "verified": true
+      },
+      "notes": "Public 503-item transfer set. Revision and 465.5 MB dry-run verified on 2026-08-14; never use it as a private sealed split."
+    },
+    {
+      "id": "longmemeval-v2-data",
+      "name": "LongMemEval-V2 data",
+      "kind": "dataset",
+      "integration": "direct",
+      "source_type": "huggingface",
+      "url": "https://huggingface.co/datasets/xiaowu0162/longmemeval-v2",
+      "revision": "f152293e235517d504809563c833d7190b8c713b",
+      "license": "Apache-2.0",
+      "size_bytes": 7120000000,
+      "access": "public",
+      "checksum": {
+        "algorithm": "hf-revision",
+        "value": "f152293e235517d504809563c833d7190b8c713b",
+        "verified": true
+      },
+      "notes": "Full 7.12 GB snapshot. The first A4 adapter should use text-only questions, trajectories, and small haystack before extracting screenshot archives."
+    },
+    {
+      "id": "gepa",
+      "name": "GEPA",
+      "kind": "baseline",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/gepa-ai/gepa.git",
+      "revision": "81dbae904bed94f5f3b8b4c704c0a81c7510b986",
+      "license": "MIT",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "81dbae904bed94f5f3b8b4c704c0a81c7510b986",
+        "verified": true
+      },
+      "notes": "Adapter target at upstream HEAD verified on 2026-08-14; keep its optimizer budget matched to other researchers."
+    },
+    {
+      "id": "mce",
+      "name": "MCE",
+      "kind": "baseline",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/metaevo-ai/meta-context-engineering.git",
+      "revision": "c4b7a7c2ce3ffc4bf4a74c52d2dd8a9a8fb14c30",
+      "license": "MIT",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "c4b7a7c2ce3ffc4bf4a74c52d2dd8a9a8fb14c30",
+        "verified": true
+      },
+      "notes": "Adapter target at upstream HEAD verified on 2026-08-14; audit task and budget compatibility before enabling."
+    },
+    {
+      "id": "meta-harness",
+      "name": "Meta-Harness",
+      "kind": "baseline",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/stanford-iris-lab/meta-harness.git",
+      "revision": "44b9942127847f7421db70d8c7e48407f09a3c70",
+      "license": "MIT",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "44b9942127847f7421db70d8c7e48407f09a3c70",
+        "verified": true
+      },
+      "notes": "Adapter target at upstream HEAD verified on 2026-08-14; preserve its generated-harness sandbox boundary."
+    },
+    {
+      "id": "rlm",
+      "name": "Recursive Language Models",
+      "kind": "baseline",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/alexzhang13/rlm.git",
+      "revision": "caf0bffa1acec17c062559433b4cd4ed92eee3d6",
+      "license": "MIT",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "caf0bffa1acec17c062559433b4cd4ed92eee3d6",
+        "verified": true
+      },
+      "notes": "Recursive-reread adapter target at upstream HEAD verified on 2026-08-14; audit transitive model/API requirements."
+    },
+    {
+      "id": "kvpress",
+      "name": "KVPress",
+      "kind": "baseline",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/NVIDIA/kvpress.git",
+      "revision": "4e41f149018daf32644eca1e5b22b736da426586",
+      "license": "Apache-2.0",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "4e41f149018daf32644eca1e5b22b736da426586",
+        "verified": true
+      },
+      "notes": "Systems-profile adapter at upstream HEAD verified on 2026-08-14; keep KV eviction outside the main semantic-policy search."
+    }
+  ]
+}

@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "candidate_name": { "minLength": 1, "type": "string" },
+    "cost": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluation_input_tokens": { "minimum": 0, "type": "integer" },
+        "evaluation_output_tokens": { "minimum": 0, "type": "integer" },
+        "gpu_seconds": { "minimum": 0, "type": "number" },
+        "researcher_input_tokens": { "minimum": 0, "type": "integer" },
+        "researcher_output_tokens": { "minimum": 0, "type": "integer" },
+        "wall_seconds": { "minimum": 0, "type": "number" }
+      },
+      "required": [
+        "evaluation_input_tokens",
+        "evaluation_output_tokens",
+        "gpu_seconds",
+        "researcher_input_tokens",
+        "researcher_output_tokens",
+        "wall_seconds"
+      ],
+      "type": "object"
+    },
+    "evidence": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": { "minLength": 1, "type": "string" },
+          "evidence_id": { "minLength": 1, "type": "string" },
+          "kind": { "minLength": 1, "type": "string" },
+          "reference": { "minLength": 1, "type": "string" }
+        },
+        "required": ["claim", "evidence_id", "kind", "reference"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "mechanisms": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "description": { "minLength": 1, "type": "string" },
+          "mechanism_id": { "minLength": 1, "type": "string" },
+          "policy_paths": {
+            "items": { "minLength": 1, "type": "string" },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          }
+        },
+        "required": ["description", "mechanism_id", "policy_paths"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "parent_artifact_id": {
+      "anyOf": [
+        { "pattern": "^[0-9a-f]{64}$", "type": "string" },
+        { "type": "null" }
+      ]
+    },
+    "predictions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_ids": {
+            "items": { "minLength": 1, "type": "string" },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "item_id": { "minLength": 1, "type": "string" },
+          "mechanism_ids": {
+            "items": { "minLength": 1, "type": "string" },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "probabilities": {
+            "additionalProperties": false,
+            "properties": {
+              "improve": { "maximum": 1, "minimum": 0, "type": "number" },
+              "regress": { "maximum": 1, "minimum": 0, "type": "number" },
+              "unchanged": { "maximum": 1, "minimum": 0, "type": "number" }
+            },
+            "required": ["improve", "regress", "unchanged"],
+            "type": "object"
+          }
+        },
+        "required": [
+          "evidence_ids",
+          "item_id",
+          "mechanism_ids",
+          "probabilities"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "promotion": {
+      "additionalProperties": false,
+      "properties": {
+        "decision": { "enum": ["promote", "hold", "reject"] },
+        "expected_score_delta": { "type": "number" },
+        "max_regression_probability": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "rationale": { "minLength": 1, "type": "string" }
+      },
+      "required": [
+        "decision",
+        "expected_score_delta",
+        "max_regression_probability",
+        "rationale"
+      ],
+      "type": "object"
+    },
+    "schema_version": { "const": 1 }
+  },
+  "required": [
+    "candidate_name",
+    "cost",
+    "evidence",
+    "mechanisms",
+    "parent_artifact_id",
+    "predictions",
+    "promotion",
+    "schema_version"
+  ],
+  "type": "object"
+}

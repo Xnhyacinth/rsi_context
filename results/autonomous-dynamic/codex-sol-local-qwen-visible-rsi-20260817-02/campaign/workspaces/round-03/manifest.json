@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r3",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 64,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 0,
+    "researcher_output_tokens": 0,
+    "wall_seconds": 0.0
+  },
+  "evidence": [
+    {
+      "claim": "The two atlas failures require a direct card followed by its relay record, while both consensus items already succeed when their governing rule and reports are retained.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Order packed evidence by dependency: put consensus governing rules first, then records directly matching the queried identifier, then one-hop linked records; retain lexical fallback, budget-aware coverage, and abstention only when no evidence is selected.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "2a27cf230de000a88a8cef35c10fe61b1ae8e96f6d06811ce1ea5ad339c5c334",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-76642e2db1d3614698da",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.7,
+        "regress": 0.05,
+        "unchanged": 0.25
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-5907d6a3290df94de0c5",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.7,
+        "regress": 0.05,
+        "unchanged": 0.25
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-e99a27774d8783ebda41",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.04,
+        "unchanged": 0.96
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-f2f5cc740edb1f1ba080",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.04,
+        "unchanged": 0.96
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.35,
+    "max_regression_probability": 0.05,
+    "rationale": "Promote: forward dependency ordering directly targets both visible failures and leaves the successful consensus ordering unchanged."
+  },
+  "schema_version": 1
+}

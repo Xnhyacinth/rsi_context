@@ -1,0 +1,405 @@
+{
+  "cost_accounting_complete": true,
+  "dataset_fingerprint": "315126022e9fdc6965be39412d0f2567ceb18fc7bf096a9d106c63dba76732a4",
+  "error_bytes": 60,
+  "error_sha256": "4e7ef6de7bbe45cd9dff746b4a30c9b938e6913d8c79c5c0adc881ff65ae44fc",
+  "error_type": "ValueError",
+  "evaluation_observations": [
+    {
+      "item_scores": [
+        [
+          "popqa-k1000-0000",
+          0.0
+        ],
+        [
+          "popqa-k1000-0001",
+          0.0
+        ],
+        [
+          "popqa-k1000-0002",
+          0.0
+        ],
+        [
+          "popqa-k1000-0003",
+          0.0
+        ],
+        [
+          "popqa-k1000-0004",
+          0.0
+        ],
+        [
+          "popqa-k1000-0005",
+          0.0
+        ],
+        [
+          "popqa-k1000-0006",
+          1.0
+        ],
+        [
+          "popqa-k1000-0007",
+          1.0
+        ]
+      ],
+      "predictions": [
+        [
+          "popqa-k1000-0000",
+          "INSUFFICIENT"
+        ],
+        [
+          "popqa-k1000-0001",
+          "INSUFFICIENT"
+        ],
+        [
+          "popqa-k1000-0002",
+          "INSUFFICIENT"
+        ],
+        [
+          "popqa-k1000-0003",
+          "INSUFFICIENT"
+        ],
+        [
+          "popqa-k1000-0004",
+          "INSUFFICIENT"
+        ],
+        [
+          "popqa-k1000-0005",
+          "INSUFFICIENT"
+        ],
+        [
+          "popqa-k1000-0006",
+          "Irish poet"
+        ],
+        [
+          "popqa-k1000-0007",
+          "Irish poet"
+        ]
+      ],
+      "reader_calls": 8,
+      "reader_input_tokens": 74426,
+      "reader_output_tokens": 32,
+      "round_index": -1,
+      "score": 0.25,
+      "wall_seconds": 3.425183610059321
+    }
+  ],
+  "process_failures": [],
+  "processes": [
+    {
+      "elapsed_seconds": 112.05387498997152,
+      "events": [
+        {
+          "kind": "session",
+          "payload_bytes": 76,
+          "payload_sha256": "360565a75649c5ef374be4d1fe086f541445f1d94d5a9009e347f9f1772f4ef6",
+          "session_id_sha256": "9c0679f8ab3234ae2828a1b13c619fc61b0101f2320cfa59cd2d1e5e5606562c",
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "unknown",
+          "payload_bytes": 23,
+          "payload_sha256": "7306b54975174c6eb5111d663a47de795d167520e43cf66ee2923218b19fdb75",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 276,
+          "payload_sha256": "ad51e4518df480b496acc36d71dba1cd085faa37ad947ff9a5d2ea6ec6cdbb3e",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 189,
+          "text_sha256": "561b30359eedc696723b16fc01ea72831eb744ebb52b2871319862737f9c26bd",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 458,
+          "payload_sha256": "64e82d7de6626bd3d2c8c4d38e469b604ec31e92854086bf6266217386000d3a",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 455,
+          "payload_sha256": "52d15d24c6b0a9091082aa064b3fac92b660c17473e6186286f01cd74f5cf951",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 361,
+          "payload_sha256": "25eff553c3e89fd95beae18d4a7661e8ab7c54276aacf1bd796eacc9df441456",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 7290,
+          "payload_sha256": "04f68d05481196cc748e0a669c9070b1191c986cd9cf59283b3965998c41117f",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 6873,
+          "text_sha256": "d6b309c5e2cbb9dc76a129d648baaa0e2ff4b97e67e6a1e9f0b0fe788bd843ab",
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 348,
+          "payload_sha256": "102c8a5fa6d79472fe9840b8c36213148fe53f785378c5ccdec355b7fa9dd869",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 264,
+          "text_sha256": "43b3888e7bcebdd3a19abab1bf4a5eb087d847e208cc9c86118b7962f748130e",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 687,
+          "payload_sha256": "43abee3b8224ca4167c0f8635f1793be20694a34201b84c228b289eebddb8ae4",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 684,
+          "payload_sha256": "386e0010d915bf79aafedefaa963bd78a7acf4265133e572a88b0465ba846ff4",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 498,
+          "payload_sha256": "40fee579b8b3ee589b9af3962ef7cccc67a3c98198632a919f5b76e313809d4a",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 414,
+          "text_sha256": "ce933f24c358588a468581ca29db95605491346c1c6f98191fad64c8c57213f3",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 467,
+          "payload_sha256": "48de4c0fd750bf2e33e651edc80b9ef3674ee07fe2c200d74997c422e037379c",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "c8024a6f4a297bbf82ad609cabc79764f81dce09b5fd6c0bad7f10988717ab90",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 467,
+          "payload_sha256": "cf9d85f8a32a3f0975a34c601de36c7b9c4ad770bf85dd3d4d9f0ab082602757",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "c8024a6f4a297bbf82ad609cabc79764f81dce09b5fd6c0bad7f10988717ab90",
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 414,
+          "payload_sha256": "609ffeab64b758b872e964132f71b7cbff2ce1bcb7f66f304ef47fb18ce038ac",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 315,
+          "text_sha256": "9adfba643892ba330c323f9d5cbab8a484787a3dbac27ec5e3d7982766d529db",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 289,
+          "payload_sha256": "77884c657161c20355220c638facac583c8993f68d3fe2e108de2290a211502e",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "c8024a6f4a297bbf82ad609cabc79764f81dce09b5fd6c0bad7f10988717ab90",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 289,
+          "payload_sha256": "73e2ea6749bfa67e705af60410f602155f98d093e2c81d82ac35a0e334176747",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "c8024a6f4a297bbf82ad609cabc79764f81dce09b5fd6c0bad7f10988717ab90",
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 1150,
+          "payload_sha256": "e0a603c33fbf1e8a0a56a04a6831c57aed22c02f736d0f114bddcc289e4ecc98",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 3402,
+          "payload_sha256": "6d3ec0da4a0c7640b52e84ccabf20dc13726ce9e7d39d60a9035778bdc375385",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 2220,
+          "text_sha256": "9401b4b05bede52f28ef4066cd8cac8011098fd3e48fa8e4814c422a6c6ba4c8",
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 345,
+          "payload_sha256": "036426330dfc81d22a54fc897e69d9d8782d8a4163e9a63394b4dc20f01b6133",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 342,
+          "payload_sha256": "55323f06dd3efbc7b24522ffcf8c5daf187f0a593d66fbb4edc3f79b8fb4136b",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 628,
+          "payload_sha256": "7bb62b46d586f654e8bc17b50b23f5f59523b04f4ed1874a0aed01cbc2f912c0",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 701,
+          "payload_sha256": "79c370af2467b3e78dd929f96139f95c9d86bb5cf9c52f3091f66998fe0dd2eb",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 72,
+          "text_sha256": "e82e313e8051be10e179183454953065f09b99c18496892f64f5f9e59779ebe5",
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 274,
+          "payload_sha256": "0a81f304c80b2f4fbca44b4da3f40beea3e62b1b0c62b63b60d72bfd3e9c64a5",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 187,
+          "text_sha256": "0cd6acb1edc8110ccde60cc1e3449b0bd79f09bc8d528de8308dd2485ccc93b2",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "complete",
+          "payload_bytes": 166,
+          "payload_sha256": "7c4ded88a67e32c5d07d0ca4396a74f9bc2ac11efd4f93e749398aafb0e7ad0b",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": null,
+          "usage": {
+            "cache_creation_input_tokens": 0,
+            "cached_input_tokens": 255744,
+            "cost_usd": null,
+            "input_tokens": 293324,
+            "output_tokens": 4711
+          }
+        }
+      ],
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 20084,
+      "usage": {
+        "cache_creation_input_tokens": 0,
+        "cached_input_tokens": 255744,
+        "cost_usd": null,
+        "input_tokens": 293324,
+        "output_tokens": 4711
+      }
+    }
+  ],
+  "reader_identity": {
+    "chat_template_enable_thinking": false,
+    "max_model_len": 131072,
+    "max_output_tokens": 512,
+    "profile_hash": "6b22e89479fe976c735e40f049031a339b4df6b67f4d6f29860bc1e28850ba2b",
+    "profile_id": "local-qwen3.6-27b-128k-bf16-h200x8",
+    "provider": "vllm-0.25.1",
+    "provider_revision": "1b559cf7215ebe67ff10758e14f6293ba883223b",
+    "requested_model": "Qwen/Qwen3.6-27B",
+    "seed": 42,
+    "serving_profile_hash": "00182bf242e57f2168c3524e1bcdf59bb22cacccc0b54fd502d58ad8e87d1b8c",
+    "serving_profile_id": "qwen3.6-27b-128k-bf16-h200x8",
+    "temperature": 0.0
+  },
+  "researcher_identity": {
+    "executable_path": "/root/.npm-global/lib/node_modules/@openai/codex/bin/codex.js",
+    "executable_sha256": "134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
+    "kind": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "researcher_prompts": [
+    {
+      "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "prompt": "You are the context-policy researcher, not the question-answering reader.\nThe reader, decoding, metric, 8192-token budget, and item labels are frozen.\nYou choose the next hypothesis for compiler H: select, order, cover, abstain, and format of packed evidence. You do not choose extra reader calls; the evaluator returns one score per candidate. Put the hypothesis in mechanisms[0].description. The next round starts from your last attempt even if it regressed; historical-best keeps the peak.\nWork only inside this workspace. Modify only policy/*.py and create manifest.json.\nDo not create notes, tests, caches, or any other files. Do not call any model or API.\nImplement policy/policy.py with public class Policy and assemble(artifact, query, budget).\nThe policy must pass a fail-closed AST audit. Do not use from __future__ imports. Allowed imports are collections, dataclasses, functools, heapq, itertools, json, math, operator, re, statistics, string, typing, and rsicontext.policy. Keep module/class constants to immutable literals or tuples; construct regexes, sets, counters, and other containers inside functions. Builtin compile, eval, exec, and getattr are forbidden; re.compile and re.findall inside functions are allowed. Do not use file I/O, subprocesses, or network access.\nDo not run mypy, pytest, or any command that creates caches in the workspace.\nReturn only source chunks already present in artifact and obey ContextPack provenance.\nDo not put item ids, chunk ids, queries, reference answers, or per-item lookup tables in policy code. The policy must generalize from query and chunk content.\nThe evidence below is from the visible split only. No gate or sealed item is exposed.\nRound: 0\nExact parent_artifact_id: ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848\nPrevious aggregate score: 0.25\nHistorical-best aggregate score: 0.25\nLAST_INVALID_SUBMISSION_BEGIN\nnull\nLAST_INVALID_SUBMISSION_END\nVISIBLE_FEEDBACK_BEGIN\n[\n  {\n    \"baseline_prediction\": \"INSUFFICIENT\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0000-0000\",\n        \"source_index\": 0,\n        \"text\": \"Scuba Dice\\nO'Connor defining their sound as \\\"power pop, punk, punk pop\\\". The band competed for the coveted prize of a record contract and as part of the show they covered Green Day's \\\"Holiday\\\", which was released as a single and reached No.\u00a08 and on the Irish Singles Chart, later becoming the 42nd best selling single of 2008 for an Irish artist. They also released their second single \\\"Made\\\", an original song, as a physical release. The band also entered the Beatbox competition\",\n        \"token_count\": 110\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0000\",\n    \"query\": \"What genre is Holiday?\",\n    \"reference_answer\": \"punk rock\"\n  },\n  {\n    \"baseline_prediction\": \"INSUFFICIENT\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0200-0000\",\n        \"source_index\": 201,\n        \"text\": \"Scuba Dice\\nO'Connor defining their sound as \\\"power pop, punk, punk pop\\\". The band competed for the coveted prize of a record contract and as part of the show they covered Green Day's \\\"Holiday\\\", which was released as a single and reached No.\u00a08 and on the Irish Singles Chart, later becoming the 42nd best selling single of 2008 for an Irish artist. They also released their second single \\\"Made\\\", an original song, as a physical release. The band also entered the Beatbox competition\",\n        \"token_count\": 110\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0001\",\n    \"query\": \"What genre is Holiday?\",\n    \"reference_answer\": \"punk rock\"\n  },\n  {\n    \"baseline_prediction\": \"INSUFFICIENT\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0400-0000\",\n        \"source_index\": 401,\n        \"text\": \"Scuba Dice\\nO'Connor defining their sound as \\\"power pop, punk, punk pop\\\". The band competed for the coveted prize of a record contract and as part of the show they covered Green Day's \\\"Holiday\\\", which was released as a single and reached No.\u00a08 and on the Irish Singles Chart, later becoming the 42nd best selling single of 2008 for an Irish artist. They also released their second single \\\"Made\\\", an original song, as a physical release. The band also entered the Beatbox competition\",\n        \"token_count\": 110\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0002\",\n    \"query\": \"What genre is Holiday?\",\n    \"reference_answer\": \"punk rock\"\n  },\n  {\n    \"baseline_prediction\": \"INSUFFICIENT\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0598-0000\",\n        \"source_index\": 599,\n        \"text\": \"Scuba Dice\\nO'Connor defining their sound as \\\"power pop, punk, punk pop\\\". The band competed for the coveted prize of a record contract and as part of the show they covered Green Day's \\\"Holiday\\\", which was released as a single and reached No.\u00a08 and on the Irish Singles Chart, later becoming the 42nd best selling single of 2008 for an Irish artist. They also released their second single \\\"Made\\\", an original song, as a physical release. The band also entered the Beatbox competition\",\n        \"token_count\": 110\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0003\",\n    \"query\": \"What genre is Holiday?\",\n    \"reference_answer\": \"punk rock\"\n  },\n  {\n    \"baseline_prediction\": \"INSUFFICIENT\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0797-0000\",\n        \"source_index\": 798,\n        \"text\": \"Scuba Dice\\nO'Connor defining their sound as \\\"power pop, punk, punk pop\\\". The band competed for the coveted prize of a record contract and as part of the show they covered Green Day's \\\"Holiday\\\", which was released as a single and reached No.\u00a08 and on the Irish Singles Chart, later becoming the 42nd best selling single of 2008 for an Irish artist. They also released their second single \\\"Made\\\", an original song, as a physical release. The band also entered the Beatbox competition\",\n        \"token_count\": 110\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0004\",\n    \"query\": \"What genre is Holiday?\",\n    \"reference_answer\": \"punk rock\"\n  },\n  {\n    \"baseline_prediction\": \"INSUFFICIENT\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0995-0000\",\n        \"source_index\": 996,\n        \"text\": \"Scuba Dice\\nO'Connor defining their sound as \\\"power pop, punk, punk pop\\\". The band competed for the coveted prize of a record contract and as part of the show they covered Green Day's \\\"Holiday\\\", which was released as a single and reached No.\u00a08 and on the Irish Singles Chart, later becoming the 42nd best selling single of 2008 for an Irish artist. They also released their second single \\\"Made\\\", an original song, as a physical release. The band also entered the Beatbox competition\",\n        \"token_count\": 110\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0005\",\n    \"query\": \"What genre is Holiday?\",\n    \"reference_answer\": \"punk rock\"\n  },\n  {\n    \"baseline_prediction\": \"Irish poet\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0000-0000\",\n        \"source_index\": 0,\n        \"text\": \"Tadhg Dall \u00d3 hUiginn\\nTadhg Dall \u00d3 hUiginn\\nTadhg Dall \u00d3 hUiginn (c. 1550 \u2013 c.1591) was an Irish poet.\\nBackground.\\nA well-known late-Gaelic era poet, Tadhg Dall \u00d3 hUiginn was a member of a family of professional poets from north Connacht. He was called \\\"dall\\\" because he was blind. His mother's name is unknown. His father was Mathghamhain mac Maolmhuire, a direct descendant of Tadg \u00d3g \u00d3 hUiginn (died 1448). His brother, Maol Muire \u00d3 hUiginn, Archbishop of Tuam\",\n        \"token_count\": 160\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0006\",\n    \"query\": \"What is Tadhg Dall \u00d3 hUiginn's occupation?\",\n    \"reference_answer\": \"poet\"\n  },\n  {\n    \"baseline_prediction\": \"Irish poet\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0198-0000\",\n        \"source_index\": 198,\n        \"text\": \"Tadhg Dall \u00d3 hUiginn\\nTadhg Dall \u00d3 hUiginn\\nTadhg Dall \u00d3 hUiginn (c. 1550 \u2013 c.1591) was an Irish poet.\\nBackground.\\nA well-known late-Gaelic era poet, Tadhg Dall \u00d3 hUiginn was a member of a family of professional poets from north Connacht. He was called \\\"dall\\\" because he was blind. His mother's name is unknown. His father was Mathghamhain mac Maolmhuire, a direct descendant of Tadg \u00d3g \u00d3 hUiginn (died 1448). His brother, Maol Muire \u00d3 hUiginn, Archbishop of Tuam\",\n        \"token_count\": 160\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0007\",\n    \"query\": \"What is Tadhg Dall \u00d3 hUiginn's occupation?\",\n    \"reference_answer\": \"poet\"\n  }\n]\nVISIBLE_FEEDBACK_END\nPRIOR_CANDIDATE_VISIBLE_OUTCOMES_BEGIN\n[]\nPRIOR_CANDIDATE_VISIBLE_OUTCOMES_END\nThe manifest must cover exactly these item ids in this order: [\"popqa-k1000-0000\", \"popqa-k1000-0001\", \"popqa-k1000-0002\", \"popqa-k1000-0003\", \"popqa-k1000-0004\", \"popqa-k1000-0005\", \"popqa-k1000-0006\", \"popqa-k1000-0007\"]\nEdit the probabilities, claims, cost estimates, and recommendation so they state your pre-evaluation prediction. The maximum regression probability in promotion must equal the maximum prediction regress value. Every mechanism policy path must exist.\nMANIFEST_TEMPLATE_BEGIN\n{\n  \"candidate_name\": \"dynamic-visible-r0\",\n  \"cost\": {\n    \"evaluation_input_tokens\": 0,\n    \"evaluation_output_tokens\": 0,\n    \"gpu_seconds\": 0.0,\n    \"researcher_input_tokens\": 0,\n    \"researcher_output_tokens\": 0,\n    \"wall_seconds\": 0.0\n  },\n  \"evidence\": [\n    {\n      \"claim\": \"Visible baseline failures and gold spans motivate the proposed policy.\",\n      \"evidence_id\": \"visible-baseline\",\n      \"kind\": \"visible-item-trace\",\n      \"reference\": \"VISIBLE_FEEDBACK_BEGIN\"\n    }\n  ],\n  \"mechanisms\": [\n    {\n      \"description\": \"Replace this with the hypothesized general policy mechanism.\",\n      \"mechanism_id\": \"policy-mechanism\",\n      \"policy_paths\": [\n        \"policy/policy.py\"\n      ]\n    }\n  ],\n  \"parent_artifact_id\": \"ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848\",\n  \"predictions\": [\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0000\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0001\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0002\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0003\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0004\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0005\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0006\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0007\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    }\n  ],\n  \"promotion\": {\n    \"decision\": \"hold\",\n    \"expected_score_delta\": 0.0,\n    \"max_regression_probability\": 0.1,\n    \"rationale\": \"Replace with a pre-evaluation recommendation.\"\n  },\n  \"schema_version\": 1\n}\nMANIFEST_TEMPLATE_END\nFinish only after policy/*.py and manifest.json are complete. Do not answer the visible questions in your response.\n",
+      "prompt_sha256": "db420f81a10b0c21a4d60c38d4f6456abd6e7d069c70dc10f62d00e2bbb34a59",
+      "round_index": 0
+    }
+  ],
+  "schema_version": 3,
+  "split": "visible",
+  "status": "failed"
+}

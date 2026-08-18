@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "qwen3.6-27b-128k-bf16-h200x8",
+      "model_id": "qwen3.6-27b",
+      "max_model_len": 131072,
+      "tensor_parallel_size": 8,
+      "data_parallel_size": 1,
+      "dtype": "bfloat16",
+      "kv_cache_dtype": "bfloat16",
+      "gpu_memory_utilization": 0.9,
+      "max_num_batched_tokens": 8192,
+      "max_num_seqs": 4,
+      "seed": 42,
+      "enable_chunked_prefill": true,
+      "enable_prefix_caching": false,
+      "language_model_only": true,
+      "reasoning_parser": "qwen3"
+    },
+    {
+      "id": "qwen3.6-27b-262k-bf16-h200x8",
+      "model_id": "qwen3.6-27b",
+      "max_model_len": 262144,
+      "tensor_parallel_size": 8,
+      "data_parallel_size": 1,
+      "dtype": "bfloat16",
+      "kv_cache_dtype": "bfloat16",
+      "gpu_memory_utilization": 0.9,
+      "max_num_batched_tokens": 8192,
+      "max_num_seqs": 2,
+      "seed": 42,
+      "enable_chunked_prefill": true,
+      "enable_prefix_caching": false,
+      "language_model_only": true,
+      "reasoning_parser": "qwen3"
+    },
+    {
+      "id": "llama-3.3-70b-128k-bf16-h200x8",
+      "model_id": "llama-3.3-70b-instruct",
+      "max_model_len": 131072,
+      "tensor_parallel_size": 8,
+      "data_parallel_size": 1,
+      "dtype": "bfloat16",
+      "kv_cache_dtype": "bfloat16",
+      "gpu_memory_utilization": 0.9,
+      "max_num_batched_tokens": 8192,
+      "max_num_seqs": 2,
+      "seed": 42,
+      "enable_chunked_prefill": true,
+      "enable_prefix_caching": false,
+      "language_model_only": false,
+      "reasoning_parser": null
+    }
+  ]
+}

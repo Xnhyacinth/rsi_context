@@ -1,0 +1,7 @@
+{
+  "candidate_name": "missing-submission-r3",
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "reason": "researcher process exited with status 1",
+  "round_index": 3,
+  "status": "missing-manifest"
+}

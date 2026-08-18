@@ -1,0 +1,62 @@
+{
+  "candidate_name": "dynamic-visible-r0",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 64,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 26600,
+    "researcher_output_tokens": 1800,
+    "wall_seconds": 180.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible atlas failures require following a structured relay identifier, while visible meridian items require retaining the matching entity-cycle reports used by the stated consensus rule.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Rank factual sentence prefixes by query relevance, then expand through content-derived structured identifiers and return the highest-ranked whole source chunks in source order within budget.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "predictions": [
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-14eec238f5ddfe2c4081",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.88, "regress": 0.02, "unchanged": 0.10}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-9a0809327ec2da16c036",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.88, "regress": 0.02, "unchanged": 0.10}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-ffedc9d65537922cdc3b",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.80, "regress": 0.03, "unchanged": 0.17}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-a7fb97a77e74a4ca9758",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.03, "regress": 0.04, "unchanged": 0.93}
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.64,
+    "max_regression_probability": 0.04,
+    "rationale": "Promote for evaluation: identifier-link expansion directly targets both visible atlas failures, and factual-prefix ranking should retain all matching meridian reports while avoiding filler-driven retrieval noise. The already-correct visible item has a small residual regression risk."
+  },
+  "schema_version": 1
+}

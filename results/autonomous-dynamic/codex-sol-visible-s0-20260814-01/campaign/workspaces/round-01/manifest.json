@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r1",
+  "cost": {
+    "evaluation_input_tokens": 0,
+    "evaluation_output_tokens": 0,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 18300,
+    "researcher_output_tokens": 2100,
+    "wall_seconds": 240.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures show that transit-token items require a two-step entity-to-relay traversal, while meridian items require retaining the rule and all matching signed reports for majority counting.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Rank whole source chunks using query identifiers, cycle numbers, rare lexical terms, and a bounded two-hop traversal through identifiers found in informative sentence prefixes; pack every positively ranked chunk that fits the frozen budget.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "3f0ff797c228560cf2dca54ade34bb5d298f78aa1d4ba1a73f96fc3307cc6cd9",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-14eec238f5ddfe2c4081",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.92,
+        "regress": 0.01,
+        "unchanged": 0.07
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-9a0809327ec2da16c036",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.92,
+        "regress": 0.01,
+        "unchanged": 0.07
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-ffedc9d65537922cdc3b",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.86,
+        "regress": 0.02,
+        "unchanged": 0.12
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-a7fb97a77e74a4ca9758",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.82,
+        "regress": 0.02,
+        "unchanged": 0.16
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.7,
+    "max_regression_probability": 0.02,
+    "rationale": "Promote for evaluation: the content-general two-hop selector directly covers both observed evidence structures within the 8192-token budget, with residual risk from unseen layouts or tighter chunk caps."
+  },
+  "schema_version": 1
+}

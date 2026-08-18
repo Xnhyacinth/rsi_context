@@ -1,0 +1,10 @@
+{
+  "candidate_artifact_id": "3bb17721a7bc75b055925d4f5bfa9d9c0ddf7edda5062a58f10901a60f31a87b",
+  "candidate_score": null,
+  "incumbent_artifact_id_after": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "incumbent_artifact_id_before": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "promoted": false,
+  "reason": "researcher process exited with status 1",
+  "round_index": 2,
+  "rule": "invalid-submission-not-selectable"
+}

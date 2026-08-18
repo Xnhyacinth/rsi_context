@@ -1,0 +1,56 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rsibench-context"
+version = "0.1.0"
+description = "A replayable benchmark for research agents improving frozen-model context policies"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "RSIBench-Context contributors" }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "bandit>=1.8.6",
+  "mypy>=1.17.0",
+  "pytest>=8.4.0",
+  "pytest-cov>=6.2.0",
+  "ruff>=0.12.0",
+]
+serve = ["vllm==0.25.1"]
+
+[project.scripts]
+rsicontext = "rsicontext.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rsicontext"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config -ra"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["artifacts", "data", "models", "results", "third_party", ".venv*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests", "scripts"]
+mypy_path = "src"
+
+[tool.coverage.run]
+branch = true
+source = ["rsicontext"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 80

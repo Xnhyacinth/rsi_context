@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r1",
+  "cost": {
+    "evaluation_input_tokens": 10240,
+    "evaluation_output_tokens": 32,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 0,
+    "researcher_output_tokens": 0,
+    "wall_seconds": 30.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures require joining a queried atlas card to its relay, while visible consensus successes require retaining the governing rule and all matching reports without unrelated lexical padding.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Select chunks through a focused first-sentence identifier graph: retrieve records naming the query entity, expand exactly one hop to linked relay or governing records, order consensus rules before direct observations and direct records before other linked records, omit unrelated lexical backfill, and abstain only when neither identifier nor lexical head evidence exists.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "f3dcca34ee933ea7ccf0d544f9ec03c5962feccd3e8c0cc6403d5fb93a2d5d29",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-76642e2db1d3614698da",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.82,
+        "regress": 0.03,
+        "unchanged": 0.15
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-5907d6a3290df94de0c5",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.82,
+        "regress": 0.03,
+        "unchanged": 0.15
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-e99a27774d8783ebda41",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.76,
+        "regress": 0.04,
+        "unchanged": 0.2
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-f2f5cc740edb1f1ba080",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.78,
+        "regress": 0.04,
+        "unchanged": 0.18
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.795,
+    "max_regression_probability": 0.04,
+    "rationale": "Promote for evaluation: the focused one-hop pack is expected to restore both atlas joins and remove the unrelated evidence that obscured the two consensus cases."
+  },
+  "schema_version": 1
+}

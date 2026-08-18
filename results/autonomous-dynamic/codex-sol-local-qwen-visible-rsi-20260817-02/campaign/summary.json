@@ -1,0 +1,151 @@
+{
+  "callback_only": true,
+  "formal_process_isolation": false,
+  "process": {
+    "discovery_gain": 0.0,
+    "first_score": 0.5,
+    "h0_score": 0.5,
+    "last_minus_peak": 0.0,
+    "last_score": 0.5,
+    "peak_round": 0,
+    "peak_score": 0.5,
+    "post_peak_regression": false,
+    "round_diffs": [
+      {
+        "changed_paths": [
+          "policy/policy.py"
+        ],
+        "headline": "Query-seeded entity expansion over immutable source chunks.",
+        "parent_sha256": "215bf9ed106862e64f784f95e4f6e6bb49c240f7e8a2199763a39525ce0d376b",
+        "policy_sha256": "03caac35510565ccd9bc9810cf79a96a3f4369650b82ec92c99ec2cc3593a6d3",
+        "round_index": 0
+      },
+      {
+        "changed_paths": [
+          "policy/policy.py"
+        ],
+        "headline": "Focused query-entity retrieval with one-hop evidence linking.",
+        "parent_sha256": "03caac35510565ccd9bc9810cf79a96a3f4369650b82ec92c99ec2cc3593a6d3",
+        "policy_sha256": "40571119ef7fa6a38f847cd7fb889744301b0debc37e4437b96b1d94fe169047",
+        "round_index": 1
+      },
+      {
+        "changed_paths": [
+          "policy/policy.py"
+        ],
+        "headline": "Focused query-entity retrieval with one-hop evidence linking.",
+        "parent_sha256": "40571119ef7fa6a38f847cd7fb889744301b0debc37e4437b96b1d94fe169047",
+        "policy_sha256": "ef039086655836c45cdd37f98c5ac8192fe6a6671e07f87f74206b6a2d5582e7",
+        "round_index": 2
+      },
+      {
+        "changed_paths": [
+          "policy/policy.py"
+        ],
+        "headline": "Focused query-entity retrieval with one-hop evidence linking.",
+        "parent_sha256": "ef039086655836c45cdd37f98c5ac8192fe6a6671e07f87f74206b6a2d5582e7",
+        "policy_sha256": "40571119ef7fa6a38f847cd7fb889744301b0debc37e4437b96b1d94fe169047",
+        "round_index": 3
+      },
+      {
+        "changed_paths": [
+          "policy/policy.py"
+        ],
+        "headline": "Focused query-entity retrieval with one-hop evidence linking.",
+        "parent_sha256": "40571119ef7fa6a38f847cd7fb889744301b0debc37e4437b96b1d94fe169047",
+        "policy_sha256": "1294bbc9ffb6812b587b675de60dac5a3b2fd13f76875c1c25bec9ff52f3bcd3",
+        "round_index": 4
+      }
+    ],
+    "scores": [
+      0.5,
+      0.0,
+      0.5,
+      0.5,
+      0.5,
+      0.5
+    ],
+    "selected_round": null,
+    "selected_score": 0.5
+  },
+  "rounds": [
+    {
+      "candidate_artifact_id": "f3dcca34ee933ea7ccf0d544f9ec03c5962feccd3e8c0cc6403d5fb93a2d5d29",
+      "candidate_name": "dynamic-visible-r0",
+      "evaluation_artifact_id": "aafdeff5c1d375129522c4d76caacd6058b4aeb4de2ef7559098a40f5536ad9d",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": null,
+      "manifest_artifact_id": "7cafb7ac4b6a6e5f5913b278bc1324edfc4bac13ddfacd315f17685a2f2ede45",
+      "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "promoted": false,
+      "promotion_artifact_id": "34a31515564d66b3238e203ee783680206782cd7713f08595a9aa1648a4c1acb",
+      "researcher_recommendation": "promote",
+      "round_index": 0,
+      "score": 0.0,
+      "valid": true
+    },
+    {
+      "candidate_artifact_id": "b05c5ea3c844bdcac7c06038232bd2bb5d4d8a91d1a8a746cd2b6b4345bf072c",
+      "candidate_name": "dynamic-visible-r1",
+      "evaluation_artifact_id": "af5c3a71f7d487364da239588becc92153ebf9ea4218092a011d6c60496ca8b3",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": null,
+      "manifest_artifact_id": "aa3e9a614b60c720ca200092b11bfa7cd9909ddcc3bb10a7ee3296231ae3fd19",
+      "parent_artifact_id": "f3dcca34ee933ea7ccf0d544f9ec03c5962feccd3e8c0cc6403d5fb93a2d5d29",
+      "promoted": false,
+      "promotion_artifact_id": "c72d263103e5ab0f0cf9d2f5ea9f4b9330de2bb17ef4e2409371916467756774",
+      "researcher_recommendation": "promote",
+      "round_index": 1,
+      "score": 0.5,
+      "valid": true
+    },
+    {
+      "candidate_artifact_id": "2a27cf230de000a88a8cef35c10fe61b1ae8e96f6d06811ce1ea5ad339c5c334",
+      "candidate_name": "dynamic-visible-r2",
+      "evaluation_artifact_id": "576c3e584060e39362f793a15c63f3340d8f9c2c1e8778efdc38a5377b66cd3b",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": null,
+      "manifest_artifact_id": "46a85180bc270018ee27c75d8f80223233b986c3a94f9a4ca62ca05a02dc97f3",
+      "parent_artifact_id": "b05c5ea3c844bdcac7c06038232bd2bb5d4d8a91d1a8a746cd2b6b4345bf072c",
+      "promoted": false,
+      "promotion_artifact_id": "91c4d7f2c492e445ff98188768f194153c6f81edf05eeef380a78f8833ee3efd",
+      "researcher_recommendation": "promote",
+      "round_index": 2,
+      "score": 0.5,
+      "valid": true
+    },
+    {
+      "candidate_artifact_id": "4a61cb5bd1ffe2b0500151a2cfd87cb245abb588ed49993fc9c6ca612fdf9612",
+      "candidate_name": "dynamic-visible-r3",
+      "evaluation_artifact_id": "318ea66c2e44d060d87b546e86c3a7962b333cffa00a7c03380bc0e21bf6d3b2",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": null,
+      "manifest_artifact_id": "55cc930fb9f34c76022993819753cd7f1824e075603c0ed3ace14c1772ade3a4",
+      "parent_artifact_id": "2a27cf230de000a88a8cef35c10fe61b1ae8e96f6d06811ce1ea5ad339c5c334",
+      "promoted": false,
+      "promotion_artifact_id": "ef5fb151a4cbed1a0e231fe6a07ee8f378e1afacb6d8b59d2b58dd57d2cee5d0",
+      "researcher_recommendation": "promote",
+      "round_index": 3,
+      "score": 0.5,
+      "valid": true
+    },
+    {
+      "candidate_artifact_id": "ab3c052454e3605991663209894d9389667b95c0af27ef4e12e3369c91ef121c",
+      "candidate_name": "dynamic-visible-r4",
+      "evaluation_artifact_id": "5cd1fbdc91e1109f6260e9d6fc3511255d1cf666f13ce6e24bc32d8dfaa3e153",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": null,
+      "manifest_artifact_id": "2abc63fdde8bedd8770eb4c0210933e339a4a3baca4ff984c57cf5c6a93ba537",
+      "parent_artifact_id": "4a61cb5bd1ffe2b0500151a2cfd87cb245abb588ed49993fc9c6ca612fdf9612",
+      "promoted": false,
+      "promotion_artifact_id": "2190a3426fea55079d7f220a908fef293adb074af815fb70076d56d2c62b32b3",
+      "researcher_recommendation": "promote",
+      "round_index": 4,
+      "score": 0.5,
+      "valid": true
+    }
+  ],
+  "seed_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "seed_evaluation_artifact_id": "837f0e8ccf06111534fef16f9ae71d6bd7156b17a0c732deca8f032098e7ec26",
+  "selected_round": null
+}

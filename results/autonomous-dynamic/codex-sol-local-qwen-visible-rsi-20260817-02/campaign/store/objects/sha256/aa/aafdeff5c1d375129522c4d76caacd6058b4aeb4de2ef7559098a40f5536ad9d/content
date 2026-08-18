@@ -1,0 +1,12 @@
+{
+  "item_scores": {
+    "dx-5907d6a3290df94de0c5": 0.0,
+    "dx-76642e2db1d3614698da": 0.0,
+    "dx-e99a27774d8783ebda41": 0.0,
+    "dx-f2f5cc740edb1f1ba080": 0.0
+  },
+  "reader_input_tokens": 35718,
+  "reader_output_tokens": 15,
+  "score": 0.0,
+  "wall_seconds": 1.5254860809072852
+}

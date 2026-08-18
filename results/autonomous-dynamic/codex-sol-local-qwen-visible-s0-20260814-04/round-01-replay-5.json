@@ -1,0 +1,131 @@
+{
+  "candidate_files": [
+    "policy.py",
+    "seed.py"
+  ],
+  "candidate_sha256": "791902024df3979ed388b6e2b9abdea8379e78df72749d0bd8ac8b631c09d7e8",
+  "dataset_fingerprint": "fea93daa140bbbc9763332f977ed3a172b748d424a65b5dbfd752d2d8ef9bcdd",
+  "entrypoint": "policy.py",
+  "items_per_profile": 2,
+  "observations": [
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 1.0,
+        "dx-ffedc9d65537922cdc3b": 1.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean"
+      },
+      "reader_input_tokens": 28485,
+      "reader_output_tokens": 19,
+      "repeat_index": 0,
+      "score": 0.5,
+      "wall_seconds": 1.223558598663658
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 1.0,
+        "dx-ffedc9d65537922cdc3b": 1.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean"
+      },
+      "reader_input_tokens": 28485,
+      "reader_output_tokens": 19,
+      "repeat_index": 1,
+      "score": 0.5,
+      "wall_seconds": 1.230339493136853
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 1.0,
+        "dx-ffedc9d65537922cdc3b": 1.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean"
+      },
+      "reader_input_tokens": 28485,
+      "reader_output_tokens": 19,
+      "repeat_index": 2,
+      "score": 0.5,
+      "wall_seconds": 1.2128885607235134
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 1.0,
+        "dx-ffedc9d65537922cdc3b": 1.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean"
+      },
+      "reader_input_tokens": 28485,
+      "reader_output_tokens": 19,
+      "repeat_index": 3,
+      "score": 0.5,
+      "wall_seconds": 1.208842477761209
+    },
+    {
+      "item_scores": {
+        "dx-14eec238f5ddfe2c4081": 0.0,
+        "dx-9a0809327ec2da16c036": 0.0,
+        "dx-a7fb97a77e74a4ca9758": 1.0,
+        "dx-ffedc9d65537922cdc3b": 1.0
+      },
+      "predictions": {
+        "dx-14eec238f5ddfe2c4081": "Pavo-28",
+        "dx-9a0809327ec2da16c036": "Sable-51",
+        "dx-a7fb97a77e74a4ca9758": "ochre",
+        "dx-ffedc9d65537922cdc3b": "cerulean"
+      },
+      "reader_input_tokens": 28485,
+      "reader_output_tokens": 19,
+      "repeat_index": 4,
+      "score": 0.5,
+      "wall_seconds": 1.2201586929149926
+    }
+  ],
+  "policy_budget_tokens": 8192,
+  "qualification_only": true,
+  "reader_calls": 20,
+  "reader_identity": {
+    "chat_template_enable_thinking": false,
+    "max_model_len": 131072,
+    "max_output_tokens": 512,
+    "profile_hash": "6b22e89479fe976c735e40f049031a339b4df6b67f4d6f29860bc1e28850ba2b",
+    "profile_id": "local-qwen3.6-27b-128k-bf16-h200x8",
+    "provider": "vllm-0.25.1",
+    "provider_revision": "1b559cf7215ebe67ff10758e14f6293ba883223b",
+    "requested_model": "Qwen/Qwen3.6-27B",
+    "seed": 42,
+    "serving_profile_hash": "00182bf242e57f2168c3524e1bcdf59bb22cacccc0b54fd502d58ad8e87d1b8c",
+    "serving_profile_id": "qwen3.6-27b-128k-bf16-h200x8",
+    "temperature": 0.0
+  },
+  "reader_input_tokens": 142425,
+  "reader_output_tokens": 95,
+  "repeats": 5,
+  "schema_version": 2,
+  "source_tokens": 32768,
+  "split": "visible",
+  "wall_seconds": 6.095787823200226
+}

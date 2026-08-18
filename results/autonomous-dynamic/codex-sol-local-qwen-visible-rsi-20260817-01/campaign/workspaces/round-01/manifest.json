@@ -1,0 +1,62 @@
+{
+  "candidate_name": "dynamic-visible-r1",
+  "cost": {
+    "evaluation_input_tokens": 10240,
+    "evaluation_output_tokens": 64,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 0,
+    "researcher_output_tokens": 0,
+    "wall_seconds": 0.0
+  },
+  "evidence": [
+    {
+      "claim": "The visible failures are consistent with irrelevant lexical matches diluting exact entity chains, while the gold spans are connected by identifiers present in their leading statements.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Select chunks whose leading source statement contains a structured identifier from the query, preserve their source order, then append only source chunks joined by newly discovered identifiers; abstain with an empty pack when no exact entity match exists and exclude all generic lexical filler.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "95773fd9626616e9d7bced47d52f3bb19d2251e5fba797ffa62d76ffd0b70476",
+  "predictions": [
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-8e17a109347f7e0863c0",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.85, "regress": 0.02, "unchanged": 0.13}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-4079240b4ed102177a27",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.78, "regress": 0.04, "unchanged": 0.18}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-10da66c1a15a03717cc1",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.82, "regress": 0.03, "unchanged": 0.15}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-0317d584c3470d0ad6ee",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.82, "regress": 0.03, "unchanged": 0.15}
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.78,
+    "max_regression_probability": 0.04,
+    "rationale": "Promote for evaluation: exact entity-chain packing directly targets all four visible failures and removes the prior policy's generic lexical tail, with low predicted regression risk."
+  },
+  "schema_version": 1
+}

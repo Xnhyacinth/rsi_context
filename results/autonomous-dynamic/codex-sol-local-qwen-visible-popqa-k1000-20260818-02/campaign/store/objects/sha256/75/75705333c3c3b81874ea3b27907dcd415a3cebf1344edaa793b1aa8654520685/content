@@ -1,0 +1,16 @@
+{
+  "item_scores": {
+    "popqa-k1000-0001": 0.0,
+    "popqa-k1000-0008": 1.0,
+    "popqa-k1000-0014": 1.0,
+    "popqa-k1000-0020": 0.0,
+    "popqa-k1000-0026": 1.0,
+    "popqa-k1000-0031": 0.0,
+    "popqa-k1000-0037": 1.0,
+    "popqa-k1000-0044": 1.0
+  },
+  "reader_input_tokens": 74590,
+  "reader_output_tokens": 103,
+  "score": 0.625,
+  "wall_seconds": 3.8363002170808613
+}

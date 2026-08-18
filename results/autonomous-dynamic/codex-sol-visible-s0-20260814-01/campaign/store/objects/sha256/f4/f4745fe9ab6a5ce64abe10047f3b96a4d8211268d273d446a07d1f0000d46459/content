@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r0",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 256,
+    "gpu_seconds": 12.0,
+    "researcher_input_tokens": 18500,
+    "researcher_output_tokens": 1800,
+    "wall_seconds": 120.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures require both direct query evidence and content-linked evidence dispersed across padded chunks.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Rank informative sentence prefixes, then propagate identifiers for two bounded hops to recover relational and consensus evidence while returning original whole chunks.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-14eec238f5ddfe2c4081",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.96,
+        "regress": 0.01,
+        "unchanged": 0.03
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-9a0809327ec2da16c036",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.96,
+        "regress": 0.01,
+        "unchanged": 0.03
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-ffedc9d65537922cdc3b",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.88,
+        "regress": 0.02,
+        "unchanged": 0.1
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-a7fb97a77e74a4ca9758",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.88,
+        "regress": 0.02,
+        "unchanged": 0.1
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.92,
+    "max_regression_probability": 0.02,
+    "rationale": "Promote for evaluation: the policy is expected to recover both two-hop atlas evidence and dispersed consensus records within the frozen context budget, with low regression risk from bounded content-only expansion."
+  },
+  "schema_version": 1
+}

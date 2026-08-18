@@ -1,0 +1,13 @@
+{
+  "candidate_artifact_id": "b05c5ea3c844bdcac7c06038232bd2bb5d4d8a91d1a8a746cd2b6b4345bf072c",
+  "candidate_score": 0.5,
+  "incumbent_artifact_id_after": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "incumbent_artifact_id_before": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "incumbent_score_after": 0.5,
+  "incumbent_score_before": 0.5,
+  "promoted": false,
+  "promotion_margin": 0.0,
+  "researcher_recommendation": "promote",
+  "round_index": 1,
+  "rule": "strict-historical-best"
+}

@@ -1,0 +1,86 @@
+{
+  "candidate_name": "dynamic-visible-r0",
+  "cost": {
+    "evaluation_input_tokens": 65536,
+    "evaluation_output_tokens": 512,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 0,
+    "researcher_output_tokens": 0,
+    "wall_seconds": 0.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures are concentrated in relation questions where broad lexical retrieval can miss an indirect subject mention or expose enough competing context to elicit an overbroad answer; visible successes indicate that exact entity pages should remain highly ranked.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Extract content-bearing subject terms by removing common question and relation words, strongly prioritize exact subject phrases and titles, retain IDF-weighted lexical backoff for indirect evidence, and pack at most 32 unmodified source chunks in relevance order to reduce reader distraction.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "predictions": [
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "popqa-k1000-0001",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.45, "regress": 0.12, "unchanged": 0.43}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "popqa-k1000-0008",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.01, "regress": 0.05, "unchanged": 0.94}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "popqa-k1000-0014",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.01, "regress": 0.08, "unchanged": 0.91}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "popqa-k1000-0020",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.36, "regress": 0.10, "unchanged": 0.54}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "popqa-k1000-0026",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.01, "regress": 0.05, "unchanged": 0.94}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "popqa-k1000-0031",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.30, "regress": 0.16, "unchanged": 0.54}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "popqa-k1000-0037",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.01, "regress": 0.04, "unchanged": 0.95}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "popqa-k1000-0044",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.01, "regress": 0.12, "unchanged": 0.87}
+    }
+  ],
+  "promotion": {
+    "decision": "hold",
+    "expected_score_delta": 0.09,
+    "max_regression_probability": 0.16,
+    "rationale": "Evaluate as a targeted first-round retrieval hypothesis: it has plausible upside on three visible failures, but the compact context cap may regress indirect-evidence items, so promotion should wait for the one-call candidate score."
+  },
+  "schema_version": 1
+}

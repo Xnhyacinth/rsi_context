@@ -1,0 +1,139 @@
+{
+  "cells": [
+    {
+      "failures": [
+        "a non-oracle packer already places the answer on >=90% of items"
+      ],
+      "gold_chunk_in_any_packer_rate": 1.0,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-rag-hotpot-k1000-to-8k",
+        "median_source_tokens": 126958.0,
+        "n_items": 16,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 8192,
+        "packer_answer_disagreement": 0.8125,
+        "packer_answer_rates": [
+          [
+            "head",
+            0.1875
+          ],
+          [
+            "lexical",
+            1.0
+          ],
+          [
+            "hand-hybrid",
+            1.0
+          ]
+        ]
+      },
+      "passed": false,
+      "source_token_max": 129082,
+      "source_token_min": 118009
+    },
+    {
+      "failures": [
+        "a non-oracle packer already places the answer on >=90% of items"
+      ],
+      "gold_chunk_in_any_packer_rate": 1.0,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-rag-nq-k1000-to-8k",
+        "median_source_tokens": 125606.0,
+        "n_items": 16,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 8192,
+        "packer_answer_disagreement": 0.375,
+        "packer_answer_rates": [
+          [
+            "head",
+            1.0
+          ],
+          [
+            "lexical",
+            0.625
+          ],
+          [
+            "hand-hybrid",
+            0.625
+          ]
+        ]
+      },
+      "passed": false,
+      "source_token_max": 126591,
+      "source_token_min": 121268
+    },
+    {
+      "failures": [],
+      "gold_chunk_in_any_packer_rate": 0.6875,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-rag-popqa-k1000-to-8k",
+        "median_source_tokens": 111046.0,
+        "n_items": 16,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 8192,
+        "packer_answer_disagreement": 0.5625,
+        "packer_answer_rates": [
+          [
+            "head",
+            0.1875
+          ],
+          [
+            "lexical",
+            0.625
+          ],
+          [
+            "hand-hybrid",
+            0.625
+          ]
+        ]
+      },
+      "passed": true,
+      "source_token_max": 129014,
+      "source_token_min": 108289
+    },
+    {
+      "failures": [
+        "a non-oracle packer already places the answer on >=90% of items"
+      ],
+      "gold_chunk_in_any_packer_rate": 1.0,
+      "gold_chunk_rate": 1.0,
+      "measurements": {
+        "answer_in_source_rate": 1.0,
+        "cell_id": "helmet-rag-trivia-k1000-to-8k",
+        "median_source_tokens": 128534.0,
+        "n_items": 16,
+        "pack_binding_rate": 1.0,
+        "pack_budget_tokens": 8192,
+        "packer_answer_disagreement": 0.375,
+        "packer_answer_rates": [
+          [
+            "head",
+            1.0
+          ],
+          [
+            "lexical",
+            0.625
+          ],
+          [
+            "hand-hybrid",
+            0.625
+          ]
+        ]
+      },
+      "passed": false,
+      "source_token_max": 130056,
+      "source_token_min": 124276
+    }
+  ],
+  "max_items": 16,
+  "official_helmet_score": false,
+  "reader_calls": 0,
+  "synthetic_t0_unchanged": true,
+  "tokenizer_id": "Qwen/Qwen3.6-27B@1b559cf7215ebe67ff10758e14f6293ba883223b"
+}

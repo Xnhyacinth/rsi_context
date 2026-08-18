@@ -1,0 +1,422 @@
+{
+  "cost_accounting_complete": false,
+  "dataset_fingerprint": "ef16541bbda4a6101ec15af6fb5701ac9efd183bc46385ebfa980e9ab1839e96",
+  "error_bytes": 39,
+  "error_sha256": "439d76c4b256d377631ee3ea17f2a23afafb4294995ff26c2f96c8668b763580",
+  "error_type": "ResearcherProcessError",
+  "evaluation_observations": [
+    {
+      "item_scores": [
+        [
+          "popqa-k1000-0001",
+          0.0
+        ],
+        [
+          "popqa-k1000-0008",
+          1.0
+        ],
+        [
+          "popqa-k1000-0014",
+          1.0
+        ],
+        [
+          "popqa-k1000-0020",
+          0.0
+        ],
+        [
+          "popqa-k1000-0026",
+          1.0
+        ],
+        [
+          "popqa-k1000-0031",
+          0.0
+        ],
+        [
+          "popqa-k1000-0037",
+          1.0
+        ],
+        [
+          "popqa-k1000-0044",
+          1.0
+        ]
+      ],
+      "predictions": [
+        [
+          "popqa-k1000-0001",
+          "INSUFFICIENT"
+        ],
+        [
+          "popqa-k1000-0008",
+          "Irish poet"
+        ],
+        [
+          "popqa-k1000-0014",
+          "Poland"
+        ],
+        [
+          "popqa-k1000-0020",
+          "Comedy horror"
+        ],
+        [
+          "popqa-k1000-0026",
+          "sports video game"
+        ],
+        [
+          "popqa-k1000-0031",
+          "Roman Catholic"
+        ],
+        [
+          "popqa-k1000-0037",
+          "Black metal"
+        ],
+        [
+          "popqa-k1000-0044",
+          "Based on the evidence provided, Darrell Hammond is a comedian, actor, impressionist, and former cast member of *Saturday Night Live*. He is also a playwright (having adapted his memoir into a one-man play) and a voice actor.\n\n**Answer:**\nComedian, actor, impressionist, former *Saturday Night Live* cast member, playwright, and voice actor."
+        ]
+      ],
+      "reader_calls": 8,
+      "reader_input_tokens": 74590,
+      "reader_output_tokens": 103,
+      "round_index": -1,
+      "score": 0.625,
+      "wall_seconds": 3.8363002170808613
+    },
+    {
+      "item_scores": [
+        [
+          "popqa-k1000-0001",
+          0.0
+        ],
+        [
+          "popqa-k1000-0008",
+          1.0
+        ],
+        [
+          "popqa-k1000-0014",
+          1.0
+        ],
+        [
+          "popqa-k1000-0020",
+          1.0
+        ],
+        [
+          "popqa-k1000-0026",
+          1.0
+        ],
+        [
+          "popqa-k1000-0031",
+          0.0
+        ],
+        [
+          "popqa-k1000-0037",
+          1.0
+        ],
+        [
+          "popqa-k1000-0044",
+          1.0
+        ]
+      ],
+      "predictions": [
+        [
+          "popqa-k1000-0001",
+          "INSUFFICIENT"
+        ],
+        [
+          "popqa-k1000-0008",
+          "Irish poet"
+        ],
+        [
+          "popqa-k1000-0014",
+          "Poland"
+        ],
+        [
+          "popqa-k1000-0020",
+          "Based on the evidence provided, \"Killjoy\" refers to multiple works across different genres:\n\n*   **Comedy horror**: *Killjoy Goes to Hell* is described as a \"2012 comedy horror film\" ([ck-0393-0000]).\n*   **Blaxploitation**: The original *Killjoy* film (2000) is described as an \"effort in the blaxploitation genre\" ([ck-0006-0000]).\n*   **Horror**: The *Killjoy* film series generally involves demonic clowns, killing, and supernatural elements, fitting the horror genre (e.g., [ck-0090-0000], [ck-0054-0000], [ck-0089-0000]).\n*   **Death metal**: Killjoy (Frank Pucci) was the lead vocalist for the \"death metal band Necrophagia\" ([ck-0013-0000]).\n*   **Rock**: *Killjoy* is an album by Shihad, regarded as a \"classic New Zealand rock album\" ([ck-0027-0000]).\n*   **Alternative rock / Punk rock / New wave / Pop-folk**: Various bands named The Killjoys are described as \"alternative rock,\" \"punk rock/new wave,\" and \"pop-folk\" ([ck-0004-0000]).\n*   **Novel**: *Killjoy* by Julie Garwood and *Our Sister Killjoy* by Ama Ata Aidoo are novels ([ck-0010-0000], [ck-0084-0000])."
+        ],
+        [
+          "popqa-k1000-0026",
+          "sports video game"
+        ],
+        [
+          "popqa-k1000-0031",
+          "Roman Catholic"
+        ],
+        [
+          "popqa-k1000-0037",
+          "black metal"
+        ],
+        [
+          "popqa-k1000-0044",
+          "Based on the evidence provided, Darrell Hammond is a comedian and actor. The texts describe him as a cast member of *Saturday Night Live* (SNL) for 14 seasons, known for his impressions (such as Bill Clinton and Al Gore), a stand-up comedian with a special on Comedy Central, a Broadway actor (in *The 25th Annual Putnam County Spelling Bee*), and a guest star in television dramas and commercials."
+        ]
+      ],
+      "reader_calls": 8,
+      "reader_input_tokens": 37033,
+      "reader_output_tokens": 489,
+      "round_index": 0,
+      "score": 0.75,
+      "wall_seconds": 4.9244338371790946
+    }
+  ],
+  "process_failures": [
+    {
+      "elapsed_seconds": 3.4842053102329373,
+      "error_bytes": 39,
+      "error_sha256": "439d76c4b256d377631ee3ea17f2a23afafb4294995ff26c2f96c8668b763580",
+      "error_type": "ResearcherProcessError",
+      "parent_artifact_id": "b471a975ec32c94acdbe20aeaf051a9cd026fdbfcfac28cc5d27f8360e597142",
+      "round_index": 1,
+      "stderr_bytes": null,
+      "stdout_bytes": null,
+      "usage": null
+    }
+  ],
+  "processes": [
+    {
+      "elapsed_seconds": 106.81240417202935,
+      "events": [
+        {
+          "kind": "session",
+          "payload_bytes": 76,
+          "payload_sha256": "e8afee718e7d3f0cf83ac3e9253aed5fd4c638884068a53bc13ed801b630c647",
+          "session_id_sha256": "ef2b246a3b10e7642fa2cf2abec70f31e7e67b1f65a3d09a205e89e2cda1164f",
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "unknown",
+          "payload_bytes": 23,
+          "payload_sha256": "7306b54975174c6eb5111d663a47de795d167520e43cf66ee2923218b19fdb75",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 358,
+          "payload_sha256": "aace4382a660f786eafc125c9913633b7ecf7da81a0e416c0eb2f6854c22215c",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 268,
+          "text_sha256": "213e6d1ddb19b746ff78de67d619cc2eb8b8d4043fe5cd84a750edfb65c6427a",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 370,
+          "payload_sha256": "b5f04f41684e884ceaa164f11cbdc6ed4f976655c4982b9051030d6229878d32",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 367,
+          "payload_sha256": "bd0291a8935e9de150181aa8ee6f93f8b7e27753beaa61ea507cb856ae44a550",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 327,
+          "payload_sha256": "4495782a0cbd9a623a5b215ff7ed5357bbdf16b9d40ba1e6e653d3e622fb5744",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 17175,
+          "payload_sha256": "f490a575f5808b1bd786692d38ef392258f6af03985305407aee97c7db5ed0df",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 16681,
+          "text_sha256": "3534b457802339d9710dfa1a37b40e1723e730cefe05b5ddcfe33ba435d0794e",
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 423,
+          "payload_sha256": "2c3b62fe0aeee45846420476d190722ceef27b491b962316d85d9ac6f5ef6811",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 420,
+          "payload_sha256": "4fdaf84a1de8845ed4e4994277d43afcf2b2e71e08119f2e4c40b2a77556280d",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 420,
+          "payload_sha256": "cb3a5576e2ca26036c4895b4a97387350d38a215600c7ba29c1a11a372a909fc",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 336,
+          "text_sha256": "9b8b53687fc41145a46343f290475da3dce830739a02126ac96c68e4ac860feb",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 467,
+          "payload_sha256": "391a1be7fad8ae01d22c3d3bfe40de1361cc807de39107ddb438812bf1317039",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "c8024a6f4a297bbf82ad609cabc79764f81dce09b5fd6c0bad7f10988717ab90",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 467,
+          "payload_sha256": "cbe3a2812540524064ac331f251fc8a88f4617dd437cefca71dc80447c5c359c",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "c8024a6f4a297bbf82ad609cabc79764f81dce09b5fd6c0bad7f10988717ab90",
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 456,
+          "payload_sha256": "f52ac22724838d8480018353fc87973973a00102376e4dcffad585e6c639dadd",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 369,
+          "text_sha256": "a725d2a3e4d4b6682905b9224232d579445cbd823f9ee4cfcd36a0eebbfefaa9",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "tool_call",
+          "payload_bytes": 1509,
+          "payload_sha256": "097efa831300b4f92441d3361a51dcb8c257949eb7e915fc575b366e938f7eb7",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "tool_result",
+          "payload_bytes": 2151,
+          "payload_sha256": "e6b7a2c86b8f8fb66d0cfd0aa736b92b8b0e8d81d744eb8a9bdb3d99355dc471",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 623,
+          "text_sha256": "46ddff7fb6a26a54549490f1408ff50aac5125917db54eb0522aa0262a4febbc",
+          "tool_name_sha256": "235bdf5bb41322a9de2d459c544a2e6e6c2842229929301900017f879098a160",
+          "usage": null
+        },
+        {
+          "kind": "message",
+          "payload_bytes": 326,
+          "payload_sha256": "1d911e79174606dd7343bb917ba29b3af5963c1574b1b6c5b16a7ab6efd4b541",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 240,
+          "text_sha256": "71d090d0eff651abcde7ff63b735ea9f2768c36336cac7a48c1dfcf26d0e9c75",
+          "tool_name_sha256": null,
+          "usage": null
+        },
+        {
+          "kind": "complete",
+          "payload_bytes": 166,
+          "payload_sha256": "f86bb5bafdbc270b4d9455f6eb234c614141f538e025a9648d344938c2142c26",
+          "session_id_sha256": null,
+          "source": "codex",
+          "text_bytes": 0,
+          "text_sha256": null,
+          "tool_name_sha256": null,
+          "usage": {
+            "cache_creation_input_tokens": 0,
+            "cached_input_tokens": 165376,
+            "cost_usd": null,
+            "input_tokens": 203244,
+            "output_tokens": 4356
+          }
+        }
+      ],
+      "returncode": 0,
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 25500,
+      "usage": {
+        "cache_creation_input_tokens": 0,
+        "cached_input_tokens": 165376,
+        "cost_usd": null,
+        "input_tokens": 203244,
+        "output_tokens": 4356
+      }
+    }
+  ],
+  "reader_identity": {
+    "chat_template_enable_thinking": false,
+    "max_model_len": 131072,
+    "max_output_tokens": 512,
+    "profile_hash": "6b22e89479fe976c735e40f049031a339b4df6b67f4d6f29860bc1e28850ba2b",
+    "profile_id": "local-qwen3.6-27b-128k-bf16-h200x8",
+    "provider": "vllm-0.25.1",
+    "provider_revision": "1b559cf7215ebe67ff10758e14f6293ba883223b",
+    "requested_model": "Qwen/Qwen3.6-27B",
+    "seed": 42,
+    "serving_profile_hash": "00182bf242e57f2168c3524e1bcdf59bb22cacccc0b54fd502d58ad8e87d1b8c",
+    "serving_profile_id": "qwen3.6-27b-128k-bf16-h200x8",
+    "temperature": 0.0
+  },
+  "researcher_identity": {
+    "executable_path": "/root/.npm-global/lib/node_modules/@openai/codex/bin/codex.js",
+    "executable_sha256": "134063e133f0b4244fa3b251acf973d4fe4b4aeeacbdc135211bf480f59f1477",
+    "kind": "codex",
+    "model": "gpt-5.6-sol"
+  },
+  "researcher_prompts": [
+    {
+      "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "prompt": "You are the context-policy researcher, not the question-answering reader.\nThe reader, decoding, metric, 8192-token budget, and item labels are frozen.\nYou choose the next hypothesis for compiler H: select, order, cover, abstain, and format of packed evidence. You do not choose extra reader calls; the evaluator returns one score per candidate. Put the hypothesis in mechanisms[0].description. The next round starts from your last attempt even if it regressed; historical-best keeps the peak.\nWork only inside this workspace. Modify only policy/*.py and create manifest.json.\nDo not create notes, tests, caches, or any other files. Do not call any model or API.\nImplement policy/policy.py with public class Policy and assemble(artifact, query, budget).\nThe policy must pass a fail-closed AST audit. Do not use from __future__ imports. Allowed imports are collections, dataclasses, functools, heapq, itertools, json, math, operator, re, statistics, string, typing, and rsicontext.policy. Keep module/class constants to immutable literals or tuples; construct regexes, sets, counters, and other containers inside functions. Builtin compile, eval, exec, and getattr are forbidden; re.compile and re.findall inside functions are allowed. Do not use file I/O, subprocesses, or network access.\nDo not run mypy, pytest, or any command that creates caches in the workspace.\nReturn only source chunks already present in artifact and obey ContextPack provenance.\nDo not put item ids, chunk ids, queries, reference answers, or per-item lookup tables in policy code. The policy must generalize from query and chunk content.\nThe evidence below is from the visible split only. No gate or sealed item is exposed.\nRound: 0\nExact parent_artifact_id: ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848\nPrevious aggregate score: 0.625\nHistorical-best aggregate score: 0.625\nLAST_INVALID_SUBMISSION_BEGIN\nnull\nLAST_INVALID_SUBMISSION_END\nVISIBLE_FEEDBACK_BEGIN\n[\n  {\n    \"baseline_prediction\": \"INSUFFICIENT\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0200-0000\",\n        \"source_index\": 201,\n        \"text\": \"Scuba Dice\\nO'Connor defining their sound as \\\"power pop, punk, punk pop\\\". The band competed for the coveted prize of a record contract and as part of the show they covered Green Day's \\\"Holiday\\\", which was released as a single and reached No.\u00a08 and on the Irish Singles Chart, later becoming the 42nd best selling single of 2008 for an Irish artist. They also released their second single \\\"Made\\\", an original song, as a physical release. The band also entered the Beatbox competition\",\n        \"token_count\": 110\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0001\",\n    \"query\": \"What genre is Holiday?\",\n    \"reference_answer\": \"punk rock\"\n  },\n  {\n    \"baseline_prediction\": \"Irish poet\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0398-0000\",\n        \"source_index\": 398,\n        \"text\": \"Tadhg Dall \u00d3 hUiginn\\nTadhg Dall \u00d3 hUiginn\\nTadhg Dall \u00d3 hUiginn (c. 1550 \u2013 c.1591) was an Irish poet.\\nBackground.\\nA well-known late-Gaelic era poet, Tadhg Dall \u00d3 hUiginn was a member of a family of professional poets from north Connacht. He was called \\\"dall\\\" because he was blind. His mother's name is unknown. His father was Mathghamhain mac Maolmhuire, a direct descendant of Tadg \u00d3g \u00d3 hUiginn (died 1448). His brother, Maol Muire \u00d3 hUiginn, Archbishop of Tuam\",\n        \"token_count\": 160\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0008\",\n    \"query\": \"What is Tadhg Dall \u00d3 hUiginn's occupation?\",\n    \"reference_answer\": \"poet\"\n  },\n  {\n    \"baseline_prediction\": \"Poland\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0397-0000\",\n        \"source_index\": 397,\n        \"text\": \"Wilcza G\u00f3ra\\nWilcza G\u00f3ra\\nWilcza G\u00f3ra may refer to the following places:\\n- Wilcza G\u00f3ra, Kuyavian-Pomeranian Voivodeship (north-central Poland)\\n- Wilcza G\u00f3ra, Masovian Voivodeship (east-central Poland)\\n- Wilcza G\u00f3ra, Silesian Voivodeship (south Poland)\",\n        \"token_count\": 80\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0014\",\n    \"query\": \"In what country is Wilcza Jama, Sok\u00f3\u0142ka County?\",\n    \"reference_answer\": \"Poland\"\n  },\n  {\n    \"baseline_prediction\": \"Comedy horror\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0393-0000\",\n        \"source_index\": 393,\n        \"text\": \"Killjoy Goes to Hell\\nKilljoy Goes to Hell\\nKilljoy Goes to Hell is a 2012 comedy horror film and the fourth installment in the \\\"Killjoy\\\" series of movies by Full Moon.\\nPlot.\\nThe film begins in a deserted snowy desert. An Old Hag living in a dusty shack is being paid a prize by a Bailiff for conjuring up Killjoy. After Killjoy is summoned, the Bailiff appears and chokes Killjoy out. Killjoy wakes up in an electric chair and is tortured while being asked if he pleads innocent or guilty. Meanwhile,\",\n        \"token_count\": 122\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0020\",\n    \"query\": \"What genre is Killjoy?\",\n    \"reference_answer\": \"horror film\"\n  },\n  {\n    \"baseline_prediction\": \"sports video game\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0393-0000\",\n        \"source_index\": 393,\n        \"text\": \"Summer Sports: Paradise Island\\nSummer Sports: Paradise Island\\nSummer Sports: Paradise Island is a sports video game developed and published by Destineer for Nintendo's Wii. The game was released in North America on April 15, 2008.\\nThe game is a collection of seven sports games similar to \\\"Wii Sports\\\", ranging from croquet to mini-golf. The game received mostly mediocre reviews from critics, who felt that the game looked appropriately nice but was lacking in gameplay.\\nGameplay.\\n\\\"Summer Sports\\\" features seven different sports:\",\n        \"token_count\": 116\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0026\",\n    \"query\": \"What genre is Summer Sports: Paradise Island?\",\n    \"reference_answer\": \"sports video game\"\n  },\n  {\n    \"baseline_prediction\": \"Roman Catholic\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0200-0000\",\n        \"source_index\": 200,\n        \"text\": \"Bernab\u00e9 Ar\u00e1oz\\nwas arrested by Tucum\u00e1n forces on 7 March 1824 at the border in Trancas, held there and executed on 24 March 1824.\\nThe colonel who ordered the execution said he had been trying to subvert the men.\\nIt is said that his final act before facing the firing squad was to smoke a cigarette. Knocking away the last ashes, he said philosophically \\\"Human existence is like these ashes.\\\"\\nHe then calmly faced his death.\\nHis remains lie in the Trancas church to the right of the altar\",\n        \"token_count\": 127\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0031\",\n    \"query\": \"What is the religion of Arturo Tabera Araoz?\",\n    \"reference_answer\": \"Catholic Church\"\n  },\n  {\n    \"baseline_prediction\": \"Black metal\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0200-0000\",\n        \"source_index\": 200,\n        \"text\": \"Diabolis Interium\\nDiabolis Interium\\nDiabolis Interium (grammatically incorrect Latin, intended to mean \\\"Devil Within\\\") is the third studio album by Swedish black metal band Dark Funeral, released on September 24, 2001. It was recorded and mixed between January 21 and March 2 at The Abyss Studio and was the band's last album to be released through No Fashion Records. \\\"Diabolis Interium\\\" is the first album to feature drummer Matte Modin and the only album to feature guitarist Dominion and also marked the end of vocalist Emperor Magus Caligula's\",\n        \"token_count\": 130\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0037\",\n    \"query\": \"What genre is Diabolis Interium?\",\n    \"reference_answer\": \"black metal\"\n  },\n  {\n    \"baseline_prediction\": \"Based on the evidence provided, Darrell Hammond is a comedian, actor, impressionist, and former cast member of *Saturday Night Live*. He is also a playwright (having adapted his memoir into a one-man play) and a voice actor.\\n\\n**Answer:**\\nComedian, actor, impressionist, former *Saturday Night Live* cast member, playwright, and voice actor.\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0397-0000\",\n        \"source_index\": 397,\n        \"text\": \"Mark Z. Danielewski\\nYear Sword\\\". Thanks to an ARC Grant from the Center for Cultural Innovation, the production of \\\"T50YS\\\" went to five cities around the United States in conjunction with the book release tour for the Pantheon release of \\\"The Fifty Year Sword\\\". These performances, smaller in production than the REDCAT performances, featured different actors at every city, including Saturday Night Live alum Darrell Hammond in New York. World-renowned pianist Christopher O'Riley, who is a longtime friend and fan of Danielewski, also toured with Danielewski for\",\n        \"token_count\": 115\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0044\",\n    \"query\": \"What is Darrell Hammond's occupation?\",\n    \"reference_answer\": \"actor\"\n  }\n]\nVISIBLE_FEEDBACK_END\nPRIOR_CANDIDATE_VISIBLE_OUTCOMES_BEGIN\n[]\nPRIOR_CANDIDATE_VISIBLE_OUTCOMES_END\nThe manifest must cover exactly these item ids in this order: [\"popqa-k1000-0001\", \"popqa-k1000-0008\", \"popqa-k1000-0014\", \"popqa-k1000-0020\", \"popqa-k1000-0026\", \"popqa-k1000-0031\", \"popqa-k1000-0037\", \"popqa-k1000-0044\"]\nEdit the probabilities, claims, cost estimates, and recommendation so they state your pre-evaluation prediction. The maximum regression probability in promotion must equal the maximum prediction regress value. Every mechanism policy path must exist.\nMANIFEST_TEMPLATE_BEGIN\n{\n  \"candidate_name\": \"dynamic-visible-r0\",\n  \"cost\": {\n    \"evaluation_input_tokens\": 0,\n    \"evaluation_output_tokens\": 0,\n    \"gpu_seconds\": 0.0,\n    \"researcher_input_tokens\": 0,\n    \"researcher_output_tokens\": 0,\n    \"wall_seconds\": 0.0\n  },\n  \"evidence\": [\n    {\n      \"claim\": \"Visible baseline failures and gold spans motivate the proposed policy.\",\n      \"evidence_id\": \"visible-baseline\",\n      \"kind\": \"visible-item-trace\",\n      \"reference\": \"VISIBLE_FEEDBACK_BEGIN\"\n    }\n  ],\n  \"mechanisms\": [\n    {\n      \"description\": \"Replace this with the hypothesized general policy mechanism.\",\n      \"mechanism_id\": \"policy-mechanism\",\n      \"policy_paths\": [\n        \"policy/policy.py\"\n      ]\n    }\n  ],\n  \"parent_artifact_id\": \"ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848\",\n  \"predictions\": [\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0001\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0008\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0014\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0020\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0026\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0031\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0037\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0044\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    }\n  ],\n  \"promotion\": {\n    \"decision\": \"hold\",\n    \"expected_score_delta\": 0.0,\n    \"max_regression_probability\": 0.1,\n    \"rationale\": \"Replace with a pre-evaluation recommendation.\"\n  },\n  \"schema_version\": 1\n}\nMANIFEST_TEMPLATE_END\nFinish only after policy/*.py and manifest.json are complete. Do not answer the visible questions in your response.\n",
+      "prompt_sha256": "7d69f837b2b08d27ac1d20bac06ede787bdb28fc82174adf2f0bcdd356ab8994",
+      "round_index": 0
+    },
+    {
+      "parent_artifact_id": "b471a975ec32c94acdbe20aeaf051a9cd026fdbfcfac28cc5d27f8360e597142",
+      "prompt": "You are the context-policy researcher, not the question-answering reader.\nThe reader, decoding, metric, 8192-token budget, and item labels are frozen.\nYou choose the next hypothesis for compiler H: select, order, cover, abstain, and format of packed evidence. You do not choose extra reader calls; the evaluator returns one score per candidate. Put the hypothesis in mechanisms[0].description. The next round starts from your last attempt even if it regressed; historical-best keeps the peak.\nWork only inside this workspace. Modify only policy/*.py and create manifest.json.\nDo not create notes, tests, caches, or any other files. Do not call any model or API.\nImplement policy/policy.py with public class Policy and assemble(artifact, query, budget).\nThe policy must pass a fail-closed AST audit. Do not use from __future__ imports. Allowed imports are collections, dataclasses, functools, heapq, itertools, json, math, operator, re, statistics, string, typing, and rsicontext.policy. Keep module/class constants to immutable literals or tuples; construct regexes, sets, counters, and other containers inside functions. Builtin compile, eval, exec, and getattr are forbidden; re.compile and re.findall inside functions are allowed. Do not use file I/O, subprocesses, or network access.\nDo not run mypy, pytest, or any command that creates caches in the workspace.\nReturn only source chunks already present in artifact and obey ContextPack provenance.\nDo not put item ids, chunk ids, queries, reference answers, or per-item lookup tables in policy code. The policy must generalize from query and chunk content.\nThe evidence below is from the visible split only. No gate or sealed item is exposed.\nRound: 1\nExact parent_artifact_id: b471a975ec32c94acdbe20aeaf051a9cd026fdbfcfac28cc5d27f8360e597142\nPrevious aggregate score: 0.75\nHistorical-best aggregate score: 0.75\nLAST_INVALID_SUBMISSION_BEGIN\nnull\nLAST_INVALID_SUBMISSION_END\nVISIBLE_FEEDBACK_BEGIN\n[\n  {\n    \"baseline_prediction\": \"INSUFFICIENT\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0200-0000\",\n        \"source_index\": 201,\n        \"text\": \"Scuba Dice\\nO'Connor defining their sound as \\\"power pop, punk, punk pop\\\". The band competed for the coveted prize of a record contract and as part of the show they covered Green Day's \\\"Holiday\\\", which was released as a single and reached No.\u00a08 and on the Irish Singles Chart, later becoming the 42nd best selling single of 2008 for an Irish artist. They also released their second single \\\"Made\\\", an original song, as a physical release. The band also entered the Beatbox competition\",\n        \"token_count\": 110\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0001\",\n    \"query\": \"What genre is Holiday?\",\n    \"reference_answer\": \"punk rock\"\n  },\n  {\n    \"baseline_prediction\": \"Irish poet\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0398-0000\",\n        \"source_index\": 398,\n        \"text\": \"Tadhg Dall \u00d3 hUiginn\\nTadhg Dall \u00d3 hUiginn\\nTadhg Dall \u00d3 hUiginn (c. 1550 \u2013 c.1591) was an Irish poet.\\nBackground.\\nA well-known late-Gaelic era poet, Tadhg Dall \u00d3 hUiginn was a member of a family of professional poets from north Connacht. He was called \\\"dall\\\" because he was blind. His mother's name is unknown. His father was Mathghamhain mac Maolmhuire, a direct descendant of Tadg \u00d3g \u00d3 hUiginn (died 1448). His brother, Maol Muire \u00d3 hUiginn, Archbishop of Tuam\",\n        \"token_count\": 160\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0008\",\n    \"query\": \"What is Tadhg Dall \u00d3 hUiginn's occupation?\",\n    \"reference_answer\": \"poet\"\n  },\n  {\n    \"baseline_prediction\": \"Poland\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0397-0000\",\n        \"source_index\": 397,\n        \"text\": \"Wilcza G\u00f3ra\\nWilcza G\u00f3ra\\nWilcza G\u00f3ra may refer to the following places:\\n- Wilcza G\u00f3ra, Kuyavian-Pomeranian Voivodeship (north-central Poland)\\n- Wilcza G\u00f3ra, Masovian Voivodeship (east-central Poland)\\n- Wilcza G\u00f3ra, Silesian Voivodeship (south Poland)\",\n        \"token_count\": 80\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0014\",\n    \"query\": \"In what country is Wilcza Jama, Sok\u00f3\u0142ka County?\",\n    \"reference_answer\": \"Poland\"\n  },\n  {\n    \"baseline_prediction\": \"Comedy horror\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0393-0000\",\n        \"source_index\": 393,\n        \"text\": \"Killjoy Goes to Hell\\nKilljoy Goes to Hell\\nKilljoy Goes to Hell is a 2012 comedy horror film and the fourth installment in the \\\"Killjoy\\\" series of movies by Full Moon.\\nPlot.\\nThe film begins in a deserted snowy desert. An Old Hag living in a dusty shack is being paid a prize by a Bailiff for conjuring up Killjoy. After Killjoy is summoned, the Bailiff appears and chokes Killjoy out. Killjoy wakes up in an electric chair and is tortured while being asked if he pleads innocent or guilty. Meanwhile,\",\n        \"token_count\": 122\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0020\",\n    \"query\": \"What genre is Killjoy?\",\n    \"reference_answer\": \"horror film\"\n  },\n  {\n    \"baseline_prediction\": \"sports video game\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0393-0000\",\n        \"source_index\": 393,\n        \"text\": \"Summer Sports: Paradise Island\\nSummer Sports: Paradise Island\\nSummer Sports: Paradise Island is a sports video game developed and published by Destineer for Nintendo's Wii. The game was released in North America on April 15, 2008.\\nThe game is a collection of seven sports games similar to \\\"Wii Sports\\\", ranging from croquet to mini-golf. The game received mostly mediocre reviews from critics, who felt that the game looked appropriately nice but was lacking in gameplay.\\nGameplay.\\n\\\"Summer Sports\\\" features seven different sports:\",\n        \"token_count\": 116\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0026\",\n    \"query\": \"What genre is Summer Sports: Paradise Island?\",\n    \"reference_answer\": \"sports video game\"\n  },\n  {\n    \"baseline_prediction\": \"Roman Catholic\",\n    \"baseline_score\": 0.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0200-0000\",\n        \"source_index\": 200,\n        \"text\": \"Bernab\u00e9 Ar\u00e1oz\\nwas arrested by Tucum\u00e1n forces on 7 March 1824 at the border in Trancas, held there and executed on 24 March 1824.\\nThe colonel who ordered the execution said he had been trying to subvert the men.\\nIt is said that his final act before facing the firing squad was to smoke a cigarette. Knocking away the last ashes, he said philosophically \\\"Human existence is like these ashes.\\\"\\nHe then calmly faced his death.\\nHis remains lie in the Trancas church to the right of the altar\",\n        \"token_count\": 127\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0031\",\n    \"query\": \"What is the religion of Arturo Tabera Araoz?\",\n    \"reference_answer\": \"Catholic Church\"\n  },\n  {\n    \"baseline_prediction\": \"Black metal\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0200-0000\",\n        \"source_index\": 200,\n        \"text\": \"Diabolis Interium\\nDiabolis Interium\\nDiabolis Interium (grammatically incorrect Latin, intended to mean \\\"Devil Within\\\") is the third studio album by Swedish black metal band Dark Funeral, released on September 24, 2001. It was recorded and mixed between January 21 and March 2 at The Abyss Studio and was the band's last album to be released through No Fashion Records. \\\"Diabolis Interium\\\" is the first album to feature drummer Matte Modin and the only album to feature guitarist Dominion and also marked the end of vocalist Emperor Magus Caligula's\",\n        \"token_count\": 130\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0037\",\n    \"query\": \"What genre is Diabolis Interium?\",\n    \"reference_answer\": \"black metal\"\n  },\n  {\n    \"baseline_prediction\": \"Based on the evidence provided, Darrell Hammond is a comedian, actor, impressionist, and former cast member of *Saturday Night Live*. He is also a playwright (having adapted his memoir into a one-man play) and a voice actor.\\n\\n**Answer:**\\nComedian, actor, impressionist, former *Saturday Night Live* cast member, playwright, and voice actor.\",\n    \"baseline_score\": 1.0,\n    \"gold_evidence\": [\n      {\n        \"chunk_id\": \"ck-0397-0000\",\n        \"source_index\": 397,\n        \"text\": \"Mark Z. Danielewski\\nYear Sword\\\". Thanks to an ARC Grant from the Center for Cultural Innovation, the production of \\\"T50YS\\\" went to five cities around the United States in conjunction with the book release tour for the Pantheon release of \\\"The Fifty Year Sword\\\". These performances, smaller in production than the REDCAT performances, featured different actors at every city, including Saturday Night Live alum Darrell Hammond in New York. World-renowned pianist Christopher O'Riley, who is a longtime friend and fan of Danielewski, also toured with Danielewski for\",\n        \"token_count\": 115\n      }\n    ],\n    \"item_id\": \"popqa-k1000-0044\",\n    \"query\": \"What is Darrell Hammond's occupation?\",\n    \"reference_answer\": \"actor\"\n  }\n]\nVISIBLE_FEEDBACK_END\nPRIOR_CANDIDATE_VISIBLE_OUTCOMES_BEGIN\n[\n  {\n    \"item_id\": \"popqa-k1000-0001\",\n    \"prediction\": \"INSUFFICIENT\",\n    \"score\": 0.0\n  },\n  {\n    \"item_id\": \"popqa-k1000-0008\",\n    \"prediction\": \"Irish poet\",\n    \"score\": 1.0\n  },\n  {\n    \"item_id\": \"popqa-k1000-0014\",\n    \"prediction\": \"Poland\",\n    \"score\": 1.0\n  },\n  {\n    \"item_id\": \"popqa-k1000-0020\",\n    \"prediction\": \"Based on the evidence provided, \\\"Killjoy\\\" refers to multiple works across different genres:\\n\\n*   **Comedy horror**: *Killjoy Goes to Hell* is described as a \\\"2012 comedy horror film\\\" ([ck-0393-0000]).\\n*   **Blaxploitation**: The original *Killjoy* film (2000) is described as an \\\"effort in the blaxploitation genre\\\" ([ck-0006-0000]).\\n*   **Horror**: The *Killjoy* film series generally involves demonic clowns, killing, and supernatural elements, fitting the horror genre (e.g., [ck-0090-0000], [ck-0054-0000], [ck-0089-0000]).\\n*   **Death metal**: Killjoy (Frank Pucci) was the lead vocalist for the \\\"death metal band Necrophagia\\\" ([ck-0013-0000]).\\n*   **Rock**: *Killjoy* is an album by Shihad, regarded as a \\\"classic New Zealand rock album\\\" ([ck-0027-0000]).\\n*   **Alternative rock / Punk rock / New wave / Pop-folk**: Various bands named The Killjoys are described as \\\"alternative rock,\\\" \\\"punk rock/new wave,\\\" and \\\"pop-folk\\\" ([ck-0004-0000]).\\n*   **Novel**: *Killjoy* by Julie Garwood and *Our Sister Killjoy* by Ama Ata Aidoo are novels ([ck-0010-0000], [ck-0084-0000]).\",\n    \"score\": 1.0\n  },\n  {\n    \"item_id\": \"popqa-k1000-0026\",\n    \"prediction\": \"sports video game\",\n    \"score\": 1.0\n  },\n  {\n    \"item_id\": \"popqa-k1000-0031\",\n    \"prediction\": \"Roman Catholic\",\n    \"score\": 0.0\n  },\n  {\n    \"item_id\": \"popqa-k1000-0037\",\n    \"prediction\": \"black metal\",\n    \"score\": 1.0\n  },\n  {\n    \"item_id\": \"popqa-k1000-0044\",\n    \"prediction\": \"Based on the evidence provided, Darrell Hammond is a comedian and actor. The texts describe him as a cast member of *Saturday Night Live* (SNL) for 14 seasons, known for his impressions (such as Bill Clinton and Al Gore), a stand-up comedian with a special on Comedy Central, a Broadway actor (in *The 25th Annual Putnam County Spelling Bee*), and a guest star in television dramas and commercials.\",\n    \"score\": 1.0\n  }\n]\nPRIOR_CANDIDATE_VISIBLE_OUTCOMES_END\nThe manifest must cover exactly these item ids in this order: [\"popqa-k1000-0001\", \"popqa-k1000-0008\", \"popqa-k1000-0014\", \"popqa-k1000-0020\", \"popqa-k1000-0026\", \"popqa-k1000-0031\", \"popqa-k1000-0037\", \"popqa-k1000-0044\"]\nEdit the probabilities, claims, cost estimates, and recommendation so they state your pre-evaluation prediction. The maximum regression probability in promotion must equal the maximum prediction regress value. Every mechanism policy path must exist.\nMANIFEST_TEMPLATE_BEGIN\n{\n  \"candidate_name\": \"dynamic-visible-r1\",\n  \"cost\": {\n    \"evaluation_input_tokens\": 0,\n    \"evaluation_output_tokens\": 0,\n    \"gpu_seconds\": 0.0,\n    \"researcher_input_tokens\": 0,\n    \"researcher_output_tokens\": 0,\n    \"wall_seconds\": 0.0\n  },\n  \"evidence\": [\n    {\n      \"claim\": \"Visible baseline failures and gold spans motivate the proposed policy.\",\n      \"evidence_id\": \"visible-baseline\",\n      \"kind\": \"visible-item-trace\",\n      \"reference\": \"VISIBLE_FEEDBACK_BEGIN\"\n    }\n  ],\n  \"mechanisms\": [\n    {\n      \"description\": \"Replace this with the hypothesized general policy mechanism.\",\n      \"mechanism_id\": \"policy-mechanism\",\n      \"policy_paths\": [\n        \"policy/policy.py\"\n      ]\n    }\n  ],\n  \"parent_artifact_id\": \"b471a975ec32c94acdbe20aeaf051a9cd026fdbfcfac28cc5d27f8360e597142\",\n  \"predictions\": [\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0001\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0008\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0014\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0020\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0026\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0031\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0037\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    },\n    {\n      \"evidence_ids\": [\n        \"visible-baseline\"\n      ],\n      \"item_id\": \"popqa-k1000-0044\",\n      \"mechanism_ids\": [\n        \"policy-mechanism\"\n      ],\n      \"probabilities\": {\n        \"improve\": 0.5,\n        \"regress\": 0.1,\n        \"unchanged\": 0.4\n      }\n    }\n  ],\n  \"promotion\": {\n    \"decision\": \"hold\",\n    \"expected_score_delta\": 0.0,\n    \"max_regression_probability\": 0.1,\n    \"rationale\": \"Replace with a pre-evaluation recommendation.\"\n  },\n  \"schema_version\": 1\n}\nMANIFEST_TEMPLATE_END\nFinish only after policy/*.py and manifest.json are complete. Do not answer the visible questions in your response.\n",
+      "prompt_sha256": "bc31507dfa6e11f018fba8a89a5134e6b13a231c5d0eb6d05fe01aaf6f46463c",
+      "round_index": 1
+    }
+  ],
+  "schema_version": 3,
+  "split": "visible",
+  "status": "failed"
+}

@@ -1,0 +1,775 @@
+{
+  "cell_id": "helmet-recall-qa1-128k-to-4k",
+  "failures": [
+    "gold-only accuracy is below 0.85"
+  ],
+  "gold_provenance": "ruler_supporting_documents",
+  "measurements": {
+    "cell_id": "helmet-recall-qa1-128k-to-4k",
+    "gold_only_accuracy": 0.6875,
+    "median_meaningful_delta": 0.75,
+    "n_items": 16,
+    "no_context_accuracy": 0.0,
+    "packer_disagreement": 0.75,
+    "packer_scores": [
+      [
+        "head",
+        0.0
+      ],
+      [
+        "lexical",
+        0.75
+      ],
+      [
+        "hand-hybrid",
+        0.6875
+      ]
+    ],
+    "replay_standard_deviation": 0.0
+  },
+  "n_items": 16,
+  "official_helmet_score": false,
+  "pack_budget_tokens": 4096,
+  "passed": false,
+  "qualification_only": true,
+  "reader_calls": 80,
+  "replay_scores": [
+    0.75
+  ],
+  "replayed_packer": null,
+  "rows": {
+    "gold-only": [
+      {
+        "item_id": "qa1-128k-0000",
+        "pack_tokens": 1536,
+        "prediction": "France",
+        "reader_input_tokens": 1637,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0001",
+        "pack_tokens": 512,
+        "prediction": "In the 10th and 11th centuries",
+        "reader_input_tokens": 584,
+        "reader_output_tokens": 13,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0002",
+        "pack_tokens": 512,
+        "prediction": "Denmark, Iceland and Norway",
+        "reader_input_tokens": 583,
+        "reader_output_tokens": 7,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0003",
+        "pack_tokens": 1024,
+        "prediction": "Rollo",
+        "reader_input_tokens": 1108,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0004",
+        "pack_tokens": 1536,
+        "prediction": "10th century",
+        "reader_input_tokens": 1641,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0005",
+        "pack_tokens": 1024,
+        "prediction": "William the Conqueror",
+        "reader_input_tokens": 1112,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0006",
+        "pack_tokens": 1024,
+        "prediction": "Richard I of Normandy",
+        "reader_input_tokens": 1110,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0007",
+        "pack_tokens": 1536,
+        "prediction": "Catholicism (Christianity)",
+        "reader_input_tokens": 1635,
+        "reader_output_tokens": 8,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0008",
+        "pack_tokens": 512,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 585,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0009",
+        "pack_tokens": 1024,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 1114,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0010",
+        "pack_tokens": 512,
+        "prediction": "911",
+        "reader_input_tokens": 585,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0011",
+        "pack_tokens": 512,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 592,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0012",
+        "pack_tokens": 1024,
+        "prediction": "The river Epte",
+        "reader_input_tokens": 1109,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0013",
+        "pack_tokens": 1536,
+        "prediction": "Rollo",
+        "reader_input_tokens": 1642,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0014",
+        "pack_tokens": 1024,
+        "prediction": "Catholicism (Christianity)",
+        "reader_input_tokens": 1108,
+        "reader_output_tokens": 8,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0015",
+        "pack_tokens": 1024,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 1112,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ],
+    "hand-hybrid": [
+      {
+        "item_id": "qa1-128k-0000",
+        "pack_tokens": 4096,
+        "prediction": "France",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0001",
+        "pack_tokens": 4096,
+        "prediction": "in the 10th and 11th centuries",
+        "reader_input_tokens": 4273,
+        "reader_output_tokens": 13,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0002",
+        "pack_tokens": 4096,
+        "prediction": "Danes, Norwegians, Norse\u2013Gaels, Orkney Vikings, possibly Swedes, and Anglo-Danes",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 26,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0003",
+        "pack_tokens": 4096,
+        "prediction": "Rollo",
+        "reader_input_tokens": 4270,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0004",
+        "pack_tokens": 4096,
+        "prediction": "10th century",
+        "reader_input_tokens": 4276,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0005",
+        "pack_tokens": 4096,
+        "prediction": "William the Conqueror",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0006",
+        "pack_tokens": 4096,
+        "prediction": "Rollo",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0007",
+        "pack_tokens": 4096,
+        "prediction": "Catholicism (Christianity)",
+        "reader_input_tokens": 4269,
+        "reader_output_tokens": 8,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0008",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0009",
+        "pack_tokens": 4096,
+        "prediction": "9th century",
+        "reader_input_tokens": 4275,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0010",
+        "pack_tokens": 4096,
+        "prediction": "911",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0011",
+        "pack_tokens": 4096,
+        "prediction": "King Charles III of West Francia",
+        "reader_input_tokens": 4280,
+        "reader_output_tokens": 7,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0012",
+        "pack_tokens": 4096,
+        "prediction": "The river Epte",
+        "reader_input_tokens": 4271,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0013",
+        "pack_tokens": 4096,
+        "prediction": "Rollo",
+        "reader_input_tokens": 4277,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0014",
+        "pack_tokens": 4096,
+        "prediction": "Catholicism (Christianity)",
+        "reader_input_tokens": 4270,
+        "reader_output_tokens": 8,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0015",
+        "pack_tokens": 4096,
+        "prediction": "Normandy",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ],
+    "head": [
+      {
+        "item_id": "qa1-128k-0000",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0001",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4273,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0002",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0003",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4270,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0004",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4276,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0005",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0006",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0007",
+        "pack_tokens": 4096,
+        "prediction": "Christian",
+        "reader_input_tokens": 4270,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0008",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0009",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4276,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0010",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0011",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4281,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0012",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4271,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0013",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4276,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0014",
+        "pack_tokens": 4096,
+        "prediction": "Catholic orthodoxy",
+        "reader_input_tokens": 4270,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0015",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4273,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ],
+    "lexical": [
+      {
+        "item_id": "qa1-128k-0000",
+        "pack_tokens": 4096,
+        "prediction": "France",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0001",
+        "pack_tokens": 4096,
+        "prediction": "In the 10th and 11th centuries",
+        "reader_input_tokens": 4273,
+        "reader_output_tokens": 13,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0002",
+        "pack_tokens": 4096,
+        "prediction": "Danes, Norwegians, Norse\u2013Gaels, Orkney Vikings, possibly Swedes, and Anglo-Danes",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 26,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0003",
+        "pack_tokens": 4096,
+        "prediction": "Rollo",
+        "reader_input_tokens": 4270,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0004",
+        "pack_tokens": 4096,
+        "prediction": "10th century",
+        "reader_input_tokens": 4276,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0005",
+        "pack_tokens": 4096,
+        "prediction": "William the Conqueror",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0006",
+        "pack_tokens": 4096,
+        "prediction": "Rollo and Richard I of Normandy",
+        "reader_input_tokens": 4272,
+        "reader_output_tokens": 9,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0007",
+        "pack_tokens": 4096,
+        "prediction": "Catholicism (Christianity)",
+        "reader_input_tokens": 4269,
+        "reader_output_tokens": 8,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0008",
+        "pack_tokens": 4096,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0009",
+        "pack_tokens": 4096,
+        "prediction": "9th century",
+        "reader_input_tokens": 4275,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0010",
+        "pack_tokens": 4096,
+        "prediction": "911",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0011",
+        "pack_tokens": 4096,
+        "prediction": "King Charles III of West Francia",
+        "reader_input_tokens": 4280,
+        "reader_output_tokens": 7,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0012",
+        "pack_tokens": 4096,
+        "prediction": "the river Epte",
+        "reader_input_tokens": 4271,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0013",
+        "pack_tokens": 4096,
+        "prediction": "Rollo",
+        "reader_input_tokens": 4277,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0014",
+        "pack_tokens": 4096,
+        "prediction": "Catholicism (Christianity)",
+        "reader_input_tokens": 4270,
+        "reader_output_tokens": 8,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa1-128k-0015",
+        "pack_tokens": 4096,
+        "prediction": "Normandy",
+        "reader_input_tokens": 4274,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ],
+    "no-context": [
+      {
+        "item_id": "qa1-128k-0000",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 56,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0001",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 57,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0002",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 56,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0003",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 54,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0004",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 60,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0005",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 58,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0006",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 56,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0007",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 54,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0008",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 58,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0009",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 60,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0010",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 58,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0011",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 65,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0012",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 55,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0013",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 61,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0014",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 54,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa1-128k-0015",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 58,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ]
+  },
+  "scorer": "contained_match",
+  "synthetic_t0_unchanged": true,
+  "tokenizer_id": "Qwen/Qwen3.6-27B@1b559cf7215ebe67ff10758e14f6293ba883223b"
+}

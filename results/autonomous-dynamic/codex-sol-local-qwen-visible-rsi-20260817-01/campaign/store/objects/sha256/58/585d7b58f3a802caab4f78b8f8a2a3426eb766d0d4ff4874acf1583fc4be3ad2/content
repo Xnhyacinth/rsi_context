@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r0",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 256,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 0,
+    "researcher_output_tokens": 0,
+    "wall_seconds": 1.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures require one-hop relay retrieval, while the correct consensus items require complete query-matched report coverage.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Rank informative leading statements by query identifiers and rare query terms, expand one hop through identifiers found in direct matches, pack every positive whole-source match that fits, preserve relevance order, and abstain only implicitly when no evidence matches.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-8e17a109347f7e0863c0",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.96,
+        "regress": 0.01,
+        "unchanged": 0.03
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-4079240b4ed102177a27",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.95,
+        "regress": 0.01,
+        "unchanged": 0.04
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-10da66c1a15a03717cc1",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.02,
+        "unchanged": 0.98
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-0317d584c3470d0ad6ee",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.02,
+        "unchanged": 0.98
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.47,
+    "max_regression_probability": 0.02,
+    "rationale": "Promote for evaluation: exact query identifiers should recover both atlas relay chains, and complete positive-match packing should preserve the already-correct consensus decisions with low regression risk."
+  },
+  "schema_version": 1
+}

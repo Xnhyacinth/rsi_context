@@ -1,0 +1,13 @@
+{
+  "candidate_artifact_id": "3f0ff797c228560cf2dca54ade34bb5d298f78aa1d4ba1a73f96fc3307cc6cd9",
+  "candidate_score": 0.25,
+  "incumbent_artifact_id_after": "3f0ff797c228560cf2dca54ade34bb5d298f78aa1d4ba1a73f96fc3307cc6cd9",
+  "incumbent_artifact_id_before": null,
+  "incumbent_score_after": 0.25,
+  "incumbent_score_before": null,
+  "promoted": true,
+  "promotion_margin": 0.0,
+  "researcher_recommendation": "promote",
+  "round_index": 0,
+  "rule": "strict-historical-best"
+}

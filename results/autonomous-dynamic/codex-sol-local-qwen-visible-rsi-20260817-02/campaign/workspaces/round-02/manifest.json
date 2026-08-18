@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r2",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 64,
+    "gpu_seconds": 24.0,
+    "researcher_input_tokens": 18100,
+    "researcher_output_tokens": 2100,
+    "wall_seconds": 45.0
+  },
+  "evidence": [
+    {
+      "claim": "The visible atlas failures have complete two-chunk pointer chains, while the existing pointer-first packing still led the frozen reader to abstain; the visible meridian cases already succeed with governing rules before conclusion-bearing reports.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Retain query-entity selection, one-hop identifier closure, whole-chunk provenance, budget-aware coverage, and consensus-rule-first ordering, but rank conclusion-bearing relay/report records ahead of pointer records so an atlas answer-bearing fact receives stronger early attention before its supporting pointer chain.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "b05c5ea3c844bdcac7c06038232bd2bb5d4d8a91d1a8a746cd2b6b4345bf072c",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-76642e2db1d3614698da",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.65,
+        "regress": 0.0,
+        "unchanged": 0.35
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-5907d6a3290df94de0c5",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.65,
+        "regress": 0.0,
+        "unchanged": 0.35
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-e99a27774d8783ebda41",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.08,
+        "unchanged": 0.92
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-f2f5cc740edb1f1ba080",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.08,
+        "unchanged": 0.92
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.285,
+    "max_regression_probability": 0.08,
+    "rationale": "Promote for evaluation: the ordering change directly targets both visible abstentions, preserves consensus rule precedence and report coverage, and has a positive probability-weighted aggregate delta with limited predicted regression risk on the two already-correct items."
+  },
+  "schema_version": 1
+}

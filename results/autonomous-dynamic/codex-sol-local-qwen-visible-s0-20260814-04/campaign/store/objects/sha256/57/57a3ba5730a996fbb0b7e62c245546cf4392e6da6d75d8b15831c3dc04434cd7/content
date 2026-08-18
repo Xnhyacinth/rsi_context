@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r0",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 128,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 0,
+    "researcher_output_tokens": 0,
+    "wall_seconds": 0.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures show that direct lexical matching can miss identifier-linked relay evidence and can dilute multi-record consensus evidence with repetitive distractors.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Rank whole chunks from query overlap in their leading factual sentence, expand retrieval through content-derived hyphenated identifiers, and omit unrelated filler chunks.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-14eec238f5ddfe2c4081",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.82,
+        "regress": 0.03,
+        "unchanged": 0.15
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-9a0809327ec2da16c036",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.82,
+        "regress": 0.03,
+        "unchanged": 0.15
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-ffedc9d65537922cdc3b",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.76,
+        "regress": 0.04,
+        "unchanged": 0.2
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-a7fb97a77e74a4ca9758",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.02,
+        "regress": 0.04,
+        "unchanged": 0.94
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.59,
+    "max_regression_probability": 0.04,
+    "rationale": "Promote for evaluation: the policy directly targets both visible failure mechanisms while preserving whole-chunk provenance and has low predicted regression risk on the already-correct item."
+  },
+  "schema_version": 1
+}

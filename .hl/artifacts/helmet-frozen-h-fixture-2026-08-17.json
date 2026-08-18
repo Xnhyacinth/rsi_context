@@ -1,0 +1,49 @@
+{
+  "items": [
+    {
+      "answer_string_present": true,
+      "item_id": "nq-fixture-1",
+      "packed_chunks": 2,
+      "policy_name": "head-8k",
+      "token_count": 18
+    },
+    {
+      "answer_string_present": true,
+      "item_id": "nq-fixture-1",
+      "packed_chunks": 2,
+      "policy_name": "lexical-8k",
+      "token_count": 18
+    },
+    {
+      "answer_string_present": true,
+      "item_id": "nq-fixture-1",
+      "packed_chunks": 2,
+      "policy_name": "hand-hybrid",
+      "token_count": 18
+    },
+    {
+      "answer_string_present": true,
+      "item_id": "niah-fixture-1",
+      "packed_chunks": 3,
+      "policy_name": "head-8k",
+      "token_count": 29
+    },
+    {
+      "answer_string_present": true,
+      "item_id": "niah-fixture-1",
+      "packed_chunks": 3,
+      "policy_name": "lexical-8k",
+      "token_count": 29
+    },
+    {
+      "answer_string_present": true,
+      "item_id": "niah-fixture-1",
+      "packed_chunks": 3,
+      "policy_name": "hand-hybrid",
+      "token_count": 29
+    }
+  ],
+  "official_helmet_score": false,
+  "qualification_only": true,
+  "source": "tests/fixtures/helmet_rag_sample.jsonl"
+}

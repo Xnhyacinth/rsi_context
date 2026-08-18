@@ -1,0 +1,46 @@
+{
+  "candidate_name": "dynamic-visible-r0",
+  "cost": {
+    "evaluation_input_tokens": 65536,
+    "evaluation_output_tokens": 256,
+    "gpu_seconds": 8.0,
+    "researcher_input_tokens": 7200,
+    "researcher_output_tokens": 1200,
+    "wall_seconds": 180.0
+  },
+  "evidence": [
+    {
+      "claim": "Six visible failures share an ambiguous subject while their gold chunks contain both that subject and genre-specific vocabulary; two occupation items already succeed on direct biographical evidence.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Rank original whole chunks by exact query-subject phrase and title overlap, use generic question-type answer cues to resolve ambiguous-name ties, pack only positive matches in rank order within budget, and abstain when no relevant chunk exists.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "predictions": [
+    {"evidence_ids":["visible-baseline"],"item_id":"popqa-k1000-0000","mechanism_ids":["policy-mechanism"],"probabilities":{"improve":0.76,"regress":0.02,"unchanged":0.22}},
+    {"evidence_ids":["visible-baseline"],"item_id":"popqa-k1000-0001","mechanism_ids":["policy-mechanism"],"probabilities":{"improve":0.76,"regress":0.02,"unchanged":0.22}},
+    {"evidence_ids":["visible-baseline"],"item_id":"popqa-k1000-0002","mechanism_ids":["policy-mechanism"],"probabilities":{"improve":0.76,"regress":0.02,"unchanged":0.22}},
+    {"evidence_ids":["visible-baseline"],"item_id":"popqa-k1000-0003","mechanism_ids":["policy-mechanism"],"probabilities":{"improve":0.76,"regress":0.02,"unchanged":0.22}},
+    {"evidence_ids":["visible-baseline"],"item_id":"popqa-k1000-0004","mechanism_ids":["policy-mechanism"],"probabilities":{"improve":0.76,"regress":0.02,"unchanged":0.22}},
+    {"evidence_ids":["visible-baseline"],"item_id":"popqa-k1000-0005","mechanism_ids":["policy-mechanism"],"probabilities":{"improve":0.76,"regress":0.02,"unchanged":0.22}},
+    {"evidence_ids":["visible-baseline"],"item_id":"popqa-k1000-0006","mechanism_ids":["policy-mechanism"],"probabilities":{"improve":0.02,"regress":0.08,"unchanged":0.90}},
+    {"evidence_ids":["visible-baseline"],"item_id":"popqa-k1000-0007","mechanism_ids":["policy-mechanism"],"probabilities":{"improve":0.02,"regress":0.08,"unchanged":0.90}}
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.54,
+    "max_regression_probability": 0.08,
+    "rationale": "The expected gain on six visible failures substantially exceeds the bounded risk to two already-correct direct-subject items."
+  },
+  "schema_version": 1
+}

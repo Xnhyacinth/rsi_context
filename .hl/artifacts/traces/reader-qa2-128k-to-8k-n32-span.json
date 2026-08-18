@@ -1,0 +1,1495 @@
+{
+  "cell_id": "helmet-recall-qa2-128k-to-8k",
+  "failures": [
+    "gold-only accuracy is below 0.85"
+  ],
+  "gold_provenance": "ruler_supporting_documents",
+  "measurements": {
+    "cell_id": "helmet-recall-qa2-128k-to-8k",
+    "gold_only_accuracy": 0.6875,
+    "median_meaningful_delta": 0.65625,
+    "n_items": 32,
+    "no_context_accuracy": 0.0,
+    "packer_disagreement": 0.65625,
+    "packer_scores": [
+      [
+        "head",
+        0.0
+      ],
+      [
+        "lexical",
+        0.65625
+      ],
+      [
+        "hand-hybrid",
+        0.625
+      ]
+    ],
+    "replay_standard_deviation": 0.0
+  },
+  "n_items": 32,
+  "official_helmet_score": false,
+  "pack_budget_tokens": 8192,
+  "passed": false,
+  "qualification_only": true,
+  "reader_calls": 160,
+  "replay_scores": [
+    0.65625
+  ],
+  "replayed_packer": null,
+  "rows": {
+    "gold-only": [
+      {
+        "item_id": "qa2-128k-0000",
+        "pack_tokens": 1024,
+        "prediction": "Yes",
+        "reader_input_tokens": 1114,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0001",
+        "pack_tokens": 1536,
+        "prediction": "Chief of Protocol of the United States",
+        "reader_input_tokens": 1650,
+        "reader_output_tokens": 8,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0002",
+        "pack_tokens": 2048,
+        "prediction": "Animorphs",
+        "reader_input_tokens": 2185,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0003",
+        "pack_tokens": 1024,
+        "prediction": "No",
+        "reader_input_tokens": 1119,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0004",
+        "pack_tokens": 1024,
+        "prediction": "New York City",
+        "reader_input_tokens": 1120,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0005",
+        "pack_tokens": 1024,
+        "prediction": "YG Entertainment",
+        "reader_input_tokens": 1124,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0006",
+        "pack_tokens": 512,
+        "prediction": "Eenasul Fateh",
+        "reader_input_tokens": 594,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0007",
+        "pack_tokens": 1024,
+        "prediction": "3,677",
+        "reader_input_tokens": 1121,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0008",
+        "pack_tokens": 1536,
+        "prediction": "Terry Richardson",
+        "reader_input_tokens": 1638,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0009",
+        "pack_tokens": 2048,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 2168,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0010",
+        "pack_tokens": 2560,
+        "prediction": "Kansas Song",
+        "reader_input_tokens": 2714,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0011",
+        "pack_tokens": 1024,
+        "prediction": "David Weissman",
+        "reader_input_tokens": 1126,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0012",
+        "pack_tokens": 2560,
+        "prediction": "1999",
+        "reader_input_tokens": 2708,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0013",
+        "pack_tokens": 3072,
+        "prediction": "Yes",
+        "reader_input_tokens": 3229,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0014",
+        "pack_tokens": 2048,
+        "prediction": "1986 to 2013",
+        "reader_input_tokens": 2170,
+        "reader_output_tokens": 11,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0015",
+        "pack_tokens": 2560,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 2700,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0016",
+        "pack_tokens": 2048,
+        "prediction": "North Atlantic Conference",
+        "reader_input_tokens": 2189,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0017",
+        "pack_tokens": 2048,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 2168,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0018",
+        "pack_tokens": 1536,
+        "prediction": "1969 until 1974",
+        "reader_input_tokens": 1654,
+        "reader_output_tokens": 11,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0019",
+        "pack_tokens": 1024,
+        "prediction": "Robert Erskine Childers",
+        "reader_input_tokens": 1118,
+        "reader_output_tokens": 7,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0020",
+        "pack_tokens": 1024,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 1126,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0021",
+        "pack_tokens": 2560,
+        "prediction": "Dr. Robotnik",
+        "reader_input_tokens": 2698,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0022",
+        "pack_tokens": 1024,
+        "prediction": "keyboard function keys",
+        "reader_input_tokens": 1124,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0023",
+        "pack_tokens": 3072,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 3229,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0024",
+        "pack_tokens": 1536,
+        "prediction": "the IFFHS World's Best Goalkeeper",
+        "reader_input_tokens": 1654,
+        "reader_output_tokens": 10,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0025",
+        "pack_tokens": 1024,
+        "prediction": "Lee Hazlewood",
+        "reader_input_tokens": 1124,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0026",
+        "pack_tokens": 3072,
+        "prediction": "1838",
+        "reader_input_tokens": 3248,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0027",
+        "pack_tokens": 512,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 592,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0028",
+        "pack_tokens": 1536,
+        "prediction": "Henry J. Kaiser",
+        "reader_input_tokens": 1651,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0029",
+        "pack_tokens": 1536,
+        "prediction": "Arena of Khazan",
+        "reader_input_tokens": 1654,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0030",
+        "pack_tokens": 1536,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 1644,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0031",
+        "pack_tokens": 1024,
+        "prediction": "Japan",
+        "reader_input_tokens": 1121,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ],
+    "hand-hybrid": [
+      {
+        "item_id": "qa2-128k-0000",
+        "pack_tokens": 8192,
+        "prediction": "Yes",
+        "reader_input_tokens": 8490,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0001",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8500,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0002",
+        "pack_tokens": 8192,
+        "prediction": "Animorphs",
+        "reader_input_tokens": 8509,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0003",
+        "pack_tokens": 8192,
+        "prediction": "No",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0004",
+        "pack_tokens": 8192,
+        "prediction": "New York City",
+        "reader_input_tokens": 8497,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0005",
+        "pack_tokens": 8192,
+        "prediction": "YG Entertainment",
+        "reader_input_tokens": 8500,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0006",
+        "pack_tokens": 8192,
+        "prediction": "Eenasul Fateh",
+        "reader_input_tokens": 8498,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0007",
+        "pack_tokens": 8192,
+        "prediction": "4,000",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0008",
+        "pack_tokens": 8192,
+        "prediction": "Terry Richardson",
+        "reader_input_tokens": 8488,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0009",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8490,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0010",
+        "pack_tokens": 8192,
+        "prediction": "Kansas Song",
+        "reader_input_tokens": 8510,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0011",
+        "pack_tokens": 8192,
+        "prediction": "David Weissman",
+        "reader_input_tokens": 8503,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0012",
+        "pack_tokens": 8192,
+        "prediction": "1999",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0013",
+        "pack_tokens": 8192,
+        "prediction": "Yes",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0014",
+        "pack_tokens": 8192,
+        "prediction": "1986 to 2013",
+        "reader_input_tokens": 8494,
+        "reader_output_tokens": 11,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0015",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0016",
+        "pack_tokens": 8192,
+        "prediction": "North Atlantic Conference",
+        "reader_input_tokens": 8512,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0017",
+        "pack_tokens": 8192,
+        "prediction": "Yes",
+        "reader_input_tokens": 8492,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0018",
+        "pack_tokens": 8192,
+        "prediction": "1969\u20131974",
+        "reader_input_tokens": 8503,
+        "reader_output_tokens": 10,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0019",
+        "pack_tokens": 8192,
+        "prediction": "Robert Erskine Childers",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 7,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0020",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8503,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0021",
+        "pack_tokens": 8192,
+        "prediction": "Dr. Robotnik",
+        "reader_input_tokens": 8495,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0022",
+        "pack_tokens": 8192,
+        "prediction": "keyboard function keys",
+        "reader_input_tokens": 8502,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0023",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8498,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0024",
+        "pack_tokens": 8192,
+        "prediction": "the IFFHS World's Best Goalkeeper",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 10,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0025",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0026",
+        "pack_tokens": 8192,
+        "prediction": "1838",
+        "reader_input_tokens": 8518,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0027",
+        "pack_tokens": 8192,
+        "prediction": "Yes",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0028",
+        "pack_tokens": 8192,
+        "prediction": "Henry J. Kaiser",
+        "reader_input_tokens": 8500,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0029",
+        "pack_tokens": 8192,
+        "prediction": "Arena of Khazan",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0030",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8492,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0031",
+        "pack_tokens": 8192,
+        "prediction": "Japan",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ],
+    "head": [
+      {
+        "item_id": "qa2-128k-0000",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8491,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0001",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0002",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8508,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0003",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8497,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0004",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8498,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0005",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8498,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0006",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0007",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8498,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0008",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8490,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0009",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8491,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0010",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8510,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0011",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8502,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0012",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8503,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0013",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8497,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0014",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8492,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0015",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8495,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0016",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8514,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0017",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8491,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0018",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0019",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0020",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0021",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8492,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0022",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8502,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0023",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8497,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0024",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0025",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8503,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0026",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8515,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0027",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8497,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0028",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8500,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0029",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8505,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0030",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8491,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0031",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8498,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ],
+    "lexical": [
+      {
+        "item_id": "qa2-128k-0000",
+        "pack_tokens": 8192,
+        "prediction": "Yes",
+        "reader_input_tokens": 8490,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0001",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8500,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0002",
+        "pack_tokens": 8192,
+        "prediction": "Animorphs",
+        "reader_input_tokens": 8509,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0003",
+        "pack_tokens": 8192,
+        "prediction": "No",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0004",
+        "pack_tokens": 8192,
+        "prediction": "New York City",
+        "reader_input_tokens": 8497,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0005",
+        "pack_tokens": 8192,
+        "prediction": "YG Entertainment",
+        "reader_input_tokens": 8500,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0006",
+        "pack_tokens": 8192,
+        "prediction": "Eenasul Fateh",
+        "reader_input_tokens": 8498,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0007",
+        "pack_tokens": 8192,
+        "prediction": "4,000",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 6,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0008",
+        "pack_tokens": 8192,
+        "prediction": "Terry Richardson",
+        "reader_input_tokens": 8488,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0009",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8490,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0010",
+        "pack_tokens": 8192,
+        "prediction": "Kansas Song",
+        "reader_input_tokens": 8510,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0011",
+        "pack_tokens": 8192,
+        "prediction": "David Diamond and David Weissman",
+        "reader_input_tokens": 8503,
+        "reader_output_tokens": 7,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0012",
+        "pack_tokens": 8192,
+        "prediction": "1999",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0013",
+        "pack_tokens": 8192,
+        "prediction": "Yes",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0014",
+        "pack_tokens": 8192,
+        "prediction": "1986 to 2013",
+        "reader_input_tokens": 8494,
+        "reader_output_tokens": 11,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0015",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0016",
+        "pack_tokens": 8192,
+        "prediction": "North Atlantic Conference",
+        "reader_input_tokens": 8512,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0017",
+        "pack_tokens": 8192,
+        "prediction": "Yes",
+        "reader_input_tokens": 8492,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0018",
+        "pack_tokens": 8192,
+        "prediction": "1969\u20131974",
+        "reader_input_tokens": 8503,
+        "reader_output_tokens": 10,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0019",
+        "pack_tokens": 8192,
+        "prediction": "Robert Erskine Childers",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 7,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0020",
+        "pack_tokens": 8192,
+        "prediction": "Pedro Rodr\u00edguez",
+        "reader_input_tokens": 8503,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0021",
+        "pack_tokens": 8192,
+        "prediction": "Dr. Robotnik",
+        "reader_input_tokens": 8495,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0022",
+        "pack_tokens": 8192,
+        "prediction": "keyboard function keys",
+        "reader_input_tokens": 8502,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0023",
+        "pack_tokens": 8192,
+        "prediction": "Wolf Alice",
+        "reader_input_tokens": 8498,
+        "reader_output_tokens": 3,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0024",
+        "pack_tokens": 8192,
+        "prediction": "the IFFHS World's Best Goalkeeper",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 10,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0025",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0026",
+        "pack_tokens": 8192,
+        "prediction": "1838",
+        "reader_input_tokens": 8518,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0027",
+        "pack_tokens": 8192,
+        "prediction": "Yes",
+        "reader_input_tokens": 8496,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0028",
+        "pack_tokens": 8192,
+        "prediction": "Henry J. Kaiser",
+        "reader_input_tokens": 8500,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0029",
+        "pack_tokens": 8192,
+        "prediction": "Arena of Khazan",
+        "reader_input_tokens": 8504,
+        "reader_output_tokens": 5,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 1.0
+      },
+      {
+        "item_id": "qa2-128k-0030",
+        "pack_tokens": 8192,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 8492,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0031",
+        "pack_tokens": 8192,
+        "prediction": "Japan",
+        "reader_input_tokens": 8499,
+        "reader_output_tokens": 2,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ],
+    "no-context": [
+      {
+        "item_id": "qa2-128k-0000",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 60,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0001",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 69,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0002",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 77,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0003",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 65,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0004",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 67,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0005",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 70,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0006",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 67,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0007",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 67,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0008",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 58,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0009",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 60,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0010",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 79,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0011",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 72,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0012",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 73,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0013",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 67,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0014",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 62,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0015",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 65,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0016",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 82,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0017",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 60,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0018",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 74,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0019",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 64,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0020",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 73,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0021",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 63,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0022",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 70,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0023",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 68,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0024",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 73,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0025",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 71,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0026",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 86,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0027",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 65,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0028",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 71,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0029",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 73,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0030",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 63,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      },
+      {
+        "item_id": "qa2-128k-0031",
+        "pack_tokens": 0,
+        "prediction": "INSUFFICIENT",
+        "reader_input_tokens": 67,
+        "reader_output_tokens": 4,
+        "response_model": "Qwen/Qwen3.6-27B",
+        "score": 0.0
+      }
+    ]
+  },
+  "scorer": "extractive_span_match",
+  "synthetic_t0_unchanged": true,
+  "tokenizer_id": "Qwen/Qwen3.6-27B@1b559cf7215ebe67ff10758e14f6293ba883223b"
+}

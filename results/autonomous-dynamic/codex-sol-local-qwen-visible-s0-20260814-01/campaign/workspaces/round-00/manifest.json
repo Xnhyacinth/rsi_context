@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r0",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 256,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 24500,
+    "researcher_output_tokens": 2100,
+    "wall_seconds": 180.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures show that retrieval must ignore repeated lexical padding, preserve all matching consensus reports, and follow source-stated identifier links.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Rank whole chunks from their informative first sentence using exact query identifiers, one-hop identifiers found in direct matches, and rare query terms.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-14eec238f5ddfe2c4081",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.92,
+        "regress": 0.01,
+        "unchanged": 0.07
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-9a0809327ec2da16c036",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.9,
+        "regress": 0.01,
+        "unchanged": 0.09
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-ffedc9d65537922cdc3b",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.84,
+        "regress": 0.02,
+        "unchanged": 0.14
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-a7fb97a77e74a4ca9758",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.01,
+        "regress": 0.08,
+        "unchanged": 0.91
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.65,
+    "max_regression_probability": 0.08,
+    "rationale": "Promote for evaluation: the content-derived policy is likely to recover both linked atlas spans and the complete consensus evidence within budget, with limited risk to the visible baseline success."
+  },
+  "schema_version": 1
+}

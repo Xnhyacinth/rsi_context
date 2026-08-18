@@ -1,0 +1,94 @@
+{
+  "candidate_name": "dynamic-visible-r4",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 64,
+    "gpu_seconds": 4.0,
+    "researcher_input_tokens": 12400,
+    "researcher_output_tokens": 900,
+    "wall_seconds": 180.0
+  },
+  "evidence": [
+    {
+      "claim": "The visible transit failures require two-hop evidence, while the consensus items show that governing rules must remain ahead of matching reports.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Select exact query-identifier chunks, expand once through identifiers found in their leading factual sentences, and pack governing-rule chunks first, newly linked terminal chunks second, and direct chunks third; use lexical overlap only as a fallback, preserve whole-source provenance, and abstain only when no candidate fits.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "4a61cb5bd1ffe2b0500151a2cfd87cb245abb588ed49993fc9c6ca612fdf9612",
+  "predictions": [
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-76642e2db1d3614698da",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.72,
+        "regress": 0.03,
+        "unchanged": 0.25
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-5907d6a3290df94de0c5",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.72,
+        "regress": 0.03,
+        "unchanged": 0.25
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-e99a27774d8783ebda41",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.08,
+        "unchanged": 0.92
+      }
+    },
+    {
+      "evidence_ids": [
+        "visible-baseline"
+      ],
+      "item_id": "dx-f2f5cc740edb1f1ba080",
+      "mechanism_ids": [
+        "policy-mechanism"
+      ],
+      "probabilities": {
+        "improve": 0.0,
+        "regress": 0.08,
+        "unchanged": 0.92
+      }
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.36,
+    "max_regression_probability": 0.08,
+    "rationale": "Promote for evaluation: terminal-first one-hop ordering directly targets both visible failures, while explicit governing-rule priority should preserve the two already-correct consensus cases."
+  },
+  "schema_version": 1
+}

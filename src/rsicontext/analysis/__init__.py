@@ -1,0 +1,71 @@
+"""Process-level analysis for RSI trajectories."""
+
+from rsicontext.analysis.difficulty import (
+    DifficultyGateResult,
+    DifficultyMeasurements,
+    clone_aware_item_disagreement,
+    evaluate_difficulty,
+)
+from rsicontext.analysis.metrics import (
+    ALWAYS_UNCHANGED_COMPARATOR,
+    UNIFORM_COMPARATOR,
+    CalibrationMetrics,
+    Outcome,
+    ReplaySummary,
+    RetentionSummary,
+    TrajectoryMetrics,
+    calibration_metrics,
+    leave_one_trajectory_out_base_rate,
+    replay_summary,
+    retention_summary,
+    trajectory_metrics,
+)
+from rsicontext.analysis.process import (
+    CampaignProcessTrace,
+    RoundPolicyDiff,
+    campaign_process_trace,
+    changed_paths,
+    policy_digest,
+    policy_headline,
+    process_from_campaign_directory,
+)
+from rsicontext.analysis.public_difficulty import (
+    PublicOfflineMeasurements,
+    PublicReaderMeasurements,
+    answer_in_haystack,
+    evaluate_public_offline_difficulty,
+    evaluate_public_reader_difficulty,
+    packer_item_disagreement,
+)
+
+__all__ = [
+    "ALWAYS_UNCHANGED_COMPARATOR",
+    "UNIFORM_COMPARATOR",
+    "CalibrationMetrics",
+    "CampaignProcessTrace",
+    "DifficultyGateResult",
+    "DifficultyMeasurements",
+    "Outcome",
+    "PublicOfflineMeasurements",
+    "PublicReaderMeasurements",
+    "ReplaySummary",
+    "RetentionSummary",
+    "RoundPolicyDiff",
+    "TrajectoryMetrics",
+    "answer_in_haystack",
+    "calibration_metrics",
+    "campaign_process_trace",
+    "changed_paths",
+    "clone_aware_item_disagreement",
+    "evaluate_difficulty",
+    "evaluate_public_offline_difficulty",
+    "evaluate_public_reader_difficulty",
+    "leave_one_trajectory_out_base_rate",
+    "packer_item_disagreement",
+    "policy_digest",
+    "policy_headline",
+    "process_from_campaign_directory",
+    "replay_summary",
+    "retention_summary",
+    "trajectory_metrics",
+]

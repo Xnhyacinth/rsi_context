@@ -1,0 +1,62 @@
+{
+  "candidate_name": "dynamic-visible-r1",
+  "cost": {
+    "evaluation_input_tokens": 32768,
+    "evaluation_output_tokens": 64,
+    "gpu_seconds": 0.0,
+    "researcher_input_tokens": 19000,
+    "researcher_output_tokens": 1800,
+    "wall_seconds": 420.0
+  },
+  "evidence": [
+    {
+      "claim": "Visible failures show that broad lexical expansion mixes unrelated identifiers and competing answers; the gold spans form exact entity-to-relay or rule-signature-to-report chains.",
+      "evidence_id": "visible-baseline",
+      "kind": "visible-item-trace",
+      "reference": "VISIBLE_FEEDBACK_BEGIN"
+    }
+  ],
+  "mechanisms": [
+    {
+      "description": "Retrieve exact query anchors, then follow only identifiers stated in those anchors or in the applicable consensus rule, preserving complete source chunks.",
+      "mechanism_id": "policy-mechanism",
+      "policy_paths": [
+        "policy/policy.py"
+      ]
+    }
+  ],
+  "parent_artifact_id": "4bcc002f7810f4c8b0819f4077431e0b44722a67b1dab0fa48c117954434d989",
+  "predictions": [
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-14eec238f5ddfe2c4081",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.88, "regress": 0.02, "unchanged": 0.10}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-9a0809327ec2da16c036",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.88, "regress": 0.02, "unchanged": 0.10}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-ffedc9d65537922cdc3b",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.82, "regress": 0.03, "unchanged": 0.15}
+    },
+    {
+      "evidence_ids": ["visible-baseline"],
+      "item_id": "dx-a7fb97a77e74a4ca9758",
+      "mechanism_ids": ["policy-mechanism"],
+      "probabilities": {"improve": 0.08, "regress": 0.04, "unchanged": 0.88}
+    }
+  ],
+  "promotion": {
+    "decision": "promote",
+    "expected_score_delta": 0.68,
+    "max_regression_probability": 0.04,
+    "rationale": "Promote for evaluation: exact content-derived chaining is likely to repair three visible failures while preserving the already-correct consensus item, with low estimated regression risk."
+  },
+  "schema_version": 1
+}

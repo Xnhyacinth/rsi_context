@@ -1,0 +1,100 @@
+{
+  "callback_only": true,
+  "formal_process_isolation": false,
+  "process": {
+    "discovery_gain": 0.0,
+    "first_score": 0.625,
+    "h0_score": 0.625,
+    "last_minus_peak": 0.0,
+    "last_score": 0.625,
+    "peak_round": 0,
+    "peak_score": 0.625,
+    "post_peak_regression": false,
+    "round_diffs": [],
+    "scores": [
+      0.625
+    ],
+    "selected_round": null,
+    "selected_score": 0.625
+  },
+  "rounds": [
+    {
+      "candidate_artifact_id": "04c66cea36e0428cfb1a76f10b79deb53eb8cb52aab329fdea1cd20598c31193",
+      "candidate_name": "missing-submission-r0",
+      "evaluation_artifact_id": "91393a98c37c400a32e7b0ef134969f6158b0f9d187898974e0ab561c1607b63",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": "researcher process exited with status 1",
+      "manifest_artifact_id": "c918d74473e5fbcd91fd29d78414f03d9c9dbef90e5748d05f1a7f351c6bd01e",
+      "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "promoted": false,
+      "promotion_artifact_id": "099180683ee0299c38bf601d822fed40f782d4cb2c5ec34476da5ce5dfb5d5c8",
+      "researcher_recommendation": "hold",
+      "round_index": 0,
+      "score": 0.0,
+      "valid": false
+    },
+    {
+      "candidate_artifact_id": "477c8e670bc92fefca941fe8365782b01eb4e7fa3e0ee75258178734a037ced6",
+      "candidate_name": "missing-submission-r1",
+      "evaluation_artifact_id": "a9c20a1437efa98aeccf6e052e04e3bef528952f0c9070284462f1263d527d65",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": "researcher process exited with status 1",
+      "manifest_artifact_id": "7736a956d725bbfb7712086cc408a2cb8d54a6d4cfe6dab5862a7c7ea554d956",
+      "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "promoted": false,
+      "promotion_artifact_id": "66adb659bf5b559086fa18769b65b7ffce6a4326ca41a112d72ea5db989e073b",
+      "researcher_recommendation": "hold",
+      "round_index": 1,
+      "score": 0.0,
+      "valid": false
+    },
+    {
+      "candidate_artifact_id": "3bb17721a7bc75b055925d4f5bfa9d9c0ddf7edda5062a58f10901a60f31a87b",
+      "candidate_name": "missing-submission-r2",
+      "evaluation_artifact_id": "a1a98bba2d72e21ae82c420598df807ab9bfed9999106c5f7cd6782c15899776",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": "researcher process exited with status 1",
+      "manifest_artifact_id": "7bc7b3efeb8b7bdefebcccd3a8a67816ec5d9d272e26804f8b9de8dcb39865e3",
+      "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "promoted": false,
+      "promotion_artifact_id": "600af53af37f2319670458a05a830206f907494756b74f2522e6969fd0c70df5",
+      "researcher_recommendation": "hold",
+      "round_index": 2,
+      "score": 0.0,
+      "valid": false
+    },
+    {
+      "candidate_artifact_id": "ab538fa74fbca4af4a2b973693d90d0835c1b9ff3a7829f70b8f8dfdf80479e2",
+      "candidate_name": "missing-submission-r3",
+      "evaluation_artifact_id": "e49dd621e9c9d5e186461e0f1e2027526b1b2ea606d6c9914a2b827132bca4d6",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": "researcher process exited with status 1",
+      "manifest_artifact_id": "20c6a62f8793a503fb3958c011b10b0bfab0f563b4c2ace812c9bd7245afc0a8",
+      "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "promoted": false,
+      "promotion_artifact_id": "4626bbc06c69033c431f429e6daa119f1dfe791fa35f58d10d2222576ee5aa87",
+      "researcher_recommendation": "hold",
+      "round_index": 3,
+      "score": 0.0,
+      "valid": false
+    },
+    {
+      "candidate_artifact_id": "5bed8a881ec697e9c993814335679b20128399a18b060891eb0bfde0d61d7a3e",
+      "candidate_name": "missing-submission-r4",
+      "evaluation_artifact_id": "d8f7d3255994f27cb2d8e20d43446a4a17bb4c427abf2e5d2282ca2ad42a4b9b",
+      "incumbent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "invalid_reason": "researcher process exited with status 1",
+      "manifest_artifact_id": "0cc244ff327d5e7743cc6687b89d4155b579fc97c5641970a9eb7f1e01decdcc",
+      "parent_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+      "promoted": false,
+      "promotion_artifact_id": "994db187b0390701c7f3cd76b2dbb052214b4594b7b7ae9243af1d05ab22bfbd",
+      "researcher_recommendation": "hold",
+      "round_index": 4,
+      "score": 0.0,
+      "valid": false
+    }
+  ],
+  "seed_artifact_id": "ac42419341a52d94b2b43fc189acaea3ffd5c4f804bd21458ecf39ab0aebd848",
+  "seed_evaluation_artifact_id": "265d684c577396b53b1a74c15854e19cbfdc493ea1e7cfbb1083beb4c08b72de",
+  "selected_round": null
+}
