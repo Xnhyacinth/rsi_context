@@ -3,6 +3,9 @@
 The executable A2 factorial, difficulty thresholds, primary estimand, rival
 hypotheses, and launch gates are frozen in
 [`a2-preregistration.md`](a2-preregistration.md).
+The project-level research question, RSI terminology, resource allocation, task
+ladder, and post-Recuris claim boundary are normative in
+[`study-contract.md`](study-contract.md).
 
 ## Pre-registered questions
 
@@ -105,6 +108,14 @@ and benchmark-controlled promotion or rollback. Ten rounds is the main cap.
 The seed policy is evaluated and persisted before round 0 and initializes the
 historical-best incumbent; a first candidate that scores below H0 is never
 promoted merely because it is the first valid submission.
+
+The A2 screen uses five slots and a hard 1,800-second timeout per researcher
+turn; the A3 ceiling is ten such slots per trajectory. The primary researcher
+environment is a frozen, network-disabled repository image. Internet-enabled
+open autonomy is a separate arm because changing available public information
+changes the treatment. Wall time, candidate slots, feedback bytes, pack tokens,
+and target calls are matched. Researcher/API cost and local GPU/HBM/runtime
+measurements are reported but do not alter semantic-policy fitness.
 
 The implementation treats invalid researcher output as process evidence, not a
 zero-scored policy. A valid submission contains exactly `policy/` and

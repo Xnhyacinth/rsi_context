@@ -44,9 +44,19 @@ called matched to unrestricted Python.
 ## Fixed factorial and accounting
 
 `build_a2_pilot_plan` materializes the exact `2 researchers x 2 task profiles x
-2 research seeds x 5 rounds` factorial. Each researcher/profile/seed cell is a separate
-trajectory over 40 visible items from one task profile. Invalid submissions
-consume their attempt slot.
+2 research seeds x 5 rounds` factorial. Each researcher/profile/seed cell is a
+separate trajectory over 40 visible items from one task profile. Each of the 40
+researcher turns has a hard 1,800-second timeout, so the aggregate researcher
+wall ceiling is 72,000 seconds. Invalid, duplicate, timed-out, missing, or
+over-budget submissions consume their attempt slot.
+
+The matched primary runs in a frozen repository image with a fixed dependency
+lock, prompt, tool allowlist, task bundle, and network-disabled researcher
+workspace. A separately labeled open-autonomy arm may use the public internet,
+but does not enter the matched estimand. Candidate policy workers and the reader
+endpoint have no network in every formal arm. Candidate slots, wall time,
+feedback bytes, target calls, and policy tokens are matched allocations;
+researcher tokens/dollars and reader GPU/HBM/latency are accounting outcomes.
 
 These serialized seeds control researcher/search randomness and public visible
 item order only. Generator seeds for gate and sealed data are evaluator secrets,
@@ -144,8 +154,19 @@ probability triples.
 ## Difficulty contract
 
 The old four-item panel remains an infrastructure qualification only. The
-intended A2 panel uses a target-tokenized 32K source with an 8K policy budget and
-two primary profiles:
+formal A2 task identities are not yet frozen. They must fill two pre-registered
+roles: (1) realistic long-document evidence routing and (2) causally annotated
+multi-hop or global reasoning. At least one profile must come from a real public
+long-document distribution; synthetic profiles may provide causal instruments
+but cannot be the sole paper headline. The currently promising routing cell is
+HELMET PopQA k1000 (approximately 111K source tokens to an 8K pack). The second
+role remains blocked until a MuSiQue/HotpotQA/2Wiki-style supporting-fact task
+with target-tokenized distractors passes the same oracle, saturation, position,
+and causal gates. Exact profile IDs, revisions, and fingerprints freeze before
+the first A2 researcher turn.
+
+The rejected synthetic calibration candidate used a target-tokenized 32K source
+with an 8K policy budget and two profiles:
 
 1. compositional retrieval with five gold statements, isomorphic competing
    two-hop terminals, and a bushy distance-2 neighborhood. The v3b three-link

@@ -1,5 +1,15 @@
 # Durable project summary
 
+As of 2026-08-29, `docs/study-contract.md` is the normative project charter.
+The project is a benchmark and empirical study of bounded externalized
+self-improvement at the context-policy locus, not a strict-RSI or new memory
+method claim. Recuris is pinned at
+`a0479b27a2d08b7fbf2607acf1841a06b121ee91` as a long-horizon reference;
+its publication makes first context/memory-evolution claims unavailable. A2 now
+hashes five 1,800-second researcher turns per trajectory, but formal task IDs
+remain unfrozen and A2 remains blocked on a real causal multi-hop profile,
+host-specific spend caps, and attested physical isolation.
+
 The project now has a tested researcher/policy/frozen-reader loop, pinned asset and
 serving identities, fresh-process exact-byte policy evaluation, fixed-policy controls,
 manifest calibration, and candidate replay.

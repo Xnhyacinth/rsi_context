@@ -3,15 +3,17 @@
 ```yaml
 version: "1.0"
 owner: "RSIBench-Context contributors"
-updated_at: "2026-08-16"
+updated_at: "2026-08-29"
 
 objective:
-  primary_goal: "Produce auditable evidence that coding researchers can improve a frozen reader's long-context accuracy and efficiency via a budgeted context compiler, without confounding discovery with unmatched search or label leakage."
+  primary_goal: "Test whether general coding researchers can autonomously discover, predict, retain, and transfer a better frozen-reader context compiler than matched search under fixed feedback and resource budgets."
   non_goals:
     - "Joint semantic-policy and KV/system optimization"
     - "Unpinned model or dataset claims"
     - "Treating prescribed policies as researcher discovery"
     - "Skipping difficulty gates to report HELMET/LongBench numbers"
+    - "Claiming strict RSI or the first evolving context/memory system after Recuris"
+    - "Using synthetic tasks as the sole paper headline"
 
 complexity_model:
   dimensions:
@@ -51,8 +53,11 @@ quality_gates:
   experiment:
     require_replay_noise_gate: true
     require_matched_budget_controls: true
+    require_hard_researcher_turn_timeout: true
+    require_network_disabled_primary_researcher: true
     require_immutable_artifacts: true
     require_sealed_isolation_for_paper_claims: true
+    require_real_public_primary_profile: true
 
 validation:
   preferred_order:
@@ -65,6 +70,7 @@ validation:
     - "Disclose unavailable external or GPU validation and do not upgrade the claim."
 
 artifact_contract:
+  study_contract: "docs/study-contract.md"
   trial_log: ".hl/trials.jsonl"
   summary: ".hl/summary.md"
   regressions: ".hl/regressions.md"

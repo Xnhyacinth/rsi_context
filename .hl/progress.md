@@ -1,5 +1,83 @@
 # Progress
 
+## 2026-08-29 unified local/API reader preparation
+
+- Audited the existing zero-dependency OpenAI-compatible reader, strict API
+  profiles, Tencent canary, vLLM serving profiles, runtime attestation, and two
+  autonomous visible-pilot scripts.
+- Added focused tests first for keyless local vLLM, remote-key fail-closed
+  resolution, shared profile reader construction, and explicit API
+  observability. The required red state was observed: test collection fails
+  because `build_profile_reader` is not implemented yet.
+- Implemented the minimum shared runtime seam in `experiment/api.py`, added an
+  explicit `api_key_required=false` to the local vLLM profile and generated
+  local profiles, and kept Tencent key-required by default.
+- Focused verification is green: 24 tests passed; focused Ruff, strict mypy,
+  and Bandit passed. The helpers are not exported or wired into scripts yet.
+- Bumped the canary schema to v3, added a tested API-profile identity factory,
+  exported the runtime helpers, and wired them into `api_canary.py` plus both
+  autonomous visible-pilot scripts. The duplicate environment lookup, reader
+  construction, and identity assembly were removed.
+- Post-wiring focused verification is green: 27 tests passed; Ruff, strict mypy,
+  and Bandit passed on all touched Python files.
+- Executed a real three-replay `hy3-ioa` canary through the shared runtime path.
+  Connectivity/model identity passed, but exact answer and output-usage
+  stability failed (`amber.`/3 tokens versus `amber`/2 tokens). Artifact:
+  `artifacts/api-canary/hy3-ioa-20260829-provider-preflight.json`. No campaign
+  was launched after the failed gate.
+- Generated the registered local Qwen serve dry-run successfully; it is TP8/DP1,
+  BF16 model/KV, 131072 max length, prefix cache off, seed 42, and wrapped by
+  `hold.sh`. A one-call local canary then failed with connection refused because
+  no server is currently listening on port 8017. No GPU process was started.
+- Registered the three official multi-hop code/evaluation repositories at
+  verified immutable commits: MuSiQue, HotpotQA, and 2WikiMultiHopQA. Registry
+  tests are green (26 passed), and the acquisition dry-run was reviewed. The
+  entries explicitly do not claim checksums for separately hosted data bytes.
+- After reviewing the dry-run, cloned all three repositories under organized,
+  ignored `data/{musique,hotpotqa,2wikimultihopqa}` directories and checked out
+  the registered commits detached. No separately hosted dataset archive was
+  downloaded.
+
+## 2026-08-29 Recuris-aligned execution roadmap
+
+- Replaced the stale qualification-run task plan with a gated P0--P7 project
+  plan. The immediate unit is offline selection of one real supporting-fact
+  multi-hop dataset; no A2 researcher trajectory is authorized yet.
+- Added `docs/execution-roadmap.md` with a claim-to-evidence matrix, task and
+  baseline roles, resource stages, falsifiable expected patterns, and an
+  explicit go/no-go ledger. Numerical expectations are labelled hypotheses.
+- Borrowed Recuris's component-scoped patches, arithmetic held-out checks,
+  file-based state, and mechanism fingerprint as audit ideas. Its evolving
+  memory/checkers and progressive hidden gate remain outside static A2.
+- Added a planned evaluator-owned policy activation fingerprint. It records
+  whether claimed changes actually affect selection, expansion, allocation,
+  order, verification, or abstention; it is attribution evidence, not fitness.
+- Clarified that `hy3-ioa` may be a researcher treatment or labelled reader
+  replication. It cannot silently replace the primary frozen reader without
+  snapshot/runtime attestation, deterministic replay, and fresh task gates.
+- Formal A2 remains blocked on both qualified task identities, host spend caps,
+  physical evaluator isolation, and endpoint identity attestation.
+- Documentation consistency verification: `git diff --check` clean and
+  `uv run pytest tests/test_project_assets.py -q` passed (2 tests). No model,
+  dataset download, reader call, or formal experiment was launched in this step.
+
+## 2026-08-29 study contract and Recuris boundary
+
+- Added `docs/study-contract.md` as the normative project charter: bounded
+  externalized RSI terminology, frozen/editable/evaluator-only surfaces,
+  matched allocation versus accounting resources, A0--A5 task ladder, gates,
+  and falsifiable paper branches. Formal A2 remains blocked.
+- A2 now hashes a 1,800-second hard timeout per researcher turn and a
+  72,000-second aggregate ceiling over 40 turns. This is an allocation budget;
+  GPU/HBM/KV/runtime remain measured conditions, not semantic-policy knobs.
+- Registered and pinned Recuris at commit
+  `a0479b27a2d08b7fbf2607acf1841a06b121ee91`; cloned it detached under
+  `external/recuris`. It is a long-horizon reference adapter, not a matched
+  static-document controller.
+- Formal A2 task identities remain unfrozen. At least one must be a real public
+  long-document distribution; current PopQA k1000 is only a promising routing
+  cell, and the causal multi-hop/global role still needs qualification.
+
 ## 2026-08-18 unique PopQA `-03` finished with zero researcher turns
 
 - Same fingerprint as `-02`. H0 0.625 (8 reader calls). All five Codex turns
@@ -195,3 +273,84 @@
   oracle 0.875 / max policy 0.375, but dense lexical/BM25 hit 1.0. Difficulty
   failed. A2 not started. Record:
   `artifacts/hard-causal-gate/qwen-repair-b-causal-replay-disposable-v1.json`.
+
+## 2026-08-29 provider unification + MuSiQue preparation
+
+- Unified all API-backed qualification, hard-gate, autonomous, and replay entry
+  points on one OpenAI-compatible profile resolver/reader factory. Remote
+  credentials remain runtime-only; keyless local vLLM is explicit.
+- The current `hy3-ioa` three-replay canary reached the provider but failed the
+  exact answer/output-usage stability gate (`amber.` vs `amber`). It remains a
+  debug/replication reader, not the primary frozen backbone.
+- Serving profiles now hash `127.0.0.1:8017`; generated vLLM commands explicitly
+  bind loopback/port under `hold.sh wrap`. Formal reader construction and runtime
+  attestation reject endpoint drift; local launchers expose no override.
+- Pinned official MuSiQue, HotpotQA, and 2Wiki code repositories under ignored
+  `data/` paths. Their separate archives were not downloaded because upstream
+  manifests provide no content checksums.
+- Added a fixture-first strict MuSiQue-Answerable adapter. Policy input is
+  label-free; answers, aliases, support paragraphs, and hop decomposition stay
+  evaluator-side. No generic evaluator conversion is exposed before the
+  official scorer is integrated.
+- Review found and fixed four defects: boolean/nonpositive reader output caps,
+  unauthenticated all-interface vLLM defaults, lossy MuSiQue alias scoring, and
+  endpoint/profile provenance drift. Final independent review has no must-fix
+  findings.
+- Final gates: 433 tests passed, 84.12% branch coverage; Ruff, strict mypy,
+  Bandit `-ll`, and diff check passed. No GPU service or A2 trajectory was run.
+
+## 2026-08-29 private publication + `hy3-ioa` diagnosis started
+
+- Activated the file-based planning and Git workflow runbooks.
+- Split work into GitHub privacy/release audit, HF prepared-data audit, and a
+  bounded `hy3-ioa` diagnosis. No external repository was created or pushed
+  before privacy, provenance, and secret checks.
+- Completed the bounded `hy3-ioa` diagnostic: 5-call exact replay plus 6
+  length/position calls. The endpoint was stable in this batch and passed every
+  512/8K position cell, but exact answer compliance failed on a terminal period
+  and the alias remains unversioned. No RSI campaign was started.
+
+## 2026-08-29 private publication checkpoint
+
+- Re-read the repository-local `AGENTS.md`; the three-way isolation boundary,
+  registry-only acquisition, local `uv`, and full validation gates remain in
+  force for this release.
+- GitHub audit confirmed `Xnhyacinth/rsi_context` is private and credentials
+  are clean, but `main` is unprotected and raw `results/` paths are not safely
+  excluded. Publication will therefore use a private feature branch and an
+  allowlisted HF payload rather than `git add -A` or a direct main push.
+- Added the first fail-closed HF bootstrap specification and release-builder
+  tests. The initial red test was the expected missing module; the implemented
+  behavior tests pass 7/7. A focused module-coverage run reached 79.27%, just
+  below the 80% gate, so malformed-schema and boundary tests are being added
+  before any external publication.
+- Added a credential-free `hy3-ioa` diagnostic note and ignore rules for future
+  raw results, traces, environment files, and common private-key formats.
+- Completed the HF bootstrap builder quality loop: 20 focused tests pass, the
+  release module reaches 95.12% branch-aware coverage, and focused Ruff,
+  strict mypy, and Bandit checks are clean. The extra cases cover malformed
+  schemas, nonempty staging, unsafe/reserved paths, duplicate destinations,
+  invalid label declarations, and unreadable inputs.
+- Independent review blocked publication on provenance and partial-output
+  risks. Fixed the builder to require an existing `source_revision` equal to a
+  clean repository `HEAD`, validate every entry before staging, write the same
+  captured bytes that were hashed, and atomically rename a temporary package.
+  Added nonexistent/mismatched/dirty-revision tests; 21 focused tests now pass
+  with 90.37% branch-aware release-module coverage and clean focused Ruff,
+  strict mypy, and Bandit checks.
+- Corrected the `hy3-ioa` note: endpoint metadata is retained while credentials
+  are not, and the 11-call diagnostic was bounded rather than preregistered.
+- The second provenance review identified ignored and `assume-unchanged` files
+  as clean-status bypasses. The builder now loads the committed blob for the
+  spec and every payload with `git cat-file` and requires byte identity with
+  the captured release input. Regression tests cover both bypasses plus atomic
+  rename cleanup. Focused status: 23 tests, 91.67% branch-aware coverage, and
+  clean Ruff, strict mypy, and Bandit.
+- The first post-builder repository-wide gate completed before this final
+  provenance tightening: 454 tests passed in 311.67 seconds with 84.24%
+  branch-aware coverage. A final static gate and a targeted/full regression
+  rerun are still required after the last fix.
+- Final post-review gates passed: 456 repository tests with 84.28%
+  branch-aware coverage in 321.05 seconds; repository-wide Ruff; strict mypy
+  across 150 source files; Bandit medium/high scan; and `git diff --check`.
+  The final independent release review reports no remaining must-fix issue.

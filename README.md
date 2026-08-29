@@ -6,10 +6,15 @@ the reader model, decoding stack, and evaluator remain frozen.
 
 The implementation follows the protocol in
 [`RSIBench-Context-research-report.md`](RSIBench-Context-research-report.md).
+The normative project question, bounded-RSI definition, resource contract, task
+ladder, and claim boundary are in
+[`docs/study-contract.md`](docs/study-contract.md).
 The paper-scale A2 claim and difficulty contract are pre-registered in
 [`docs/a2-preregistration.md`](docs/a2-preregistration.md); the intended paper
 contribution is the protocol conjunction in
-[`docs/paper-contribution.md`](docs/paper-contribution.md). Current model-backed
+[`docs/paper-contribution.md`](docs/paper-contribution.md), and the gated task,
+baseline, analysis, and transfer sequence is in
+[`docs/execution-roadmap.md`](docs/execution-roadmap.md). Current model-backed
 records remain qualification evidence.
 It currently includes the bounded policy API, deterministic evaluator and
 causal controls, immutable policy lineage, calibrated researcher manifests,
@@ -52,18 +57,39 @@ It qualifies the RSI process without making any claim about model quality.
 Review acquisition and serving commands before running them:
 
 ```bash
-uv run python scripts/registry_download.py ruler-v1 helmet longmemeval-v2 gepa
+uv run python scripts/registry_download.py ruler-v1 helmet longmemeval-v2 gepa recuris
 uv run python scripts/registry_preflight.py qwen3.6-27b llama-3.3-70b-instruct
 uv run python scripts/serve_dry_run.py qwen3.6-27b-128k-bf16-h200x8
 ```
 
 The registry pins Qwen3.6-27B, Llama-3.3-70B, RULER, HELMET,
-LongMemEval-V2, GEPA, MCE, Meta-Harness, RLM, and KVPress to reviewed revisions.
+LongMemEval-V2, GEPA, MCE, Meta-Harness, Recuris, RLM, and KVPress to reviewed
+revisions.
 Acquisition scripts are dry-run by default. This checkout has verified pinned
 Qwen3.6-27B weights, LongBench-v2, and LongMemEval-V2 data under ignored local
-paths, plus the registered RULER/HELMET/LongMemEval/GEPA source checkouts. The
-Llama reader is still blocked by gated Meta access; RULER and HELMET execution
-still requires their isolated upstream dependency environments.
+paths, plus the registered RULER/HELMET/LongMemEval/GEPA/Recuris source
+checkouts. The Llama reader is still blocked by gated Meta access; RULER and
+HELMET execution still requires their isolated upstream dependency
+environments.
+
+## Private prepared-data publication
+
+Prepared researcher-visible data is published separately from evaluator-only
+gate/sealed assets. The initial HF package is deliberately a non-benchmark
+schema-smoke artifact containing one project-authored synthetic fixture. Build
+it only from a clean, committed revision:
+
+```bash
+uv run python scripts/build_hf_dataset_release.py \
+  --source-revision <40-character-git-sha>
+```
+
+The allowlist is `configs/hf_dataset_release.json`. The builder refuses raw
+results and sources outside `tests/fixtures`, then emits a dataset card,
+machine-readable provenance manifest, and SHA-256 list under ignored
+`artifacts/hf-release/`. Official benchmark archives, API responses, and all
+gate/sealed records are excluded. A private HF repository is a distribution
+control, not the evaluator's physical isolation boundary.
 
 ## Tencent API replication reader
 
@@ -73,18 +99,22 @@ artifacts. The endpoint requires SSE, so the reader validates the returned model
 one final usage object, and `[DONE]` before accepting an answer.
 
 ```bash
-source /root/.bashrc
 uv run python scripts/api_canary.py tencent-copilot-hy3-ioa \
   --repetitions 5 \
   --output artifacts/api-canary/<unique-record>.json
 ```
 
-The completed five-replay canary is answer/model/usage stable, but the provider
-does not expose an immutable model revision. `hy3-ioa` is therefore an API
-replication/pilot reader, not a sole replacement for the pinned Qwen paper
-backbone. See [the API experiment plan](docs/api-hy3-experiment-plan.md) for
-length gates, the RSI matrix, long-horizon transfer, stop rules, and record
-layout.
+Run this from a shell that already exports the two variables; never copy their
+values into a command, config, or artifact. The 2026-08-14 five-replay artifact
+was answer/model/usage stable. A 2026-08-29 three-replay preflight returned the
+same model and input usage but varied between `amber.`/3 output tokens and
+`amber`/2, so that batch failed the exact replay gate. The provider also exposes
+no immutable model revision. `hy3-ioa` is therefore an API replication/debug
+reader, not a replacement for the pinned Qwen paper backbone. See
+[the API experiment plan](docs/api-hy3-experiment-plan.md) for length gates, the
+RSI matrix, long-horizon transfer, stop rules, and record layout. The bounded
+[2026-08-29 diagnosis](docs/hy3-ioa-diagnostic-2026-08-29.md) separates working
+transport/8K retrieval from the failed immutable-revision requirement.
 
 Initial 8K/32K length replay, fixed-policy dynamic-range qualification, and a
 visible-only autonomous micro run have completed. Remote candidate replay showed
@@ -109,6 +139,10 @@ weights/KV, TP8, prefix cache disabled, seed 42, and the official
 records both API-profile and serving-profile hashes:
 
 ```bash
+export RSICONTEXT_LOCAL_VLLM_ENDPOINT=http://127.0.0.1:8017/v1/chat/completions
+uv run python scripts/api_canary.py local-qwen3.6-27b-128k-bf16-h200x8 \
+  --repetitions 5 --output artifacts/api-canary/<unique-local-record>.json
+
 uv run --no-sync python scripts/local_dynamic_gate.py \
   --output artifacts/local-dynamic-gate/<unique>.json
 

@@ -40,11 +40,30 @@ The default transport is for an allowlisted local vLLM endpoint, ignores
 environment proxies, refuses all redirects, limits responses to 1 MiB, and
 rejects responses without token usage.
 
+Local vLLM and remote providers use the same `OpenAICompatibleReader` transport.
+Only the frozen API profile and resolved endpoint differ. The registered local
+profile explicitly permits a missing API key; it reads only
+`RSICONTEXT_LOCAL_VLLM_ENDPOINT` and never needs a dummy credential:
+
+```bash
+export RSICONTEXT_LOCAL_VLLM_ENDPOINT=http://127.0.0.1:8017/v1/chat/completions
+uv run python scripts/api_canary.py local-qwen3.6-27b-128k-bf16-h200x8 \
+  --repetitions 5 --output artifacts/api-canary/<unique-local-record>.json
+```
+
+Generate and review the hold-wrapped server command with
+`scripts/serve_dry_run.py` before starting vLLM. Formal local runs additionally
+require `OpenAICompatibleReader.from_run_spec` and the runtime/isolation
+attestation; passing the compatibility canary alone is insufficient.
+
 The registered Tencent Copilot profile uses the same proxy/redirect/size
 controls but requires strict SSE. Run `scripts/api_canary.py` before and after
 each API campaign. The record contains endpoint/profile/model/usage/latency but
 never the credential. A missing provider revision is recorded as `null` and
 prevents treating the API alias as an immutable checkpoint.
+The canary also lists HTTP-observable fields and explicitly marks GPU seconds,
+peak HBM, KV capacity, prefix-cache state, and scheduler state unobservable.
+Any answer, usage, or returned-model drift invalidates that API batch.
 
 KV capacity, HBM, GPU time, prefix-cache counters, and scheduler state are runtime
 instruments for cost and reproducibility. They are frozen controls in the semantic

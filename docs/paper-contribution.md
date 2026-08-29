@@ -11,18 +11,23 @@ The editable object is `H`: source artifact + query → 8K `ContextPack`. Reader
 weights, decoding, prompt, evaluator, and labels stay frozen. Policy code must
 not answer, serve, decode, score, or see labels.
 
+The normative research question, terminology, resource budget, task ladder,
+and post-Recuris novelty boundary are defined in
+[`study-contract.md`](study-contract.md). This is bounded externalized
+self-improvement of `H`, not strict self-modification of the researcher.
+
 ## Payoff vs identification
 
 | Layer          | Question                                                                                                              | Evidence                                                                                       |
 | -------------- | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Payoff         | Does a better `H` raise frozen-reader accuracy while cutting tokens/latency/cost on long-context benches?             | 32K→8K landscape, then HELMET RAG/Recall, LongBench, RULER, LongMemEval-V2                     |
+| Payoff         | Does a better `H` raise frozen-reader accuracy while cutting tokens/latency/cost on long-context benches?             | qualified long-source→8K landscape, then HELMET RAG/Recall, LongBench, RULER, LongMemEval-V2   |
 | Identification | Did a coding researcher discover that `H`, or was it matched search / a published compressor / label leakage / noise? | Three-way isolation, finite `PolicySpecV1`, replay/causal/manifest, visible-select / gate-eval |
 
 Skipping identification and “just beating HELMET” collapses into a crowded
 compressor-methods paper. Skipping the payoff and reporting only protocol
 diagnostics will not convince a D&B reviewer that agents matter for long
 context. Both layers are required. Transfer benches are not a substitute for a
-non-saturated 32K landscape.
+non-saturated, complete-evidence-solvable fitness landscape.
 
 ## Claim the paper can support
 
@@ -39,18 +44,19 @@ The contribution is the **conjunction**:
 
 Closest prior art covers the pieces, not the conjunction:
 
-| Lineage                               | What it evaluates              | What it does not freeze                    |
-| ------------------------------------- | ------------------------------ | ------------------------------------------ |
-| RULER, HELMET, LongBench-v2           | frozen readers on long inputs  | researcher process; matched policy grammar |
-| LongLLMLingua, RECOMP                 | human-designed compressors `H` | researcher discovery vs matched search     |
-| GEPA, DSPy, ACE                       | prompt/playbook optimization   | frozen reader + causal/replay protocol     |
-| RSIBench-Data, RE-Bench, MLAgentBench | coding researchers             | inference-time information interface       |
+| Lineage                       | What it evaluates                 | What it does not freeze                         |
+| ----------------------------- | --------------------------------- | ----------------------------------------------- |
+| RULER, HELMET, LongBench-v2   | frozen readers on long inputs     | researcher process; matched policy grammar      |
+| LongLLMLingua, RECOMP         | human-designed compressors `H`    | researcher discovery vs matched search          |
+| GEPA, DSPy, ACE               | prompt/playbook optimization      | frozen reader + causal/replay protocol          |
+| Recuris                       | external memory-control evolution | multi-researcher matched-search/noise benchmark |
+| RSIBench-Data, PostTrainBench | coding researchers                | inference-time information interface            |
 
 Settings copied from those papers (4× budget, T=0, HELMET output contracts,
 RECOMP selective abstention, HELMET RAG transfer) live in
 `.hl/artifacts/borrowed-settings-2026-08-16.md`. Do not cite rsibench.com. Do
-not claim a new SOTA compressor, recursive self-improvement, or sealed
-isolation on this host.
+not claim a new SOTA compressor, the first evolving context/memory system,
+strict RSI, or sealed isolation on this host.
 
 ## Evidence currently in hand
 
@@ -79,13 +85,18 @@ isolation on this host.
   clones; head/distributed strata 0. A2 stays stopped.
 
 A2 is a **screen** (2 researchers × 2 profiles × 2 seeds × 5 rounds; 10,720
-nominal reader calls). It is not powered to rank researchers. Formal gate
-scoring still requires physical isolation that this host cannot attest.
+nominal reader calls). Each researcher turn has a hard 1,800-second timeout,
+for a 72,000-second aggregate ceiling over 40 turns. It is not powered to rank
+researchers. Formal gate scoring still requires physical isolation that this
+host cannot attest.
 
 ## Transfer and length
 
 HELMET RAG/Recall, LongBench, RULER, and LongMemEval-V2 are frozen-policy
-transfer after a valid 32K landscape and A2, not a way to unsaturate 32K.
+transfer after valid difficulty qualification and A2, not a way to rescue a
+saturated fitness task. Recuris-style state-grounded invocation and verified
+working state are long-horizon reference baselines, not static-document matched
+controls.
 Official LME-V2 uses 451 questions, 25M/115M token haystacks, and a 200k-token
 reader truncation. Lightweight first passes in this project keep the 8K pack
 and report `answer_string_present` only. Length cells (32K vs 128K, later

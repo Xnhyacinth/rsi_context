@@ -1,5 +1,14 @@
 # Failed or rejected directions
 
+- Claiming that external context or memory evolution for a frozen model is new
+  is rejected after Recuris. RSIBench-Context must remain a researcher benchmark
+  with matched search/noise/manifest evidence; a Recuris-like memory method is a
+  baseline or transfer arm, not the paper's novelty claim.
+- Making a live long-horizon benchmark the primary identification surface is
+  rejected. Environment stochasticity and matched-retry effects weaken
+  attribution; use static long documents first, then frozen-policy offline and
+  live transfer.
+
 - Low-entropy repeated-word 32K canaries produced misleading failures; retained only
   as a test-construction lesson.
 - Extending the saturated single-needle profile directly to 128K/256K is rejected as
