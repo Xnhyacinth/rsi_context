@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "package_id": "rsibench-context-schema-smoke",
+  "package_version": "0.1.0",
+  "repo_id": "Xnhyacinth/rsibench-context-prepared-visible",
+  "pretty_name": "RSIBench-Context Prepared Visible Data",
+  "description": "Private schema-smoke fixtures for reproducing RSIBench-Context data adapters.",
+  "formal_benchmark_eligible": false,
+  "files": [
+    {
+      "source_path": "tests/fixtures/musique_answerable_sample.jsonl",
+      "destination_path": "fixtures/musique_answerable_synthetic_v1.jsonl",
+      "license": "other",
+      "provenance": "Project-authored synthetic fixture shaped like MuSiQue answerable data.",
+      "visibility": "synthetic-visible-fixture",
+      "purpose": "schema-smoke",
+      "label_fields": [
+        "answer",
+        "answer_aliases",
+        "paragraphs[].is_supporting",
+        "question_decomposition[].answer"
+      ]
+    }
+  ]
+}

@@ -12,4 +12,13 @@ __pycache__/
 /external/
 /data/
 /models/
+/results/
+/.hl/artifacts/traces/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
 *.log
