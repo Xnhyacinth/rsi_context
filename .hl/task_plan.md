@@ -308,21 +308,21 @@ Execution phases:
 1. **Completed — release audit:** inspect Git state/remotes, GitHub/HF auth and
    privacy, ignored/untracked files, secret exposure, dataset licenses, and the
    existing release workflow. No push before the audit passes.
-2. **In progress — GitHub publication:** isolate the reviewed changes into clear
+2. **Completed — GitHub publication:** isolate the reviewed changes into clear
    commit on the current branch, verify the remote repository is private, push
    non-destructively, and record the remote commit.
-3. **Pending — HF data package:** build a minimal manifest-driven prepared-data
+3. **Completed — HF data package:** build a minimal manifest-driven prepared-data
    package from eligible fixtures/metadata, validate it locally, create or
    verify a private dataset repository, upload, and record the remote revision.
 4. **Completed — `hy3-ioa` diagnosis:** run bounded, immutable canaries in
    parallel with publication work and determine which formal gates it can and
    cannot satisfy. It may remain a replication/debug reader.
-5. **Pending — final verification:** rerun tests affected by release tooling,
+5. **In progress — final verification:** rerun tests affected by release tooling,
    review published contents and privacy, update progress/findings, and state
    what still blocks A2.
 
-Next step: create atomic commits on a private feature branch, verify and push
-that branch, then build the HF bootstrap from its clean committed revision.
+Next step: validate the pinned HF registry entry, push the final follow-up
+commit, and re-attest both private remotes and their immutable revisions.
 
 Session errors:
 

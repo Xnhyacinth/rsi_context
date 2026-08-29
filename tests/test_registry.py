@@ -25,6 +25,7 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         "helmet-data",
         "longmemeval-v2",
         "longmemeval-v2-data",
+        "rsibench-context-prepared-visible",
         "musique",
         "hotpotqa",
         "2wikimultihopqa",
@@ -41,6 +42,11 @@ def test_project_registry_has_required_entries_and_modes() -> None:
     assert entries["recuris"].revision == "a0479b27a2d08b7fbf2607acf1841a06b121ee91"
     assert entries["longmemeval-v2"].integration == "direct"
     assert entries["longmemeval-v2-data"].kind == "dataset"
+    assert (
+        entries["rsibench-context-prepared-visible"].revision
+        == "6c384b2c209f79201a8b3ff9c54bbda2a339c62c"
+    )
+    assert entries["rsibench-context-prepared-visible"].access == "gated"
     assert entries["longbench-v2-data"].license == "Apache-2.0"
     assert entries["llama-3.3-70b-instruct"].access == "gated"
     assert entries["musique"].revision == "922ac98f19a201998dbdae6d7f2887a5258dbdeb"

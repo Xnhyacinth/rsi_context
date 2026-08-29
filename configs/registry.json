@@ -200,6 +200,24 @@
       "notes": "Full 7.12 GB snapshot. The first A4 adapter should use text-only questions, trajectories, and small haystack before extracting screenshot archives."
     },
     {
+      "id": "rsibench-context-prepared-visible",
+      "name": "RSIBench-Context prepared visible data",
+      "kind": "dataset",
+      "integration": "direct",
+      "source_type": "huggingface",
+      "url": "https://huggingface.co/datasets/Xnhyacinth/rsibench-context-prepared-visible",
+      "revision": "6c384b2c209f79201a8b3ff9c54bbda2a339c62c",
+      "license": "other; private schema-smoke package",
+      "size_bytes": null,
+      "access": "gated",
+      "checksum": {
+        "algorithm": "hf-revision",
+        "value": "6c384b2c209f79201a8b3ff9c54bbda2a339c62c",
+        "verified": true
+      },
+      "notes": "Private fixture-only package produced from Git revision 985502664a4457146b928581ee96ba7fff89f118. formal_benchmark_eligible=false; never use it as gate/sealed data or a reported benchmark distribution."
+    },
+    {
       "id": "gepa",
       "name": "GEPA",
       "kind": "baseline",

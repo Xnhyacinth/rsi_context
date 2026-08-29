@@ -354,3 +354,12 @@
   branch-aware coverage in 321.05 seconds; repository-wide Ruff; strict mypy
   across 150 source files; Bandit medium/high scan; and `git diff --check`.
   The final independent release review reports no remaining must-fix issue.
+- Published four reviewed commits to the private GitHub feature branch
+  `prep/context-foundations-20260829`; the HF package source revision is
+  `985502664a4457146b928581ee96ba7fff89f118`.
+- Created the private HF dataset repository
+  `Xnhyacinth/rsibench-context-prepared-visible` and uploaded the validated
+  schema-smoke package at revision
+  `6c384b2c209f79201a8b3ff9c54bbda2a339c62c`. Authenticated post-upload checks
+  confirmed `private=true`, the exact five-file allowlist including Hub
+  `.gitattributes`, and byte identity of the remote and local manifests.
