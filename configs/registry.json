@@ -92,6 +92,60 @@
       "notes": "Original paper data.tar.gz (11.27 GB, LFS sha256 9d693981aa3c065b8b2ff82ddf946141cdc4ece4524f18bff6f3fbd2a86982d9). Do not follow dataset main: later commits add data_v2.tar.gz. Matches the pinned HELMET code download_data.sh payload, not HELMET v2."
     },
     {
+      "id": "musique",
+      "name": "MuSiQue",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/stonybrooknlp/musique.git",
+      "revision": "922ac98f19a201998dbdae6d7f2887a5258dbdeb",
+      "license": "CC-BY-4.0",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "922ac98f19a201998dbdae6d7f2887a5258dbdeb",
+        "verified": true
+      },
+      "notes": "Official repository HEAD verified on 2026-08-29. Repository pins code, evaluator, leakage IDs, and download instructions; the separately hosted dataset archive must receive its own checksum before adapter qualification or reporting."
+    },
+    {
+      "id": "hotpotqa",
+      "name": "HotpotQA",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/hotpotqa/hotpot.git",
+      "revision": "3635853403a8735609ee997664e1528f4480762a",
+      "license": "Apache-2.0 code; CC-BY-SA-4.0 dataset",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "3635853403a8735609ee997664e1528f4480762a",
+        "verified": true
+      },
+      "notes": "Official repository HEAD verified on 2026-08-29. Distractor/fullwiki data is downloaded separately from the official site and requires an immutable file checksum before use."
+    },
+    {
+      "id": "2wikimultihopqa",
+      "name": "2WikiMultiHopQA",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/Alab-NII/2wikimultihop.git",
+      "revision": "13800e5be57df1b4040b9b1588c6c811779e69e9",
+      "license": "Apache-2.0 code; audit separately hosted dataset terms",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "13800e5be57df1b4040b9b1588c6c811779e69e9",
+        "verified": true
+      },
+      "notes": "Official repository HEAD verified on 2026-08-29. The separately hosted data archive is not pinned by this entry and must pass license and content-checksum review before use."
+    },
+    {
       "id": "longmemeval-v2",
       "name": "LongMemEval-V2",
       "kind": "dataset",
@@ -216,6 +270,24 @@
         "verified": true
       },
       "notes": "Recursive-reread adapter target at upstream HEAD verified on 2026-08-14; audit transitive model/API requirements."
+    },
+    {
+      "id": "recuris",
+      "name": "Recuris",
+      "kind": "baseline",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/Gen-Verse/Recuris.git",
+      "revision": "a0479b27a2d08b7fbf2607acf1841a06b121ee91",
+      "license": "Apache-2.0",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "a0479b27a2d08b7fbf2607acf1841a06b121ee91",
+        "verified": true
+      },
+      "notes": "Pinned long-horizon reference baseline verified on 2026-08-29. Adapt state-grounded invocation and verified working state under matched retries; do not treat its full memory-evolution system as a matched static-document controller."
     },
     {
       "id": "kvpress",

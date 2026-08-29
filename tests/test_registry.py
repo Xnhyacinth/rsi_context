@@ -25,19 +25,27 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         "helmet-data",
         "longmemeval-v2",
         "longmemeval-v2-data",
+        "musique",
+        "hotpotqa",
+        "2wikimultihopqa",
         "gepa",
         "mce",
         "meta-harness",
+        "recuris",
         "rlm",
         "kvpress",
     }
     assert entries["qwen3.6-27b"].integration == "direct"
     assert entries["gepa"].integration == "adapter"
     assert entries["mce"].integration == "adapter"
+    assert entries["recuris"].revision == "a0479b27a2d08b7fbf2607acf1841a06b121ee91"
     assert entries["longmemeval-v2"].integration == "direct"
     assert entries["longmemeval-v2-data"].kind == "dataset"
     assert entries["longbench-v2-data"].license == "Apache-2.0"
     assert entries["llama-3.3-70b-instruct"].access == "gated"
+    assert entries["musique"].revision == "922ac98f19a201998dbdae6d7f2887a5258dbdeb"
+    assert entries["hotpotqa"].revision == "3635853403a8735609ee997664e1528f4480762a"
+    assert entries["2wikimultihopqa"].revision == "13800e5be57df1b4040b9b1588c6c811779e69e9"
 
 
 def test_registry_rejects_duplicate_ids() -> None:
