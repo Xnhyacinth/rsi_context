@@ -8,10 +8,13 @@ import pytest
 from rsicontext.campaign.autonomous_dynamic import (
     DynamicFreshEvaluator,
     DynamicReaderIdentity,
+    VisibleItemFeedback,
+    _build_research_prompt,
     build_visible_feedback,
     public_visible_items_fingerprint,
     run_autonomous_dynamic_pilot,
 )
+from rsicontext.campaign.researcher import ResearchRoundRequest
 from rsicontext.datasets import generate_dynamic_long_context_dataset
 from rsicontext.eval import EvaluationItem, ReaderOutput, extractive_span_match
 from rsicontext.experiment import Split
@@ -126,6 +129,36 @@ def _failing_codex(tmp_path: Path) -> Path:
     return executable
 
 
+def _fake_api_worker(tmp_path: Path) -> Path:
+    executable = tmp_path / "fake-api-python"
+    executable.write_text(
+        "#!/usr/bin/python3\n"
+        "import json\n"
+        "import pathlib\n"
+        "import sys\n"
+        "prompt = sys.stdin.read()\n"
+        "if 'Return exactly one JSON artifact' not in prompt:\n"
+        "    raise SystemExit('missing API artifact delivery contract')\n"
+        "start = prompt.index('MANIFEST_TEMPLATE_BEGIN\\n') + len('MANIFEST_TEMPLATE_BEGIN\\n')\n"
+        "end = prompt.index('\\nMANIFEST_TEMPLATE_END', start)\n"
+        "manifest = json.loads(prompt[start:end])\n"
+        "workspace = pathlib.Path.cwd()\n"
+        "(workspace / 'policy' / 'policy.py').write_text(\n"
+        "    'from rsicontext.policy import LexicalPolicy\\n\\n'\n"
+        "    'class Policy(LexicalPolicy):\\n    pass\\n',\n"
+        "    encoding='utf-8',\n"
+        ")\n"
+        "(workspace / 'manifest.json').write_text(\n"
+        "    json.dumps(manifest, indent=2, sort_keys=True) + '\\n', encoding='utf-8'\n"
+        ")\n"
+        "print(json.dumps({'type': 'turn.completed', 'usage': "
+        "{'input_tokens': 23, 'output_tokens': 7}}))\n",
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+    return executable
+
+
 def test_visible_feedback_contains_only_visible_item_provenance(tmp_path: Path) -> None:
     seed = "feedback-boundary"
     dataset = generate_dynamic_long_context_dataset(seed=seed, items_per_profile=1)
@@ -207,6 +240,96 @@ def test_dynamic_reader_identity_rejects_boolean_output_limit() -> None:
 
     with pytest.raises((TypeError, ValueError), match="output limit"):
         DynamicReaderIdentity.from_profile(profile, max_output_tokens=True)
+
+
+def test_api_research_prompt_requests_artifact_instead_of_workspace_edits(tmp_path: Path) -> None:
+    policy_directory = tmp_path / "policy"
+    policy_directory.mkdir()
+    (policy_directory / "seed.py").write_text(
+        "from rsicontext.policy import LexicalPolicy\n\nclass Policy(LexicalPolicy):\n    pass\n",
+        encoding="utf-8",
+    )
+    feedback = (
+        VisibleItemFeedback(
+            item_id="visible-0",
+            query="Which code is present?",
+            reference_answer="amber",
+            baseline_score=0.0,
+            baseline_prediction="",
+            gold_evidence=(),
+        ),
+    )
+    request = ResearchRoundRequest(
+        round_index=0,
+        workspace=tmp_path,
+        policy_directory=policy_directory,
+        manifest_path=tmp_path / "manifest.json",
+        parent_artifact_id="a" * 64,
+        incumbent_artifact_id=None,
+        previous_score=0.0,
+        incumbent_score=0.0,
+        prediction_item_ids=(feedback[0].item_id,),
+        last_invalid_reason=None,
+    )
+
+    prompt = _build_research_prompt(request, feedback, None, artifact_delivery="api-json")
+
+    assert "Return exactly one JSON artifact" in prompt
+    assert "Do not modify the workspace" in prompt
+    assert "Modify only policy/*.py" not in prompt
+    assert "artifact.chunks" in prompt
+    assert "budget.max_tokens" in prompt
+    assert "return a ContextPack" in prompt
+    assert "PARENT_POLICY_BEGIN" in prompt
+    assert "class Policy(LexicalPolicy)" in prompt
+    assert "ContextPack(spans=" in prompt
+
+
+def test_api_researcher_runs_through_campaign_with_distinct_profile_identity(
+    tmp_path: Path,
+) -> None:
+    seed = "api-researcher-campaign"
+    result = run_autonomous_dynamic_pilot(
+        initial_policy_directory=_seed_policy(tmp_path),
+        output_directory=tmp_path / "api-result",
+        reader=GoldEvidenceReader(seed=seed, items_per_profile=1),
+        researcher_kind="api",
+        researcher_executable=str(_fake_api_worker(tmp_path)),
+        researcher_api_profiles_path=Path(__file__).parents[1] / "configs" / "api_profiles.json",
+        researcher_api_profile_id="tencent-copilot-hy3-ioa-researcher",
+        dataset_seed=seed,
+        items_per_profile=1,
+        rounds=1,
+        process_limits=ProcessLimits(timeout_seconds=2),
+    )
+
+    assert result.campaign.rounds[0].valid is True
+    assert result.researcher_usage[0].input_tokens == 23
+    assert result.researcher_identity.kind == "api"
+    assert result.researcher_identity.profile_id == "tencent-copilot-hy3-ioa-researcher"
+    assert result.researcher_identity.profile_hash
+    assert result.researcher_identity.system_prompt_sha256
+    assert result.researcher_identity.model == "hy3-ioa"
+
+
+def test_api_command_preserves_virtual_environment_launcher(tmp_path: Path) -> None:
+    launcher = tmp_path / "venv-python"
+    launcher.symlink_to(_fake_api_worker(tmp_path))
+    result = run_autonomous_dynamic_pilot(
+        initial_policy_directory=_seed_policy(tmp_path),
+        output_directory=tmp_path / "symlink-result",
+        reader=GoldEvidenceReader(seed="symlink-launcher", items_per_profile=1),
+        researcher_kind="api",
+        researcher_executable=str(launcher),
+        researcher_api_profiles_path=Path(__file__).parents[1] / "configs" / "api_profiles.json",
+        researcher_api_profile_id="tencent-copilot-hy3-ioa-researcher",
+        dataset_seed="symlink-launcher",
+        items_per_profile=1,
+        rounds=1,
+        process_limits=ProcessLimits(timeout_seconds=2),
+    )
+
+    assert result.researcher_identity.executable_path == str(launcher.absolute())
 
 
 def test_two_round_codex_micro_pilot_records_usage_and_refuses_overwrite(tmp_path: Path) -> None:
@@ -338,6 +461,33 @@ def test_process_failure_consumes_slot_without_raw_output(tmp_path: Path) -> Non
     assert stored["researcher_traces"][0]["process"] is None
     assert stored["researcher_traces"][0]["failure"]["stderr_bytes"] > 0
     assert "FAILURE-SECRET" not in json.dumps(stored)
+
+
+def test_runtime_invalid_policy_consumes_slot_without_reader_call(tmp_path: Path) -> None:
+    seed = "runtime-invalid"
+    reader = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    result = run_autonomous_dynamic_pilot(
+        initial_policy_directory=_seed_policy(tmp_path),
+        output_directory=tmp_path / "runtime-invalid-result",
+        reader=reader,
+        researcher_executable=str(
+            _fake_codex(
+                tmp_path,
+                policy_source="class Policy:\n    def assemble(self, artifact, query, budget):\n"
+                "        return ''\n",
+            )
+        ),
+        dataset_seed=seed,
+        items_per_profile=1,
+        rounds=1,
+        process_limits=ProcessLimits(timeout_seconds=2),
+    )
+
+    assert result.campaign.rounds[0].valid is False
+    assert "ContextPack" in (result.campaign.rounds[0].invalid_reason or "")
+    assert reader.calls == 2
+    assert result.reader_calls == 2
 
 
 def test_short_visible_answers_are_not_treated_as_hardcoded_lookups(tmp_path: Path) -> None:

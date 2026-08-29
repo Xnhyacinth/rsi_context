@@ -9,6 +9,7 @@ from rsicontext.campaign.api_policy_pilot import (
 from rsicontext.campaign.researcher import (
     CampaignConfig,
     CampaignError,
+    CandidateEvaluationError,
     IsolatedEvaluatorCallback,
     ResearchCampaignResult,
     ResearchCampaignRound,
@@ -25,6 +26,7 @@ __all__ = [
     "APIPolicyPilotResult",
     "CampaignConfig",
     "CampaignError",
+    "CandidateEvaluationError",
     "IsolatedEvaluatorCallback",
     "ResearchCampaignResult",
     "ResearchCampaignRound",

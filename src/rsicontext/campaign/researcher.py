@@ -29,6 +29,10 @@ class ResearcherTurnError(RuntimeError):
     """Raised when a researcher turn fails before a scorable candidate exists."""
 
 
+class CandidateEvaluationError(RuntimeError):
+    """Raised when a candidate policy fails before making any reader call."""
+
+
 @dataclass(frozen=True, slots=True)
 class CampaignConfig:
     """Benchmark-owned controls for one callback campaign."""
@@ -278,7 +282,6 @@ def run_researcher_campaign(
             raise CampaignError("manifest parent_artifact_id does not match the research parent")
         _validate_claimed_policy_paths(manifest, candidate_files)
 
-        snapshots.append(candidate_files)
         candidate_record = store.put_files(
             candidate_files,
             kind="policy",
@@ -295,12 +298,28 @@ def run_researcher_campaign(
         evaluation_policy_directory = _materialize_clean_workspace(
             store, candidate_record.artifact_id, evaluation_workspace
         )
-        evaluation = evaluator(evaluation_policy_directory, round_index=round_index)
+        try:
+            evaluation = evaluator(evaluation_policy_directory, round_index=round_index)
+        except CandidateEvaluationError as exc:
+            rounds.append(
+                _record_invalid_submission(
+                    store,
+                    policy_directory=evaluation_policy_directory,
+                    manifest_path=manifest_path,
+                    parent_artifact_id=parent_artifact_id,
+                    incumbent_artifact_id=incumbent_artifact_id,
+                    round_index=round_index,
+                    reason=str(exc),
+                )
+            )
+            last_invalid_reason = str(exc)
+            continue
         if not isinstance(evaluation, RoundEvaluation):
             raise TypeError("evaluator callback must return RoundEvaluation")
         if _policy_snapshot(evaluation_policy_directory) != candidate_files:
             raise CampaignError("evaluator modified the candidate snapshot")
         _validate_evaluation_coverage(evaluation, config.prediction_item_ids)
+        snapshots.append(candidate_files)
         evaluation_record = store.put_text(
             _json_text(evaluation.to_dict()),
             kind="evaluation",

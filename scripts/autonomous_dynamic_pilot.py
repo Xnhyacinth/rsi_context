@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.metadata
 import json
 import shutil
+import sys
 from pathlib import Path
 
 from rsicontext.campaign.api_dynamic_gate import (
@@ -35,9 +37,13 @@ def _parser() -> argparse.ArgumentParser:
         default=Path("configs/serving_profiles.json"),
     )
     parser.add_argument("--initial-policy", type=Path, default=Path("policy"))
-    parser.add_argument("--researcher", choices=("codex", "claude"), default="codex")
+    parser.add_argument("--researcher", choices=("api", "codex", "claude"), default="api")
     parser.add_argument("--researcher-executable")
     parser.add_argument("--researcher-model")
+    parser.add_argument(
+        "--researcher-profile",
+        default="tencent-copilot-hy3-ioa-researcher",
+    )
     parser.add_argument("--researcher-env", action="append", default=[])
     parser.add_argument("--max-budget-usd", type=float)
     parser.add_argument("--dataset-seed", default="autonomous-dynamic-visible-v1")
@@ -69,7 +75,28 @@ def main() -> int:
     else:
         profile = load_api_profiles(args.profiles).get(args.profile)
         endpoint = resolve_api_endpoint(profile)
-    executable = args.researcher_executable or shutil.which(args.researcher)
+    researcher_profile = None
+    researcher_endpoint_sha256 = None
+    researcher_environment = tuple(args.researcher_env)
+    researcher_model = args.researcher_model
+    if args.researcher == "api":
+        if args.researcher_env:
+            raise ValueError("API researcher environment is fixed by its profile")
+        if args.max_budget_usd is not None:
+            raise ValueError("API researcher does not accept a CLI dollar budget")
+        researcher_profile = load_api_profiles(args.profiles).get(args.researcher_profile)
+        researcher_endpoint = resolve_api_endpoint(researcher_profile)
+        researcher_endpoint_sha256 = hashlib.sha256(
+            researcher_endpoint.endpoint.encode()
+        ).hexdigest()
+        researcher_environment = (
+            researcher_profile.endpoint_env,
+            researcher_profile.api_key_env,
+        )
+        researcher_model = researcher_model or researcher_profile.model
+    executable = args.researcher_executable or (
+        sys.executable if args.researcher == "api" else shutil.which(args.researcher)
+    )
     if not executable:
         raise RuntimeError(f"researcher executable is unavailable: {args.researcher}")
     output_limit = dynamic_reader_output_limit(profile)
@@ -84,8 +111,13 @@ def main() -> int:
         reader=reader,
         researcher_kind=args.researcher,
         researcher_executable=executable,
-        researcher_model=args.researcher_model,
-        researcher_environment_allowlist=tuple(args.researcher_env),
+        researcher_model=researcher_model,
+        researcher_environment_allowlist=researcher_environment,
+        researcher_api_profiles_path=args.profiles if researcher_profile is not None else None,
+        researcher_api_profile_id=(
+            researcher_profile.id if researcher_profile is not None else None
+        ),
+        researcher_endpoint_sha256=researcher_endpoint_sha256,
         max_budget_usd=args.max_budget_usd,
         dataset_seed=args.dataset_seed,
         items_per_profile=args.items_per_profile,

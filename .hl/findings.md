@@ -606,3 +606,44 @@
 - The diagnostic artifacts retain endpoint metadata but no credentials. The
   11-call diagnostic was bounded during this session, not preregistered in a
   prior immutable record; the public note must use those exact terms.
+
+## 2026-08-29 `hy3-ioa` dual-role adapter audit
+
+- The campaign boundary is reusable: `run_researcher_campaign` materializes a
+  clean parent policy workspace, requires only `policy/` plus `manifest.json`,
+  audits every Python file, validates prediction coverage and parent lineage,
+  evaluates a byte snapshot in a fresh process, and records invalid researcher
+  turns without spending reader calls.
+- Existing researcher adapters assume a file-editing Codex/Claude CLI. A plain
+  chat-completions model has no filesystem tools, so the smallest safe addition
+  is a stateless API worker that requests one strict JSON artifact containing
+  `policy_source` and `manifest`, validates both, and writes only the two
+  allowed submission paths in the ephemeral campaign workspace.
+- Reusing the reader profile unchanged is insufficient: its 512-token output
+  cap cannot hold a policy plus manifest and its system prompt is answer-only.
+  Add a separate researcher API profile with the same endpoint/model alias but
+  its own output cap and profile hash. Record the researcher system-prompt hash
+  and every round-prompt hash independently from the reader identity.
+- The secure HTTP/SSE implementation can be shared without merging roles. Add a
+  generic `complete(user_prompt)` path to the OpenAI-compatible transport while
+  leaving evaluator `read(query, ContextPack)` and its default system prompt
+  unchanged. The campaign still owns all scored reader calls.
+- The first experiment must be adapter/schema qualification, not A2: at most
+  three researcher calls, then a two-round visible toy/dynamic loop. Only a
+  valid audited submission and complete usage/identity record can promote to
+  the 2-profile × 2-seed × 5-slot long-context block.
+
+## 2026-08-29 `hy3-ioa` dual-role qualification result
+
+- Three actual researcher calls exhausted the qualification cap. The first two
+  artifacts passed JSON/AST/manifest checks but failed the policy runtime;
+  candidate reader calls stayed at zero. The third was valid but tied H0 at
+  0.0 on two visible 32K items.
+- The valid policy was active: sparse gold recall changed 0.5 to 1.0 while
+  dense recall changed 1.0 to 0.875. Both answers remained `INSUFFICIENT`.
+- It predicted improve probability 0.6 on both unchanged items: Brier 1.04
+  versus 0.667 uniform, log-loss 1.609, ECE 0.6. This n=2 calibration failure
+  is diagnostic only.
+- Pre-canary was byte/usage stable; post-canary alternated `amber` and
+  `amber.` with 2/3 output tokens. The API alias failed the strict freeze gate.
+  Do not start the micro-RSI matrix or pool this with a pinned local reader.

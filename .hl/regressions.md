@@ -46,6 +46,13 @@
 - Failed v2/v3 and repaired v3b qualification records are separate immutable artifacts. A
   complete-evidence pass or 3/8 policy disagreement never substitutes for the still-pending
   causal, replay, stratum, controller, and isolation gates.
+- Do not resolve a virtual-environment Python launcher through its symlink
+  before invoking `-m rsicontext.researcher.api`; that loses its import context.
+- AST-safe, manifest-valid policies can still violate the runtime
+  `Artifact`/`Budget`/`ContextPack` protocol. Preflight every candidate item
+  before the first reader call and retain runtime failures as invalid slots.
+- The 2026-08-29 `hy3-ioa` post-canary alternated `amber`/`amber.` and 2/3 output
+  tokens. Do not label that block deterministic or launch A2/A3 from it.
 - Two-hop BM25 rank allocation must not recover every compositional gold chunk on a majority
   of a 32K-to-8K panel. Hop depth 1 versus 2 must change the recovered gold set. Do not
   shorten the live chain back to three unique-ID links. The compositional query must not

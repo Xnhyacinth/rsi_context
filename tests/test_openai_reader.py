@@ -111,6 +111,36 @@ def test_reader_sends_frozen_greedy_request_and_parses_answer() -> None:
     assert "[c1]" in payload["messages"][1]["content"]
 
 
+def test_generic_completion_uses_explicit_role_prompt_without_context() -> None:
+    requests: list[dict[str, object]] = []
+
+    def transport(request: urllib.request.Request, timeout: float) -> bytes:
+        assert request.data is not None
+        requests.append(json.loads(cast(bytes, request.data)))
+        return json.dumps(
+            {
+                "choices": [{"message": {"content": "artifact"}}],
+                "usage": {"completion_tokens": 1, "prompt_tokens": 4},
+            }
+        ).encode()
+
+    reader = OpenAICompatibleReader(
+        endpoint="http://127.0.0.1:8000/v1/chat/completions",
+        model="model",
+        max_tokens=8,
+        system_prompt="Return one policy artifact.",
+        transport=transport,
+    )
+
+    output = reader.complete("visible feedback")
+
+    assert output.answer == "artifact"
+    assert requests[0]["messages"] == [
+        {"content": "Return one policy artifact.", "role": "system"},
+        {"content": "visible feedback", "role": "user"},
+    ]
+
+
 def test_streaming_reader_requires_model_usage_and_done_marker() -> None:
     requests: list[urllib.request.Request] = []
 

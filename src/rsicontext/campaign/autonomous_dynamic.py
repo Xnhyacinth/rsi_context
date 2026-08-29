@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 
 from rsicontext.campaign.researcher import (
     CampaignConfig,
+    CandidateEvaluationError,
     ResearchCampaignResult,
     ResearcherTurnError,
     ResearchRoundRequest,
@@ -34,6 +35,7 @@ from rsicontext.eval import (
     EvaluationItem,
     FreshProcessPolicyFactory,
     FrozenReader,
+    PolicyProcessError,
     ReaderOutput,
     Scorer,
     exact_match,
@@ -50,12 +52,17 @@ from rsicontext.researcher import (
     TokenUsage,
     run_researcher_process,
 )
+from rsicontext.researcher.api import (
+    APIResearcherCommandBuilder,
+    api_researcher_system_prompt_hash,
+)
 
 if TYPE_CHECKING:
     from rsicontext.experiment import APIProfile
     from rsicontext.registry import ServingProfile
 
-ResearcherKind = Literal["codex", "claude"]
+ResearcherKind = Literal["codex", "claude", "api"]
+ArtifactDelivery = Literal["workspace", "api-json"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +176,10 @@ class ResearcherIdentity:
     model: str | None
     executable_path: str
     executable_sha256: str
+    profile_id: str | None = None
+    profile_hash: str | None = None
+    system_prompt_sha256: str | None = None
+    endpoint_sha256: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -218,15 +229,24 @@ class DynamicFreshEvaluator:
             entrypoint=self.entrypoint,
         )
         factory = FreshProcessPolicyFactory(bundle)
+        contexts: list[tuple[EvaluationItem, ContextPack]] = []
+        before = self.timer()
+        try:
+            for item in self.items:
+                context = factory().assemble(item.artifact, item.query, self.budget)
+                context.validate(item.artifact, self.budget)
+                _require_single_reader_context(context)
+                contexts.append((item, context))
+        except (PolicyProcessError, ValueError) as exc:
+            raise CandidateEvaluationError(
+                f"candidate policy produced no ContextPack: {exc}"
+            ) from exc
+
         item_scores: list[tuple[str, float]] = []
         predictions: list[tuple[str, str]] = []
         reader_input_tokens = 0
         reader_output_tokens = 0
-        before = self.timer()
-        for item in self.items:
-            context = factory().assemble(item.artifact, item.query, self.budget)
-            context.validate(item.artifact, self.budget)
-            _require_single_reader_context(context)
+        for item, context in contexts:
             output = self.reader.read(item.query, context)
             if not isinstance(output, ReaderOutput):
                 raise TypeError("reader must return ReaderOutput")
@@ -258,7 +278,7 @@ class DynamicFreshEvaluator:
 
 @dataclass(slots=True)
 class DynamicResearcherCallback:
-    """Turn a campaign request into one bounded Codex or Claude process."""
+    """Turn a campaign request into one bounded coding-CLI or API process."""
 
     visible_feedback: tuple[VisibleItemFeedback, ...]
     researcher_kind: ResearcherKind
@@ -267,6 +287,8 @@ class DynamicResearcherCallback:
     researcher_model: str | None = None
     environment_allowlist: tuple[str, ...] = ()
     max_budget_usd: float | None = None
+    api_profiles_path: Path | None = None
+    api_profile_id: str | None = None
     evaluation_observations: list[DynamicEvaluationObservation] = field(default_factory=list)
     prompts: list[ResearcherPromptRecord] = field(default_factory=list, init=False)
     results: list[ResearcherProcessResult] = field(default_factory=list, init=False)
@@ -276,7 +298,12 @@ class DynamicResearcherCallback:
         prior = self.evaluation_observations[-1] if self.evaluation_observations else None
         if prior is not None and prior.round_index != request.round_index - 1:
             raise ValueError("prior visible outcomes do not match the requested parent round")
-        prompt = _build_research_prompt(request, self.visible_feedback, prior)
+        prompt = _build_research_prompt(
+            request,
+            self.visible_feedback,
+            prior,
+            artifact_delivery="api-json" if self.researcher_kind == "api" else "workspace",
+        )
         self.prompts.append(
             ResearcherPromptRecord(
                 round_index=request.round_index,
@@ -299,6 +326,14 @@ class DynamicResearcherCallback:
             spec = ClaudeCommandBuilder(executable=self.researcher_executable).build(
                 researcher_request
             )
+        elif self.researcher_kind == "api":
+            if self.api_profiles_path is None or self.api_profile_id is None:
+                raise ValueError("API researcher requires a profiles path and profile id")
+            spec = APIResearcherCommandBuilder(
+                python_executable=Path(self.researcher_executable),
+                profiles_path=self.api_profiles_path,
+                profile_id=self.api_profile_id,
+            ).build(researcher_request)
         else:
             raise ValueError(f"unsupported researcher kind: {self.researcher_kind}")
         process_started = time.perf_counter()
@@ -502,6 +537,9 @@ def run_autonomous_dynamic_pilot(
     researcher_kind: ResearcherKind = "codex",
     researcher_model: str | None = None,
     researcher_environment_allowlist: tuple[str, ...] = (),
+    researcher_api_profiles_path: Path | None = None,
+    researcher_api_profile_id: str | None = None,
+    researcher_endpoint_sha256: str | None = None,
     max_budget_usd: float | None = None,
     dataset_seed: str = "autonomous-dynamic-visible-v1",
     items_per_profile: int = 2,
@@ -563,12 +601,17 @@ def run_autonomous_dynamic_pilot(
         researcher_model=researcher_model,
         environment_allowlist=researcher_environment_allowlist,
         max_budget_usd=max_budget_usd,
+        api_profiles_path=researcher_api_profiles_path,
+        api_profile_id=researcher_api_profile_id,
         evaluation_observations=evaluator.observations,
     )
     researcher_identity = _researcher_identity(
         kind=researcher_kind,
         model=researcher_model,
         executable=researcher_executable,
+        api_profiles_path=researcher_api_profiles_path,
+        api_profile_id=researcher_api_profile_id,
+        endpoint_sha256=researcher_endpoint_sha256,
     )
     try:
         campaign = run_researcher_campaign(
@@ -647,6 +690,8 @@ def _build_research_prompt(
     request: ResearchRoundRequest,
     feedback: tuple[VisibleItemFeedback, ...],
     prior: DynamicEvaluationObservation | None,
+    *,
+    artifact_delivery: ArtifactDelivery = "workspace",
 ) -> str:
     item_ids = tuple(item.item_id for item in feedback)
     if item_ids != request.prediction_item_ids:
@@ -667,6 +712,39 @@ def _build_research_prompt(
             }
             for item_id in item_ids
         ]
+    if artifact_delivery == "workspace":
+        delivery = (
+            "Work only inside this workspace. Modify only policy/*.py and create "
+            "manifest.json.\n"
+            "Do not create notes, tests, caches, or any other files. Do not call any model or "
+            "API.\n"
+        )
+        finish = (
+            "Finish only after policy/*.py and manifest.json are complete. Do not answer the "
+            "visible questions in your response.\n"
+        )
+    elif artifact_delivery == "api-json":
+        parent_policy = {
+            path.relative_to(request.policy_directory).as_posix(): path.read_text(encoding="utf-8")
+            for path in sorted(request.policy_directory.rglob("*.py"))
+        }
+        if not parent_policy:
+            raise ValueError("API researcher parent policy is empty")
+        delivery = (
+            "Do not modify the workspace or call tools. Return exactly one JSON artifact with "
+            "schema_version=1, policy_source containing the complete policy/policy.py source, "
+            "and manifest containing the complete manifest object. The exact parent policy is "
+            "included below; preserve it unless your stated hypothesis requires a change.\n"
+            "PARENT_POLICY_BEGIN\n"
+            + json.dumps(parent_policy, ensure_ascii=False, indent=2, sort_keys=True)
+            + "\nPARENT_POLICY_END\n"
+        )
+        finish = (
+            "Return only that JSON artifact. Do not answer the visible questions or include "
+            "Markdown fences.\n"
+        )
+    else:
+        raise ValueError(f"unsupported artifact delivery: {artifact_delivery}")
     return (
         "You are the context-policy researcher, not the question-answering reader.\n"
         "The reader, decoding, metric, 8192-token budget, and item labels are frozen.\n"
@@ -674,11 +752,16 @@ def _build_research_prompt(
         "and format of packed evidence. You do not choose extra reader calls; the evaluator "
         "returns one score per candidate. Put the hypothesis in mechanisms[0].description. "
         "The next round starts from your last attempt even if it regressed; historical-best "
-        "keeps the peak.\n"
-        "Work only inside this workspace. Modify only policy/*.py and create manifest.json.\n"
-        "Do not create notes, tests, caches, or any other files. Do not call any model or API.\n"
-        "Implement policy/policy.py with public class Policy and "
+        "keeps the peak.\n" + delivery + "Implement policy/policy.py with public class Policy and "
         "assemble(artifact, query, budget).\n"
+        "The runtime passes rsicontext.policy.Artifact and Budget objects, not dictionaries: "
+        "read artifact.chunks; each DocumentChunk has chunk_id, document_id, start, end, text, "
+        "token_count, and role attributes; read budget.max_tokens. You must return a ContextPack, "
+        "not a string or dictionary. Prefer composing the public policy dataclasses or existing "
+        "TruncationPolicy and LexicalPolicy implementations from rsicontext.policy.\n"
+        "There is no rsicontext.policy.Policy symbol. A direct pack has the form "
+        "ContextPack(spans=tuple(selected_chunks), ordering=tuple(chunk.chunk_id for chunk in "
+        "selected_chunks), token_count=sum(chunk.token_count for chunk in selected_chunks)).\n"
         "The policy must pass a fail-closed AST audit. Do not use from __future__ imports. "
         "Allowed imports are collections, dataclasses, functools, heapq, itertools, json, "
         "math, operator, re, statistics, string, typing, and rsicontext.policy. "
@@ -712,8 +795,7 @@ def _build_research_prompt(
         "MANIFEST_TEMPLATE_BEGIN\n"
         + json.dumps(manifest, indent=2, sort_keys=True)
         + "\nMANIFEST_TEMPLATE_END\n"
-        "Finish only after policy/*.py and manifest.json are complete. Do not answer the visible "
-        "questions in your response.\n"
+        + finish
     )
 
 
@@ -800,17 +882,46 @@ def _write_new_json(path: Path, value: object) -> None:
 
 
 def _researcher_identity(
-    *, kind: ResearcherKind, model: str | None, executable: str
+    *,
+    kind: ResearcherKind,
+    model: str | None,
+    executable: str,
+    api_profiles_path: Path | None = None,
+    api_profile_id: str | None = None,
+    endpoint_sha256: str | None = None,
 ) -> ResearcherIdentity:
     resolved = shutil.which(executable)
     if resolved is None:
         raise FileNotFoundError(f"researcher executable was not found: {executable}")
-    path = Path(resolved).resolve(strict=True)
+    path = Path(resolved).absolute()
+    if not path.is_file():
+        raise FileNotFoundError(f"researcher executable is not a file: {path}")
+    profile_id = None
+    profile_hash = None
+    system_prompt_sha256 = None
+    if kind == "api":
+        if api_profiles_path is None or api_profile_id is None:
+            raise ValueError("API researcher requires a profiles path and profile id")
+        from rsicontext.experiment import load_api_profiles
+
+        profile = load_api_profiles(api_profiles_path).get(api_profile_id)
+        if model is not None and model != profile.model:
+            raise ValueError("researcher model does not match the API profile")
+        model = profile.model
+        profile_id = profile.id
+        profile_hash = profile.profile_hash
+        system_prompt_sha256 = api_researcher_system_prompt_hash()
+    elif any(value is not None for value in (api_profiles_path, api_profile_id, endpoint_sha256)):
+        raise ValueError("API researcher identity fields require researcher kind api")
     return ResearcherIdentity(
         kind=kind,
         model=model,
         executable_path=str(path),
         executable_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        profile_id=profile_id,
+        profile_hash=profile_hash,
+        system_prompt_sha256=system_prompt_sha256,
+        endpoint_sha256=endpoint_sha256,
     )
 
 

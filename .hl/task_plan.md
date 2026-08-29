@@ -353,3 +353,59 @@ Errors encountered:
   with connection refused. Resolution: the registered hold-wrapped launch plan
   is valid, but starting an eight-GPU server is a separate explicit execution
   step; leave the environment prepared and do not retry an inactive port.
+
+## `hy3-ioa` dual-role operational-freeze exploration — 2026-08-29
+
+Success criteria:
+
+- use independent, stateless researcher and reader channels even though both
+  request the `hy3-ioa` alias; hash and record every role-specific prompt,
+  endpoint/profile field, decoding parameter, dataset, metric, budget, seed,
+  and policy parent before the first scored call;
+- preserve the researcher / `policy/*.py` / frozen reader-evaluator boundary:
+  the researcher receives visible feedback only, emits audited policy plus
+  manifest, and never answers a scored item or sees gate/sealed material;
+- begin with a bounded qualification and only launch a long-context micro RSI
+  block if pre-canary, difficulty, quota, and cost gates pass; keep matched
+  random/search and historical-best under the same reader-call accounting;
+- treat the API as operationally frozen within an attested time block. Run
+  interleaved exact-policy replay and pre/post canaries; invalidate rather than
+  reinterpret a block if model alias, response protocol, usage distribution,
+  or replay noise drifts beyond the frozen rule;
+- extend a frozen discovered policy to LongMemEval-V2 offline memory only after
+  a long-context discovery/regression signal exceeds within-block replay noise.
+  Live long-horizon transfer remains last and never feeds policy search.
+
+Bounded execution budget before promotion:
+
+- at most 3 researcher API calls for adapter/schema qualification;
+- one two-round visible toy loop before any model-backed long-context campaign;
+- proposed exploratory micro block: 1 hy3 researcher × 2 hard visible profiles
+  × 2 research seeds × 5 candidate slots, with a preregistered aggregate target
+  and auxiliary call ceiling derived before launch;
+- no 128K/256K expansion until a 32K profile passes non-saturation, replay-noise,
+  quota, and cost gates.
+
+Execution phases:
+
+1. **Complete — contract and adapter audit:** the existing campaign and reader
+   boundaries were reused without exposing gate/sealed data.
+2. **Complete — dual-role implementation:** separate profile, strict JSON
+   artifact adapter, parent-policy delivery, call accounting, hashes, and
+   fail-closed tests are implemented.
+3. **Complete, failed promotion — qualification:** exactly three researcher
+   calls were used. The final policy was valid but tied H0; manifest calibration
+   was poor and the post-canary drifted.
+4. **Blocked — long-context micro RSI:** do not spend more researcher calls in
+   this block. Strict replay/freeze and real-task gates did not pass, so matched
+   search was not launched.
+5. **Pending — memory/horizon transfer:** freeze the selected policy, run
+   LongMemEval-V2 offline policy-on/off and causal memory panels, then decide
+   whether a small live long-horizon transfer is scientifically warranted.
+6. **Pending — analysis and publication:** report discovery, peak regression,
+   last-vs-best regret, replay noise, calibration, tokens/latency/calls, and all
+   invalid blocks without pooling API and snapshot-frozen claims.
+
+Next step: retain `hy3-ioa` as a qualified researcher treatment, but pair it
+with the pinned local reader only after real-profile and physical-isolation
+gates pass. Do not extend this failed block to 128K, memory, or live horizon.

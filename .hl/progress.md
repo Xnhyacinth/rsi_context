@@ -363,3 +363,24 @@
   `6c384b2c209f79201a8b3ff9c54bbda2a339c62c`. Authenticated post-upload checks
   confirmed `private=true`, the exact five-file allowlist including Hub
   `.gitattributes`, and byte identity of the remote and local manifests.
+
+## 2026-08-29 `hy3-ioa` dual-role qualification
+
+- Added a stateless API researcher worker, separate 8192-output profile, strict
+  policy/manifest parser, parent-policy delivery, and API support in both
+  autonomous visible scripts.
+- Preserved the virtual-environment launcher path after a local pre-API failure
+  and added evaluator preflight so runtime-invalid candidates consume a slot
+  while making zero reader calls.
+- Used exactly three researcher API calls. Two candidates were runtime invalid;
+  the third was valid and scored H0 0.0, H1 0.0. No A2/A3 run started.
+- Post-canary punctuation/usage drift invalidated strict operational-freeze
+  evidence. See `docs/hy3-dual-role-initial-results-2026-08-29.md`.
+- Final repository gates pass: 468 tests, 84.04% branch coverage, repository
+  Ruff, strict mypy over 152 files, Bandit medium/high, and diff check. A
+  credential-value scan found zero API-key matches; endpoint URL matches are
+  expected profile/test metadata.
+- Risk-first code review found no must-fix boundary or credential issue. The
+  residual risks are the unversioned provider alias, non-formal short-answer
+  hardcoding defense in the open-Python arm, and absent physical gate
+  isolation; each keeps the result qualification-only.

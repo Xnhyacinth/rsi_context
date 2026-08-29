@@ -76,6 +76,7 @@ class OpenAICompatibleReader:
     require_response_model: bool = False
     timeout_seconds: float = 30.0
     allowed_hosts: tuple[str, ...] = _LOCAL_HOSTS
+    system_prompt: str = _SYSTEM_PROMPT
     api_key: str | None = field(default=None, repr=False, compare=False)
     transport: Transport = field(default=_urlopen_transport, repr=False, compare=False)
 
@@ -173,17 +174,29 @@ class OpenAICompatibleReader:
             not isinstance(host, str) or not host for host in self.allowed_hosts
         ):
             raise ValueError("allowed_hosts must contain non-empty host names")
+        if (
+            not isinstance(self.system_prompt, str)
+            or not self.system_prompt.strip()
+            or "\x00" in self.system_prompt
+        ):
+            raise ValueError("system_prompt must be non-empty and cannot contain NUL")
         if self.api_key is not None and (not isinstance(self.api_key, str) or not self.api_key):
             raise TypeError("api_key must be a non-empty string or null")
         if not callable(self.transport):
             raise TypeError("reader transport must be callable")
 
     def read(self, query: str, context: ContextPack) -> ReaderOutput:
+        return self.complete(_user_prompt(query, context))
+
+    def complete(self, user_prompt: str) -> ReaderOutput:
+        """Complete one stateless role-specific prompt through the frozen transport."""
+        if not isinstance(user_prompt, str) or not user_prompt.strip() or "\x00" in user_prompt:
+            raise ValueError("user_prompt must be non-empty and cannot contain NUL")
         payload = {
             "max_tokens": self.max_tokens,
             "messages": [
-                {"content": _SYSTEM_PROMPT, "role": "system"},
-                {"content": _user_prompt(query, context), "role": "user"},
+                {"content": self.system_prompt, "role": "system"},
+                {"content": user_prompt, "role": "user"},
             ],
             "model": self.model,
             "seed": self.seed,

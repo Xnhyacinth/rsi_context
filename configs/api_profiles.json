@@ -16,6 +16,20 @@
       "provider_revision": null
     },
     {
+      "id": "tencent-copilot-hy3-ioa-researcher",
+      "provider": "Tencent Copilot",
+      "endpoint_env": "COPILOT_BASE_URL",
+      "api_key_env": "COPILOT_API_KEY",
+      "allowed_host": "copilot.tencent.com",
+      "model": "hy3-ioa",
+      "protocol": "chat-completions-sse",
+      "evaluation_max_model_len": 131072,
+      "max_output_tokens": 8192,
+      "seed": 42,
+      "temperature": 0.0,
+      "provider_revision": null
+    },
+    {
       "id": "local-qwen3.6-27b-128k-bf16-h200x8",
       "provider": "vllm-0.25.1",
       "endpoint_env": "RSICONTEXT_LOCAL_VLLM_ENDPOINT",
