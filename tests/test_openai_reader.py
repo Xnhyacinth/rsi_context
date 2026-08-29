@@ -57,7 +57,7 @@ def _runtime() -> tuple[RunSpec, ServingProfile, RegistryEntry, APIProfile]:
         provider="vllm-test",
         endpoint_env="TEST_ENDPOINT",
         api_key_env="TEST_API_KEY",
-        allowed_host="localhost",
+        allowed_host="127.0.0.1",
         model="Qwen/Qwen3.6-27B",
         protocol="chat-completions-sse",
         evaluation_max_model_len=profile.max_model_len,
@@ -219,7 +219,7 @@ def test_reader_rejects_unsafe_remote_endpoint_forms(endpoint: str, message: str
 def test_reader_factory_binds_model_decoding_and_budget_to_run_spec() -> None:
     run_spec, profile, registry_model, reader_profile = _runtime()
     reader = OpenAICompatibleReader.from_run_spec(
-        endpoint="http://localhost:8000/v1/chat/completions",
+        endpoint=profile.chat_completions_endpoint,
         run_spec=run_spec,
         serving_profile=profile,
         registry_model=registry_model,
@@ -235,7 +235,7 @@ def test_reader_factory_binds_model_decoding_and_budget_to_run_spec() -> None:
 
     with pytest.raises(ValueError, match="wall-time"):
         OpenAICompatibleReader.from_run_spec(
-            endpoint="http://localhost:8000/v1/chat/completions",
+            endpoint=profile.chat_completions_endpoint,
             run_spec=run_spec,
             serving_profile=profile,
             registry_model=registry_model,
@@ -255,7 +255,7 @@ def test_reader_factory_binds_model_decoding_and_budget_to_run_spec() -> None:
     )
     with pytest.raises(ValueError, match="model id"):
         OpenAICompatibleReader.from_run_spec(
-            endpoint="http://localhost:8000/v1/chat/completions",
+            endpoint=profile.chat_completions_endpoint,
             run_spec=mismatched,
             serving_profile=profile,
             registry_model=registry_model,
@@ -269,7 +269,7 @@ def test_reader_factory_rejects_unbound_reader_profile_identity() -> None:
 
     with pytest.raises(ValueError, match="reader profile hash"):
         OpenAICompatibleReader.from_run_spec(
-            endpoint="http://localhost:8000/v1/chat/completions",
+            endpoint=profile.chat_completions_endpoint,
             run_spec=replace(run_spec, reader_profile_hash="unbound-reader-hash"),
             serving_profile=profile,
             registry_model=registry_model,
@@ -279,7 +279,7 @@ def test_reader_factory_rejects_unbound_reader_profile_identity() -> None:
 
     with pytest.raises(ValueError, match="thinking"):
         OpenAICompatibleReader.from_run_spec(
-            endpoint="http://localhost:8000/v1/chat/completions",
+            endpoint=profile.chat_completions_endpoint,
             run_spec=replace(run_spec, chat_template_enable_thinking=True),
             serving_profile=profile,
             registry_model=registry_model,

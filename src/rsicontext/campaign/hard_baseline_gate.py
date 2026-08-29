@@ -20,12 +20,11 @@ from rsicontext.datasets import (
 )
 from rsicontext.eval import (
     FrozenReader,
-    OpenAICompatibleReader,
     ReaderOutput,
     exact_match,
     gold_context_pack,
 )
-from rsicontext.experiment import APIProfile
+from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint, build_profile_reader
 from rsicontext.policy import Budget, ContextPack, LexicalPolicy, TruncationPolicy
 
 DEFAULT_HARD_PROFILES = (
@@ -161,17 +160,10 @@ def run_hard_baseline_gate(
         profile.evaluation_max_model_len
     ):
         raise ValueError("target-tokenized full context exceeds the reader model length")
-    actual_reader: FrozenReader = reader or OpenAICompatibleReader(
-        endpoint=endpoint,
-        model=profile.model,
+    actual_reader: FrozenReader = reader or build_profile_reader(
+        profile,
+        ResolvedAPIEndpoint(endpoint=endpoint, api_key=api_key),
         max_tokens=hard_reader_output_limit(profile),
-        max_model_len=profile.evaluation_max_model_len,
-        seed=profile.seed,
-        stream=True,
-        require_response_model=True,
-        chat_template_enable_thinking=profile.chat_template_enable_thinking,
-        allowed_hosts=(profile.allowed_host,),
-        api_key=api_key,
     )
     conditions = _conditions(source_target_tokens_max, policy_budget_tokens)
     visible = dataset.visible_items()

@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
-import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Protocol, cast
@@ -18,7 +17,7 @@ from rsicontext.campaign.hard_baseline_gate import (
     write_hard_baseline_gate,
 )
 from rsicontext.datasets import HardTaskProfile
-from rsicontext.experiment import load_api_profiles
+from rsicontext.experiment import load_api_profiles, resolve_api_endpoint
 
 
 class _Tokenizer(Protocol):
@@ -49,12 +48,7 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _parser().parse_args()
     profile = load_api_profiles(args.profiles).get(args.profile)
-    endpoint = os.environ.get(profile.endpoint_env)
-    api_key = os.environ.get(profile.api_key_env)
-    if not endpoint:
-        raise RuntimeError(f"missing endpoint environment variable: {profile.endpoint_env}")
-    if not api_key:
-        raise RuntimeError(f"missing API key environment variable: {profile.api_key_env}")
+    endpoint = resolve_api_endpoint(profile)
     task_profiles: tuple[HardTaskProfile, ...] = (
         tuple(HardTaskProfile(value) for value in args.task_profile)
         if args.task_profile
@@ -73,8 +67,8 @@ def main() -> int:
     typed_counter: Callable[[str], int] = token_counter
     result = run_hard_baseline_gate(
         profile,
-        endpoint=endpoint,
-        api_key=api_key,
+        endpoint=endpoint.endpoint,
+        api_key=endpoint.api_key,
         token_counter=typed_counter,
         tokenizer_id=args.tokenizer_id,
         dataset_seed=args.dataset_seed,

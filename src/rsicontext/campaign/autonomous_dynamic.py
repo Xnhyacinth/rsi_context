@@ -15,7 +15,7 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from rsicontext.campaign.researcher import (
     CampaignConfig,
@@ -51,6 +51,10 @@ from rsicontext.researcher import (
     run_researcher_process,
 )
 
+if TYPE_CHECKING:
+    from rsicontext.experiment import APIProfile
+    from rsicontext.registry import ServingProfile
+
 ResearcherKind = Literal["codex", "claude"]
 
 
@@ -70,6 +74,37 @@ class DynamicReaderIdentity:
     chat_template_enable_thinking: bool | None
     serving_profile_id: str | None
     serving_profile_hash: str | None
+
+    @classmethod
+    def from_profile(
+        cls,
+        profile: APIProfile,
+        *,
+        max_output_tokens: int,
+        serving_profile: ServingProfile | None = None,
+    ) -> Self:
+        """Copy the frozen API and optional local-serving identity exactly once."""
+
+        if not isinstance(max_output_tokens, int) or isinstance(max_output_tokens, bool):
+            raise TypeError("reader output limit must be an integer")
+        if max_output_tokens <= 0 or max_output_tokens > profile.max_output_tokens:
+            raise ValueError("reader output limit must be within the API profile")
+        return cls(
+            profile_id=profile.id,
+            profile_hash=profile.profile_hash,
+            provider=profile.provider,
+            requested_model=profile.model,
+            provider_revision=profile.provider_revision,
+            max_model_len=profile.evaluation_max_model_len,
+            max_output_tokens=max_output_tokens,
+            seed=profile.seed,
+            temperature=profile.temperature,
+            chat_template_enable_thinking=profile.chat_template_enable_thinking,
+            serving_profile_id=None if serving_profile is None else serving_profile.id,
+            serving_profile_hash=(
+                None if serving_profile is None else serving_profile.profile_hash
+            ),
+        )
 
 
 @dataclass(frozen=True, slots=True)

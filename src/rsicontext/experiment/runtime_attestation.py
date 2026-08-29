@@ -394,6 +394,9 @@ def attest_run(
     except RegistryError as exc:
         raise FormalRunError(f"registered run binding failed: {exc}") from exc
     canonical_endpoint = canonical_reader_endpoint(endpoint)
+    serving_endpoint = canonical_reader_endpoint(serving_profile.chat_completions_endpoint)
+    if canonical_endpoint != serving_endpoint:
+        raise FormalRunError("runtime endpoint differs from the serving profile")
     parsed = urllib.parse.urlsplit(canonical_endpoint)
     if parsed.hostname not in _LOCAL_HOSTS:
         raise FormalRunError("formal runtime endpoint must be local to the evaluator")

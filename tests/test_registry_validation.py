@@ -103,6 +103,7 @@ def test_preflight_reports_unavailable_host_resources(
     monkeypatch.setattr("rsicontext.registry.preflight.shutil.disk_usage", disk_failure)
     monkeypatch.setattr("rsicontext.registry.preflight.shutil.which", lambda _: None)
     monkeypatch.setattr("rsicontext.registry.preflight.Path.home", lambda: tmp_path)
+    monkeypatch.delenv("HF_TOKEN", raising=False)
 
     report = run_preflight(
         tmp_path, required_bytes=0, expected_gpus=1, hold_wrapper=tmp_path / "missing.sh"

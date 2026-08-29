@@ -5,10 +5,11 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import re
 import time
-from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -23,6 +24,21 @@ _PROFILE_ID = re.compile(r"[a-z0-9][a-z0-9._-]*")
 _CANARY_QUERY = "What is the canary code?"
 _CANARY_TEXT = "The canary code is amber."
 _CANARY_ANSWER = "amber"
+_OBSERVABLE_RUNTIME_FIELDS = (
+    "answer",
+    "input_tokens",
+    "latency_seconds",
+    "output_tokens",
+    "response_id",
+    "response_model",
+)
+_UNOBSERVABLE_RUNTIME_FIELDS = (
+    "gpu_seconds",
+    "kv_capacity",
+    "peak_hbm",
+    "prefix_cache_state",
+    "scheduler_state",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -42,6 +58,7 @@ class APIProfile:
     temperature: float
     provider_revision: str | None
     chat_template_enable_thinking: bool | None = None
+    api_key_required: bool = True
 
     def __post_init__(self) -> None:
         for field_name, value in (
@@ -92,6 +109,8 @@ class APIProfile:
             self.chat_template_enable_thinking, bool
         ):
             raise RegistryError("chat_template_enable_thinking must be a boolean or null")
+        if not isinstance(self.api_key_required, bool):
+            raise RegistryError("api_key_required must be a boolean")
 
     @classmethod
     def from_dict(cls, value: object) -> APIProfile:
@@ -114,7 +133,7 @@ class APIProfile:
         missing = fields.difference(value)
         if missing:
             raise RegistryError(f"API profile missing fields: {', '.join(sorted(missing))}")
-        optional_fields = {"chat_template_enable_thinking"}
+        optional_fields = {"api_key_required", "chat_template_enable_thinking"}
         unexpected = set(value).difference(fields | optional_fields)
         if unexpected:
             raise RegistryError(
@@ -123,6 +142,7 @@ class APIProfile:
         return cls(
             **{field_name: value[field_name] for field_name in fields},
             chat_template_enable_thinking=value.get("chat_template_enable_thinking"),
+            api_key_required=value.get("api_key_required", True),
         )
 
     @property
@@ -134,6 +154,8 @@ class APIProfile:
         identity = asdict(self)
         if self.chat_template_enable_thinking is None:
             identity.pop("chat_template_enable_thinking")
+        if self.api_key_required:
+            identity.pop("api_key_required")
         payload = json.dumps(identity, separators=(",", ":"), sort_keys=True)
         return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -147,6 +169,79 @@ class APIProfiles:
         if not matches:
             raise RegistryError(f"unknown API profile: {profile_id}")
         return matches[0]
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedAPIEndpoint:
+    """Runtime-only endpoint and optional credential resolved outside artifacts."""
+
+    endpoint: str
+    api_key: str | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.endpoint, str) or not self.endpoint.strip():
+            raise ValueError("API endpoint must be a non-empty string")
+        if self.api_key is not None and (not isinstance(self.api_key, str) or not self.api_key):
+            raise ValueError("API key must be a non-empty string or null")
+
+
+def resolve_api_endpoint(
+    profile: APIProfile,
+    *,
+    endpoint: str | None = None,
+    api_key: str | None = None,
+    environ: Mapping[str, str] | None = None,
+) -> ResolvedAPIEndpoint:
+    """Resolve one profile without logging or persisting environment values."""
+
+    environment = os.environ if environ is None else environ
+    resolved_endpoint = endpoint if endpoint is not None else environment.get(profile.endpoint_env)
+    if not resolved_endpoint:
+        raise RuntimeError(f"missing endpoint environment variable: {profile.endpoint_env}")
+    resolved_key = api_key if api_key is not None else environment.get(profile.api_key_env)
+    if not resolved_key:
+        resolved_key = None
+    if profile.api_key_required and resolved_key is None:
+        raise RuntimeError(f"missing API key environment variable: {profile.api_key_env}")
+    return ResolvedAPIEndpoint(endpoint=resolved_endpoint, api_key=resolved_key)
+
+
+def build_profile_reader(
+    profile: APIProfile,
+    endpoint: ResolvedAPIEndpoint,
+    *,
+    max_tokens: int | None = None,
+    timeout_seconds: float = 30.0,
+    transport: Transport | None = None,
+) -> OpenAICompatibleReader:
+    """Construct the single reader implementation from a frozen API profile."""
+
+    output_limit = profile.max_output_tokens if max_tokens is None else max_tokens
+    if not isinstance(output_limit, int) or isinstance(output_limit, bool):
+        raise TypeError("reader output limit must be an integer")
+    if output_limit <= 0:
+        raise ValueError("reader output limit must be positive")
+    if output_limit > profile.max_output_tokens:
+        raise ValueError("reader output limit exceeds the API profile")
+    if profile.api_key_required and endpoint.api_key is None:
+        raise ValueError("API profile requires a credential")
+    reader_kwargs: dict[str, Any] = {}
+    if transport is not None:
+        reader_kwargs["transport"] = transport
+    return OpenAICompatibleReader(
+        endpoint=endpoint.endpoint,
+        model=profile.model,
+        max_tokens=output_limit,
+        max_model_len=profile.evaluation_max_model_len,
+        seed=profile.seed,
+        stream=True,
+        require_response_model=True,
+        chat_template_enable_thinking=profile.chat_template_enable_thinking,
+        timeout_seconds=timeout_seconds,
+        allowed_hosts=(profile.allowed_host,),
+        api_key=endpoint.api_key,
+        **reader_kwargs,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +269,8 @@ class APICanaryResult:
     answer_stable: bool
     answer_correct: bool
     usage_stable: bool
+    observable_runtime_fields: tuple[str, ...]
+    unobservable_runtime_fields: tuple[str, ...]
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -204,7 +301,7 @@ def run_api_canary(
     profile: APIProfile,
     *,
     endpoint: str,
-    api_key: str,
+    api_key: str | None,
     repetitions: int = 5,
     transport: Transport | None = None,
     timer: Callable[[], float] = time.perf_counter,
@@ -214,21 +311,11 @@ def run_api_canary(
 
     if not isinstance(repetitions, int) or isinstance(repetitions, bool) or repetitions < 1:
         raise ValueError("repetitions must be a positive integer")
-    reader_kwargs: dict[str, Any] = {}
-    if transport is not None:
-        reader_kwargs["transport"] = transport
-    reader = OpenAICompatibleReader(
-        endpoint=endpoint,
-        model=profile.model,
+    reader = build_profile_reader(
+        profile,
+        ResolvedAPIEndpoint(endpoint=endpoint, api_key=api_key),
         max_tokens=min(8, profile.max_output_tokens),
-        max_model_len=profile.evaluation_max_model_len,
-        seed=profile.seed,
-        stream=True,
-        require_response_model=True,
-        chat_template_enable_thinking=profile.chat_template_enable_thinking,
-        allowed_hosts=(profile.allowed_host,),
-        api_key=api_key,
-        **reader_kwargs,
+        transport=transport,
     )
     chunk = DocumentChunk("api-canary-1", "api-canary", 0, len(_CANARY_TEXT), _CANARY_TEXT, 6)
     context = ContextPack(spans=(chunk,), ordering=(chunk.chunk_id,), token_count=6)
@@ -254,7 +341,7 @@ def run_api_canary(
         output_tokens.append(output.output_tokens)
     timestamp = started_at or datetime.now(UTC).isoformat().replace("+00:00", "Z")
     return APICanaryResult(
-        schema_version=2,
+        schema_version=3,
         canary_id="evidence-exact-v1",
         started_at=timestamp,
         endpoint=endpoint,
@@ -275,6 +362,8 @@ def run_api_canary(
         answer_stable=len(set(answers)) == 1,
         answer_correct=all(answer == _CANARY_ANSWER for answer in answers),
         usage_stable=len(set(input_tokens)) == 1 and len(set(output_tokens)) == 1,
+        observable_runtime_fields=_OBSERVABLE_RUNTIME_FIELDS,
+        unobservable_runtime_fields=_UNOBSERVABLE_RUNTIME_FIELDS,
     )
 
 

@@ -8,10 +8,13 @@ from typing import cast
 import pytest
 
 from rsicontext.experiment.api import (
+    build_profile_reader,
     load_api_profiles,
+    resolve_api_endpoint,
     run_api_canary,
     write_api_canary,
 )
+from rsicontext.policy import ContextPack
 from rsicontext.registry.schema import RegistryError
 
 ROOT = Path(__file__).parents[1]
@@ -36,6 +39,7 @@ def test_api_profile_is_strict_and_marks_unversioned_provider() -> None:
 
     assert profile.model == "hy3-ioa"
     assert profile.protocol == "chat-completions-sse"
+    assert profile.api_key_required is True
     assert profile.provider_revision is None
     assert profile.chat_template_enable_thinking is None
     assert (
@@ -43,6 +47,103 @@ def test_api_profile_is_strict_and_marks_unversioned_provider() -> None:
     )
     assert profile.version_pinned is False
     assert len(profile.profile_hash) == 64
+
+
+def test_local_api_profile_explicitly_allows_missing_key() -> None:
+    profile = load_api_profiles(ROOT / "configs" / "api_profiles.json").get(
+        "local-qwen3.6-27b-128k-bf16-h200x8"
+    )
+
+    assert profile.api_key_required is False
+
+
+def test_api_endpoint_resolution_supports_keyless_local_vllm() -> None:
+    profile = load_api_profiles(ROOT / "configs" / "api_profiles.json").get(
+        "local-qwen3.6-27b-128k-bf16-h200x8"
+    )
+    endpoint = "http://127.0.0.1:8017/v1/chat/completions"
+
+    resolved = resolve_api_endpoint(
+        profile,
+        environ={profile.endpoint_env: endpoint},
+    )
+
+    assert resolved.endpoint == endpoint
+    assert resolved.api_key is None
+
+
+def test_api_endpoint_resolution_requires_remote_key_without_exposing_values() -> None:
+    profile = load_api_profiles(ROOT / "configs" / "api_profiles.json").get(
+        "tencent-copilot-hy3-ioa"
+    )
+    endpoint = "https://copilot.tencent.com/v2/chat/completions"
+
+    with pytest.raises(RuntimeError, match=profile.api_key_env) as error:
+        resolve_api_endpoint(
+            profile,
+            environ={profile.endpoint_env: endpoint},
+        )
+
+    assert endpoint not in str(error.value)
+
+
+def test_profile_reader_uses_resolved_local_endpoint_without_authorization() -> None:
+    profile = load_api_profiles(ROOT / "configs" / "api_profiles.json").get(
+        "local-qwen3.6-27b-128k-bf16-h200x8"
+    )
+    observed_authorization: list[str | None] = []
+
+    def transport(request: urllib.request.Request, timeout: float) -> bytes:
+        observed_authorization.append(request.get_header("Authorization"))
+        return _stream("amber", model=profile.model)
+
+    resolved = resolve_api_endpoint(
+        profile,
+        endpoint="http://127.0.0.1:8017/v1/chat/completions",
+        environ={},
+    )
+    reader = build_profile_reader(
+        profile,
+        resolved,
+        max_tokens=8,
+        transport=transport,
+    )
+
+    reader.read("What is the canary code?", ContextPack())
+
+    assert observed_authorization == [None]
+
+
+@pytest.mark.parametrize("max_tokens", [0, True])
+def test_profile_reader_rejects_nonpositive_or_boolean_output_limits(
+    max_tokens: object,
+) -> None:
+    profile = load_api_profiles(ROOT / "configs" / "api_profiles.json").get(
+        "local-qwen3.6-27b-128k-bf16-h200x8"
+    )
+    resolved = resolve_api_endpoint(
+        profile,
+        endpoint="http://127.0.0.1:8017/v1/chat/completions",
+        environ={},
+    )
+
+    with pytest.raises((TypeError, ValueError), match="output limit"):
+        build_profile_reader(profile, resolved, max_tokens=cast(int, max_tokens))
+
+
+def test_resolved_endpoint_repr_does_not_expose_credential() -> None:
+    profile = load_api_profiles(ROOT / "configs" / "api_profiles.json").get(
+        "tencent-copilot-hy3-ioa"
+    )
+
+    resolved = resolve_api_endpoint(
+        profile,
+        endpoint="https://copilot.tencent.com/v2/chat/completions",
+        api_key="secret-value",
+        environ={},
+    )
+
+    assert "secret-value" not in repr(resolved)
 
 
 def test_api_profile_rejects_unknown_fields(tmp_path: Path) -> None:
@@ -78,6 +179,7 @@ def test_api_canary_records_replay_and_never_records_key() -> None:
     )
 
     assert result.answers == ("amber", "amber", "amber")
+    assert result.schema_version == 3
     assert result.answer_stable is True
     assert result.observed_models == ("hy3-ioa", "hy3-ioa", "hy3-ioa")
     assert result.input_tokens == (20, 20, 20)
@@ -85,6 +187,21 @@ def test_api_canary_records_replay_and_never_records_key() -> None:
     assert result.version_pinned is False
     assert result.answer_correct is True
     assert result.usage_stable is True
+    assert result.observable_runtime_fields == (
+        "answer",
+        "input_tokens",
+        "latency_seconds",
+        "output_tokens",
+        "response_id",
+        "response_model",
+    )
+    assert result.unobservable_runtime_fields == (
+        "gpu_seconds",
+        "kv_capacity",
+        "peak_hbm",
+        "prefix_cache_state",
+        "scheduler_state",
+    )
     assert "secret-value" not in json.dumps(result.to_dict())
     assert all(payload["temperature"] == 0.0 for payload in payloads)
     assert all(payload["stream"] is True for payload in payloads)

@@ -29,7 +29,7 @@ from rsicontext.security.isolation import IsolationAttestation
 ROOT = Path(__file__).parents[1]
 MODEL_REVISION = "1b559cf7215ebe67ff10758e14f6293ba883223b"
 MODEL_NAME = "Qwen/Qwen3.6-27B"
-ENDPOINT = "http://127.0.0.1:8000/v1/chat/completions"
+ENDPOINT = "http://127.0.0.1:8017/v1/chat/completions"
 
 
 def _stack(split: Split) -> tuple[RunSpec, ServingProfile, APIProfile, RegistryEntry]:
@@ -37,6 +37,8 @@ def _stack(split: Split) -> tuple[RunSpec, ServingProfile, APIProfile, RegistryE
     serving_profile = ServingProfile(
         id="test-qwen",
         model_id="qwen3.6-27b",
+        host="127.0.0.1",
+        port=8017,
         max_model_len=131_072,
         tensor_parallel_size=8,
         data_parallel_size=1,
@@ -168,6 +170,18 @@ def test_endpoint_drift_is_rejected() -> None:
         _attest(observation=observed_elsewhere, isolation=_isolation())
 
 
+def test_requested_endpoint_must_match_hashed_serving_profile() -> None:
+    wrong_port = "http://127.0.0.1:8001/v1/chat/completions"
+
+    with pytest.raises(FormalRunError, match="serving profile"):
+        _attest(
+            split=Split.VISIBLE,
+            endpoint=wrong_port,
+            observation=_endpoint_observation(wrong_port),
+            qualification_only=True,
+        )
+
+
 @pytest.mark.parametrize("isolation", [None, _isolation("declaration")])
 def test_gate_rejects_missing_or_declaration_only_isolation(
     isolation: IsolationAttestation | None,
@@ -247,8 +261,8 @@ def test_live_endpoint_observation_fetches_version_and_models_without_credential
     )
 
     assert [request.full_url for request in requests] == [
-        "http://127.0.0.1:8000/version",
-        "http://127.0.0.1:8000/v1/models",
+        "http://127.0.0.1:8017/version",
+        "http://127.0.0.1:8017/v1/models",
     ]
     assert all(request.get_header("Authorization") is None for request in requests)
     assert observation.endpoint == ENDPOINT

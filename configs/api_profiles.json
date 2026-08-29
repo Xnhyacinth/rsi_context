@@ -28,7 +28,8 @@
       "seed": 42,
       "temperature": 0.0,
       "provider_revision": "1b559cf7215ebe67ff10758e14f6293ba883223b",
-      "chat_template_enable_thinking": false
+      "chat_template_enable_thinking": false,
+      "api_key_required": false
     }
   ]
 }

@@ -11,8 +11,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from rsicontext.eval.openai_compatible import OpenAICompatibleReader, Transport
-from rsicontext.experiment.api import APIProfile
+from rsicontext.eval.openai_compatible import Transport
+from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint, build_profile_reader
 from rsicontext.policy import ContextPack, DocumentChunk
 
 LengthPosition = Literal["front", "middle", "tail"]
@@ -105,7 +105,7 @@ def run_api_length_canary(
     profile: APIProfile,
     *,
     endpoint: str,
-    api_key: str,
+    api_key: str | None,
     target_lengths: tuple[int, ...] = (8_192, 32_768),
     positions: tuple[LengthPosition, ...] = ("front", "middle", "tail"),
     repetitions: int = 3,
@@ -116,21 +116,11 @@ def run_api_length_canary(
     """Run a deterministic single-needle matrix and preserve every observation."""
 
     _validate_matrix(profile, target_lengths, positions, repetitions)
-    reader_kwargs: dict[str, Any] = {}
-    if transport is not None:
-        reader_kwargs["transport"] = transport
-    reader = OpenAICompatibleReader(
-        endpoint=endpoint,
-        model=profile.model,
+    reader = build_profile_reader(
+        profile,
+        ResolvedAPIEndpoint(endpoint=endpoint, api_key=api_key),
         max_tokens=min(16, profile.max_output_tokens),
-        max_model_len=profile.evaluation_max_model_len,
-        seed=profile.seed,
-        stream=True,
-        require_response_model=True,
-        chat_template_enable_thinking=profile.chat_template_enable_thinking,
-        allowed_hosts=(profile.allowed_host,),
-        api_key=api_key,
-        **reader_kwargs,
+        transport=transport,
     )
     observations: list[APILengthObservation] = []
     for target_tokens in target_lengths:

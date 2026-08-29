@@ -17,8 +17,12 @@ from rsicontext.datasets import (
     DynamicTaskProfile,
     generate_dynamic_long_context_dataset,
 )
-from rsicontext.eval import FrozenReader, OpenAICompatibleReader, ReaderOutput, exact_match
-from rsicontext.experiment import APIProfile
+from rsicontext.eval import FrozenReader, ReaderOutput, exact_match
+from rsicontext.experiment.api import (
+    APIProfile,
+    ResolvedAPIEndpoint,
+    build_profile_reader,
+)
 from rsicontext.policy import (
     Budget,
     ContextPack,
@@ -122,6 +126,7 @@ def build_local_vllm_profile(
         temperature=0.0,
         provider_revision=model.revision,
         chat_template_enable_thinking=False,
+        api_key_required=False,
     )
 
 
@@ -147,17 +152,10 @@ def run_api_dynamic_gate(
         seed=dataset_seed,
         items_per_profile=items_per_profile,
     )
-    actual_reader: FrozenReader = reader or OpenAICompatibleReader(
-        endpoint=endpoint,
-        model=profile.model,
+    actual_reader: FrozenReader = reader or build_profile_reader(
+        profile,
+        ResolvedAPIEndpoint(endpoint=endpoint, api_key=api_key),
         max_tokens=dynamic_reader_output_limit(profile),
-        max_model_len=profile.evaluation_max_model_len,
-        seed=profile.seed,
-        stream=True,
-        require_response_model=True,
-        chat_template_enable_thinking=profile.chat_template_enable_thinking,
-        allowed_hosts=(profile.allowed_host,),
-        api_key=api_key,
     )
     candidates: tuple[
         tuple[str, Callable[[], ContextPolicy], Budget],

@@ -15,6 +15,7 @@ from rsicontext.campaign.autonomous_dynamic import (
 from rsicontext.datasets import generate_dynamic_long_context_dataset
 from rsicontext.eval import EvaluationItem, ReaderOutput, extractive_span_match
 from rsicontext.experiment import Split
+from rsicontext.experiment.api import load_api_profiles
 from rsicontext.policy import Artifact, Budget, ContextPack, DocumentChunk
 from rsicontext.researcher import ProcessLimits
 
@@ -183,6 +184,29 @@ def test_dynamic_fresh_evaluator_accounts_one_reader_call_per_item(tmp_path: Pat
     assert evaluator.observations[-1].reader_calls == len(dataset.visible_items())
     assert reader.calls == len(dataset.visible_items())
     assert result.reader_input_tokens == evaluator.observations[-1].reader_input_tokens
+
+
+def test_dynamic_reader_identity_is_built_from_one_api_profile() -> None:
+    profile = load_api_profiles(Path(__file__).parents[1] / "configs" / "api_profiles.json").get(
+        "tencent-copilot-hy3-ioa"
+    )
+
+    identity = DynamicReaderIdentity.from_profile(profile, max_output_tokens=128)
+
+    assert identity.profile_id == profile.id
+    assert identity.profile_hash == profile.profile_hash
+    assert identity.max_output_tokens == 128
+    assert identity.serving_profile_id is None
+    assert identity.serving_profile_hash is None
+
+
+def test_dynamic_reader_identity_rejects_boolean_output_limit() -> None:
+    profile = load_api_profiles(Path(__file__).parents[1] / "configs" / "api_profiles.json").get(
+        "tencent-copilot-hy3-ioa"
+    )
+
+    with pytest.raises((TypeError, ValueError), match="output limit"):
+        DynamicReaderIdentity.from_profile(profile, max_output_tokens=True)
 
 
 def test_two_round_codex_micro_pilot_records_usage_and_refuses_overwrite(tmp_path: Path) -> None:

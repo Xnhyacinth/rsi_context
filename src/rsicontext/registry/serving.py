@@ -21,6 +21,8 @@ class ServingProfile:
 
     id: str
     model_id: str
+    host: str
+    port: int
     max_model_len: int
     tensor_parallel_size: int
     data_parallel_size: int
@@ -45,6 +47,10 @@ class ServingProfile:
         payload = json.dumps(asdict(self), separators=(",", ":"), sort_keys=True)
         return hashlib.sha256(payload.encode()).hexdigest()
 
+    @property
+    def chat_completions_endpoint(self) -> str:
+        return f"http://{self.host}:{self.port}/v1/chat/completions"
+
     @classmethod
     def from_dict(cls, data: object) -> ServingProfile:
         if not isinstance(data, dict):
@@ -52,6 +58,8 @@ class ServingProfile:
         required = {
             "id",
             "model_id",
+            "host",
+            "port",
             "max_model_len",
             "tensor_parallel_size",
             "data_parallel_size",
@@ -77,6 +85,14 @@ class ServingProfile:
         return cls(**{key: data[key] for key in required})
 
     def _validate(self) -> None:
+        if self.host != "127.0.0.1":
+            raise RegistryError("serving profile host must be the IPv4 loopback address")
+        if (
+            not isinstance(self.port, int)
+            or isinstance(self.port, bool)
+            or not 1 <= self.port <= 65535
+        ):
+            raise RegistryError("serving profile port must be an integer within [1, 65535]")
         integer_fields = {
             "max_model_len": self.max_model_len,
             "tensor_parallel_size": self.tensor_parallel_size,
@@ -183,6 +199,8 @@ def validate_run_binding(
         raise RegistryError("run reader profile hash does not match the supplied reader profile")
     if reader_profile.model != run_spec.model.model_id:
         raise RegistryError("reader model does not match the run model")
+    if reader_profile.allowed_host != profile.host:
+        raise RegistryError("reader host does not match the serving profile")
     if reader_profile.provider_revision != run_spec.model.revision:
         raise RegistryError("reader revision does not match the run model revision")
     if reader_profile.evaluation_max_model_len != run_spec.model.max_model_len:
@@ -213,6 +231,10 @@ def build_serve_command(
         "vllm",
         "serve",
         model.url.removeprefix("https://huggingface.co/").rstrip("/"),
+        "--host",
+        profile.host,
+        "--port",
+        str(profile.port),
         "--revision",
         model.revision,
         "--dtype",

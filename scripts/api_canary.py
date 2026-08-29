@@ -5,10 +5,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 
-from rsicontext.experiment import load_api_profiles, run_api_canary, write_api_canary
+from rsicontext.experiment import (
+    load_api_profiles,
+    resolve_api_endpoint,
+    run_api_canary,
+    write_api_canary,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -23,16 +27,11 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _parser().parse_args()
     profile = load_api_profiles(args.profiles).get(args.profile)
-    endpoint = os.environ.get(profile.endpoint_env)
-    api_key = os.environ.get(profile.api_key_env)
-    if not endpoint:
-        raise RuntimeError(f"missing endpoint environment variable: {profile.endpoint_env}")
-    if not api_key:
-        raise RuntimeError(f"missing API key environment variable: {profile.api_key_env}")
+    endpoint = resolve_api_endpoint(profile)
     result = run_api_canary(
         profile,
-        endpoint=endpoint,
-        api_key=api_key,
+        endpoint=endpoint.endpoint,
+        api_key=endpoint.api_key,
         repetitions=args.repetitions,
     )
     write_api_canary(result, args.output)
@@ -42,6 +41,7 @@ def main() -> int:
         "output": str(args.output),
         "profile_hash": result.profile_hash,
         "requested_model": result.requested_model,
+        "unobservable_runtime_fields": result.unobservable_runtime_fields,
         "usage_stable": result.usage_stable,
         "version_pinned": result.version_pinned,
     }

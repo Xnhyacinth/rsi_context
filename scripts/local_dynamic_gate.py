@@ -20,10 +20,6 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
-        "--endpoint",
-        default="http://127.0.0.1:8017/v1/chat/completions",
-    )
-    parser.add_argument(
         "--serving-profile",
         default="qwen3.6-27b-128k-bf16-h200x8",
     )
@@ -50,7 +46,7 @@ def main() -> int:
     )
     result = run_api_dynamic_gate(
         profile,
-        endpoint=args.endpoint,
+        endpoint=serving.chat_completions_endpoint,
         api_key=None,
         dataset_seed=args.dataset_seed,
         items_per_profile=args.items_per_profile,

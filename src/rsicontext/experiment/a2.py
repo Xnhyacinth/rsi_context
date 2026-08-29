@@ -21,6 +21,7 @@ _DIAGNOSTIC_INSTRUMENTS = (
     "no-context",
 )
 _PRIMARY_ESTIMAND = "gate_score_of_visible_selected_researcher_minus_visible_selected_control"
+_RESEARCHER_TURN_TIMEOUT_SECONDS = 1_800
 
 
 def _nonempty_pair(values: tuple[str, ...], field: str) -> tuple[str, str]:
@@ -80,6 +81,7 @@ class A2PilotPlan:
     rounds: int
     items_per_split: int
     replay_repetitions: int
+    researcher_turn_timeout_seconds: int
     matched_controls: tuple[str, ...]
     static_policies: tuple[str, ...]
     diagnostic_instruments: tuple[str, ...]
@@ -92,6 +94,10 @@ class A2PilotPlan:
     @property
     def prediction_triples(self) -> int:
         return self.researcher_turns * self.items_per_split
+
+    @property
+    def researcher_wall_seconds_ceiling(self) -> int:
+        return self.researcher_turns * self.researcher_turn_timeout_seconds
 
     @property
     def primary_estimand(self) -> str:
@@ -138,6 +144,8 @@ class A2PilotPlan:
             "rounds": self.rounds,
             "items_per_split": self.items_per_split,
             "replay_repetitions": self.replay_repetitions,
+            "researcher_turn_timeout_seconds": self.researcher_turn_timeout_seconds,
+            "researcher_wall_seconds_ceiling": self.researcher_wall_seconds_ceiling,
             "matched_controls": list(self.matched_controls),
             "static_policies": list(self.static_policies),
             "diagnostic_instruments": list(self.diagnostic_instruments),
@@ -205,6 +213,7 @@ def build_a2_pilot_plan(
         rounds=rounds,
         items_per_split=items_per_split,
         replay_repetitions=replay_repetitions,
+        researcher_turn_timeout_seconds=_RESEARCHER_TURN_TIMEOUT_SECONDS,
         matched_controls=_MATCHED_CONTROLS,
         static_policies=_STATIC_POLICIES,
         diagnostic_instruments=_DIAGNOSTIC_INSTRUMENTS,

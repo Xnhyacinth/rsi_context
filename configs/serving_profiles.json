@@ -4,6 +4,8 @@
     {
       "id": "qwen3.6-27b-128k-bf16-h200x8",
       "model_id": "qwen3.6-27b",
+      "host": "127.0.0.1",
+      "port": 8017,
       "max_model_len": 131072,
       "tensor_parallel_size": 8,
       "data_parallel_size": 1,
@@ -21,6 +23,8 @@
     {
       "id": "qwen3.6-27b-262k-bf16-h200x8",
       "model_id": "qwen3.6-27b",
+      "host": "127.0.0.1",
+      "port": 8017,
       "max_model_len": 262144,
       "tensor_parallel_size": 8,
       "data_parallel_size": 1,
@@ -38,6 +42,8 @@
     {
       "id": "llama-3.3-70b-128k-bf16-h200x8",
       "model_id": "llama-3.3-70b-instruct",
+      "host": "127.0.0.1",
+      "port": 8017,
       "max_model_len": 131072,
       "tensor_parallel_size": 8,
       "data_parallel_size": 1,

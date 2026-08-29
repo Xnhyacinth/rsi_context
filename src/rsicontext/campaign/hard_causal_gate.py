@@ -35,12 +35,11 @@ from rsicontext.datasets import (
 from rsicontext.eval import (
     EvaluationItem,
     FrozenReader,
-    OpenAICompatibleReader,
     ReaderOutput,
     exact_match,
     gold_context_pack,
 )
-from rsicontext.experiment import APIProfile
+from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint, build_profile_reader
 from rsicontext.policy import (
     CANONICAL_POLICY_SPECS_V1,
     Artifact,
@@ -253,17 +252,10 @@ def run_hard_causal_gate(
     source_max = max(item.source_target_tokens for item in visible)
     if source_max + output_limit > profile.evaluation_max_model_len:
         raise ValueError("target-tokenized full context exceeds the reader model length")
-    actual_reader: FrozenReader = reader or OpenAICompatibleReader(
-        endpoint=endpoint,
-        model=profile.model,
+    actual_reader: FrozenReader = reader or build_profile_reader(
+        profile,
+        ResolvedAPIEndpoint(endpoint=endpoint, api_key=api_key),
         max_tokens=output_limit,
-        max_model_len=profile.evaluation_max_model_len,
-        seed=profile.seed,
-        stream=True,
-        require_response_model=True,
-        chat_template_enable_thinking=profile.chat_template_enable_thinking,
-        allowed_hosts=(profile.allowed_host,),
-        api_key=api_key,
     )
 
     fixed_specs = _fixed_policies(policy_budget_tokens)

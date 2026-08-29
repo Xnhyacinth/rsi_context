@@ -21,6 +21,8 @@ def test_a2_plan_materializes_the_preregistered_factorial() -> None:
     assert {cell.research_seed for cell in plan.cells} == {17, 29}
     assert {cell.rounds for cell in plan.cells} == {5}
     assert plan.researcher_turns == 40
+    assert plan.researcher_turn_timeout_seconds == 1_800
+    assert plan.researcher_wall_seconds_ceiling == 72_000
     assert plan.prediction_triples == 1_600
     assert plan.primary_estimand == (
         "gate_score_of_visible_selected_researcher_minus_visible_selected_control"
@@ -58,6 +60,8 @@ def test_a2_plan_hash_is_stable_and_sensitive_to_scientific_inputs() -> None:
     assert "dataset_seeds" not in serialized
     assert serialized["selection_rule"] == "visible_historical_best"
     assert serialized["gate_evaluations_per_arm"] == 1
+    assert serialized["researcher_turn_timeout_seconds"] == 1_800
+    assert serialized["researcher_wall_seconds_ceiling"] == 72_000
 
 
 @pytest.mark.parametrize(

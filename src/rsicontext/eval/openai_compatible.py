@@ -97,6 +97,8 @@ class OpenAICompatibleReader:
         from rsicontext.registry import validate_run_binding
 
         validate_run_binding(run_spec, serving_profile, registry_model, reader_profile)
+        if endpoint != serving_profile.chat_completions_endpoint:
+            raise ValueError("reader endpoint does not match the serving profile")
 
         reader = cls(
             endpoint=endpoint,

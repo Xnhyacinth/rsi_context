@@ -66,7 +66,8 @@ def main() -> int:
 
         transformers = importlib.import_module("transformers")
         tokenizer = transformers.AutoTokenizer.from_pretrained(
-            args.tokenizer_path, local_files_only=True
+            args.tokenizer_path,
+            local_files_only=True,  # nosec B615
         )
 
         def counter(text: str) -> int:

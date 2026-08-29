@@ -15,12 +15,11 @@ from rsicontext.analysis import ReplaySummary, TrajectoryMetrics, replay_summary
 from rsicontext.eval import (
     EvaluationItem,
     FrozenReader,
-    OpenAICompatibleReader,
     ReaderOutput,
     evaluate,
     replay,
 )
-from rsicontext.experiment import APIProfile
+from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint, build_profile_reader
 from rsicontext.experiment.api_length import calibrated_noise_words
 from rsicontext.policy import (
     Artifact,
@@ -80,24 +79,17 @@ def run_api_policy_pilot(
     profile: APIProfile,
     *,
     endpoint: str,
-    api_key: str,
+    api_key: str | None,
     reader: FrozenReader | None = None,
     timer: Callable[[], float] = time.perf_counter,
     started_at: str | None = None,
 ) -> APIPolicyPilotResult:
     """Compare fixed policies; this qualifies the locus but is not agent discovery."""
 
-    actual_reader: FrozenReader = reader or OpenAICompatibleReader(
-        endpoint=endpoint,
-        model=profile.model,
+    actual_reader: FrozenReader = reader or build_profile_reader(
+        profile,
+        ResolvedAPIEndpoint(endpoint=endpoint, api_key=api_key),
         max_tokens=min(16, profile.max_output_tokens),
-        max_model_len=profile.evaluation_max_model_len,
-        seed=profile.seed,
-        stream=True,
-        require_response_model=True,
-        chat_template_enable_thinking=profile.chat_template_enable_thinking,
-        allowed_hosts=(profile.allowed_host,),
-        api_key=api_key,
     )
     accounted_reader = _AccountingReader(actual_reader)
     items = _items()

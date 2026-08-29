@@ -32,7 +32,10 @@ def test_serving_profiles_cover_required_models_and_contexts() -> None:
     assert all(not profile.enable_prefix_caching for profile in profiles.profiles)
     assert all(profile.tensor_parallel_size == 8 for profile in profiles.profiles)
     assert all(profile.data_parallel_size == 1 for profile in profiles.profiles)
+    assert all(profile.host == "127.0.0.1" for profile in profiles.profiles)
+    assert all(profile.port == 8017 for profile in profiles.profiles)
     profile = profiles.profiles[0]
+    assert profile.chat_completions_endpoint == "http://127.0.0.1:8017/v1/chat/completions"
     assert len(profile.profile_hash) == 64
     assert (
         replace(profile, max_num_seqs=profile.max_num_seqs + 1).profile_hash != profile.profile_hash
@@ -50,6 +53,7 @@ def test_qwen_command_has_language_reasoning_and_hold_flags() -> None:
     assert command.startswith("bash /workspace/wynckeliao/ops/gpu/hold.sh wrap 0,1,2,3,4,5,6,7 --")
     assert "--max-model-len 262144" in command
     assert "--tensor-parallel-size 8 --data-parallel-size 1" in command
+    assert "--host 127.0.0.1 --port 8017" in command
     assert "--no-enable-prefix-caching" in command
     assert "--enable-chunked-prefill" in command
     assert "--language-model-only --reasoning-parser qwen3" in command
@@ -85,6 +89,9 @@ def test_serving_profiles_reject_non_eight_gpu_topology(tmp_path: Path) -> None:
         ("max_model_len", True, "integer capacities"),
         ("seed", False, "seed"),
         ("gpu_memory_utilization", True, "gpu_memory_utilization"),
+        ("port", True, "port"),
+        ("port", 65_536, "port"),
+        ("host", "0.0.0.0", "loopback"),
     ],
 )
 def test_serving_profiles_reject_booleans_in_numeric_fields(
