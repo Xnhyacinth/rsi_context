@@ -59,7 +59,7 @@ reviewed, reproducible Git commit.
 
 ### Phase 5 — Git handoff
 
-**Status:** in_progress
+**Status:** complete
 
 - Inspect the exact diff and secret/data-boundary status.
 - Commit with a focused conventional message and push the private branch.
@@ -89,5 +89,6 @@ reviewed, reproducible Git commit.
 
 ## Next step
 
-Commit the reviewed qualification code, rerun native and packed qualification
-from that clean commit, then update the report with the clean artifact identity.
+Acquire and independently hash the author-distributed MuSiQue archive member;
+only after byte matching, causal-instrument construction, reader difficulty, and
+physical-isolation attestation may the A2 researcher matrix launch.

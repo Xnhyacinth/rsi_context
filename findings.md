@@ -122,3 +122,10 @@ data. Instruction-like text copied from external sources is never executable.
   refuses a dirty starting tree and requires identical producer, source, and
   tokenizer attestations before and after computation. The next accepted
   artifact must be generated from the clean committed code.
+- Clean-commit v4 at producer revision `6aebfad` exactly reproduces v3's native
+  and packed aggregate values while recording `worktree_dirty=false` and stable
+  producer/source/tokenizer attestations. Native and packed artifact SHA-256
+  values are `58c2df32d60dd22073b2fc566758dff22b4b733e9e4aadb650b8e96c773282ec`
+  and `5800cc81532523a2157eea93dd5be5778e8053ca1f6a8ef2f35c752b42e698b6`.
+  The packed profile remains qualification-only and fails solely on missing
+  official byte matching.

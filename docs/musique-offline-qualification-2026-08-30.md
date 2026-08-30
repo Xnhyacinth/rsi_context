@@ -59,7 +59,8 @@ trusted a caller-provided source-match boolean, did not attest tokenizer bytes,
 and treated requested position labels as observed positions. Independent review
 found these semantic gaps after the original static checks passed.
 
-The strict v3 measurements are diagnostic until repeated from a clean commit:
+Dirty-tree v3 established the following diagnostic values. Clean-commit v4
+reproduced them exactly:
 
 | Measurement                                      |                             Value |
 | ------------------------------------------------ | --------------------------------: |
@@ -76,12 +77,16 @@ The strict v3 measurements are diagnostic until repeated from a clean commit:
 | Duplicate target identifiers                     |                                 0 |
 | Reader/API calls                                 |                                 0 |
 
-The packed structure clears the implemented length, hop-diversity, support, and
-lexical-leakage checks. Its artifact records `worktree_dirty=true`, so it cannot
-serve as the final reproducibility artifact. The CLI now rejects dirty starts
-and producer/source/tokenizer drift; a clean-commit rerun is required. Even that
-rerun will remain **fail** until the mirror is byte-matched to the
-author-distributed archive.
+The v4 native and packed artifacts bind clean producer revision
+`6aebfaddb5727e202937fd59ec749be7a4250b59`, exact producer files, Python
+3.12.3, Transformers 5.15.0, and Tokenizers 0.22.2. Their local artifact
+SHA-256 values are respectively
+`58c2df32d60dd22073b2fc566758dff22b4b733e9e4aadb650b8e96c773282ec`
+and `5800cc81532523a2157eea93dd5be5778e8053ca1f6a8ef2f35c752b42e698b6`.
+
+The packed structure clears the implemented length, hop-diversity, support,
+position, and lexical-leakage checks. Its overall verdict remains **fail** until
+the mirror is byte-matched to the author-distributed archive.
 
 ## Bugs found by real-data execution
 

@@ -63,3 +63,7 @@
 - Third review found no remaining must-fix for the qualification-only scope.
   The final post-fix repository gate passed all 494 tests with 84.17% branch
   coverage; focused tests, Ruff, strict mypy, and high-severity Bandit also pass.
+- Committed the reviewed implementation as `6aebfad`, then reran native and
+  packed qualification from that clean tree. Both v4 artifacts passed start/end
+  producer, source, and tokenizer stability checks; packed v4 exactly reproduced
+  v3 and still fails only the unavailable official-source byte match.
