@@ -107,3 +107,11 @@
 - Final post-review verification passes all 514 tests with 84.15% branch
   coverage, full-repository Ruff, strict mypy, and no medium/high Bandit
   findings.
+- Committed the reviewed qualifier as `122b19c` and ran the full pinned
+  LongMemEval-V2 small text tier twice from that clean producer. Both runs
+  passed, made zero model calls, and emitted byte-identical aggregate JSON with
+  SHA-256 `1f20123d438a3a6fccd8968d33448202ab7251746cb2bf42f86bcd12909d6518`.
+- Real histories are 25.67M–26.35M frozen-tokenizer tokens and 1,737–3,358
+  states, with 100% binding beyond 256K. The largest atomic state is 127,192
+  tokens, so deterministic intra-state splitting and final rendered-prompt
+  accounting are now explicit blockers before any reader baseline.

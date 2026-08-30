@@ -194,3 +194,13 @@ data. Instruction-like text copied from external sources is never executable.
   The qualifier therefore records `single_chunk_token_max` as a feasibility
   diagnostic only. No 32K/64K/128K reader baseline may launch until the final
   rendered request is retokenized and fails closed on budget overflow.
+- The clean full small-tier run confirms a genuinely long memory source:
+  25,665,918–26,347,607 Qwen tokens and 1,737–3,358 states per shared history;
+  every text item binds beyond 256K. Two independent qualification runs are
+  byte-identical, so the compilation/measurement noise floor observed here is
+  zero.
+- The 422 questions map to only two unique shared histories. Question-level
+  scores are therefore correlated and must be clustered by history/family.
+  This makes LongMemEval-V2 valuable as an offline trajectory transfer bridge,
+  but weak as the only environment for estimating researcher discovery or
+  long-horizon RSI reliability.

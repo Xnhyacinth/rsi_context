@@ -85,7 +85,7 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 8 — Real-data offline baselines
 
-**Status:** pending
+**Status:** in_progress
 
 - Run full-context/truncation/lexical-or-recency context policies on qualified
   real trajectories using the frozen reader only after difficulty gates pass.
@@ -103,7 +103,7 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 10 — Verification and Git handoff
 
-**Status:** in_progress
+**Status:** complete
 
 - Run branch-coverage pytest, Ruff, strict mypy, Bandit, and risk-first review.
 - Commit and push only reproducible qualification evidence to the private
@@ -133,6 +133,6 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Next step
 
-Commit the reviewed qualifier so its clean-tree attestation can run, execute the
-full pinned small tier, and use the observed 128K/256K binding rates to decide
-whether frozen-reader offline baselines are scientifically eligible.
+Implement deterministic intra-state splitting and final rendered-prompt token
+accounting, then qualify matched frozen-reader baselines on the 294-item exact
+stratum. Keep LongMemEval-V2 as transfer evidence rather than A2 search fitness.
