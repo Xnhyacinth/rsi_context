@@ -67,3 +67,43 @@
   packed qualification from that clean tree. Both v4 artifacts passed start/end
   producer, source, and tokenizer stability checks; packed v4 exactly reproduced
   v3 and still fails only the unavailable official-source byte match.
+
+## 2026-08-30 — Real long-memory continuation
+
+- Started Phase 6 in response to the requirement to use genuinely long,
+  complex long-context/long-memory/long-horizon tasks rather than toy inputs.
+- Chose pinned LongMemEval-V2 offline trajectories as the next executable real
+  track. Static MuSiQue remains the low-noise causal track; live long-horizon
+  remains a separately gated transfer rather than a mixed fitness function.
+- Audited all 451 question records and the clean official evaluator checkout.
+  Identified 294 text-only deterministic-evaluator questions, 128 text-only LLM
+  abstention questions, and 29 image questions; verified all four consumed core
+  data files against the released checksum manifest.
+- Added a failing test showing the adapter ignored a supplied frozen tokenizer,
+  then changed trajectory chunk compilation to require a target token counter
+  and tokenizer identity. The identity now enters the dataset fingerprint; all
+  20 adapter tests pass after updating call sites.
+- Added an aggregate-only full-tier qualifier with exact released-file hashes,
+  clean producer start/end attestation, immutable output, zero reader calls,
+  and explicit 32K/128K/256K binding measurements. Shared provenance and frozen
+  tokenizer checks now serve both MuSiQue and LongMemEval qualification paths.
+- Recomputed evaluator families directly from the pinned 451-row release and
+  corrected an earlier one-item audit error: the 422 text-only items comprise
+  294 deterministic and 128 LLM-abstention items. The gate now checks every
+  evaluator-family count and rejects unknown families instead of guessing.
+- The full repository gate passes: 506 tests, 83.81% branch coverage, Ruff, and
+  strict mypy. Bandit reports no medium/high findings; its 11 low findings are
+  pre-existing subprocess sites outside this change.
+- Risk-first review found and closed two high-severity qualification defects:
+  Git status alone could be bypassed with index flags, and the initial renderer
+  omitted canonical trajectory metadata. Producer files are now byte-matched
+  to their `HEAD` blobs, and faithful text artifacts retain trajectory
+  domain/environment/goal/outcome/start URL plus state step/URL.
+- The reusable gate now independently binds the pinned source revision, exact
+  small-tier released hashes, complete evaluator-family table, and composite
+  tokenizer identity. A follow-up review caught and fixed metadata chunks being
+  miscounted as states; a real adapter-to-measurement fixture now covers state
+  counts and maximum atomic-chunk length.
+- Final post-review verification passes all 514 tests with 84.15% branch
+  coverage, full-repository Ruff, strict mypy, and no medium/high Bandit
+  findings.

@@ -20,8 +20,18 @@ from rsicontext.datasets.longmemeval_transfer import (
 from rsicontext.datasets.longmemeval_v2 import load_longmemeval_v2
 from rsicontext.experiment.ledger import SpendCaps, SpendLedger
 from rsicontext.policy import Budget
+from rsicontext.registry.tokenizer import verify_tokenizer_snapshot
 
 _HF_DATA_REVISION = "f152293e235517d504809563c833d7190b8c713b"
+_DEFAULT_TOKENIZER = Path("models/qwen3.6-27b")
+_TOKENIZER_REVISION = "Qwen/Qwen3.6-27B@1b559cf7215ebe67ff10758e14f6293ba883223b"
+_TOKENIZER_FILES = (
+    ("tokenizer.json", "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"),
+    (
+        "tokenizer_config.json",
+        "dbfb3c20ce3d5b8370faeecd548e771c1dcc8e4fdcf636797fc24b0d0733fb02",
+    ),
+)
 _POLICY_NAMES = ("last-k", "lexical", "random", HAND_HYBRID_NAME, "full-trace-unbudgeted")
 
 
@@ -30,6 +40,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--source-revision", default=_HF_DATA_REVISION)
+    parser.add_argument("--tokenizer-path", type=Path, default=_DEFAULT_TOKENIZER)
     parser.add_argument("--tier", choices=("small", "medium"), default="small")
     parser.add_argument("--question-limit", type=int, default=12)
     parser.add_argument("--trajectories-per-question", type=int, default=2)
@@ -41,6 +52,19 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = _parser().parse_args()
+    tokenizer_snapshot = verify_tokenizer_snapshot(args.tokenizer_path, _TOKENIZER_FILES)
+    from transformers import AutoTokenizer
+
+    # The exact local tokenizer files were hash-verified immediately above.
+    tokenizer = AutoTokenizer.from_pretrained(
+        str(args.tokenizer_path),
+        local_files_only=True,  # nosec B615
+    )
+
+    def token_count(text: str) -> int:
+        return len(tokenizer.encode(text, add_special_tokens=False))
+
+    tokenizer_id = f"{_TOKENIZER_REVISION}#tokenizer-files-sha256:{tokenizer_snapshot}"
     ledger = SpendLedger(
         SpendCaps(
             max_reader_calls=1,
@@ -54,6 +78,8 @@ def main() -> int:
     dataset = load_longmemeval_v2(
         args.root,
         source_revision=args.source_revision,
+        token_counter=token_count,
+        tokenizer_id=tokenizer_id,
         tier=args.tier,
         question_limit=args.question_limit,
         trajectories_per_question=args.trajectories_per_question,

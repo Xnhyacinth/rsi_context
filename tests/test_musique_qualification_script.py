@@ -23,7 +23,12 @@ SCRIPT = _load_script()
 
 
 def test_producer_attestation_requires_clean_and_stable_state() -> None:
-    clean = {"git_revision": "a" * 40, "worktree_dirty": False}
+    clean = {
+        "git_revision": "a" * 40,
+        "worktree_dirty": False,
+        "repository_root_matches": True,
+        "producer_files_match_head": True,
+    }
 
     SCRIPT._require_clean_producer(clean)
     SCRIPT._require_stable_attestation(clean, dict(clean))

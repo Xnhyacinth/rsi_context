@@ -5,11 +5,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import importlib.metadata
 import json
-import platform
-import shutil
-import subprocess  # nosec B404
 from collections import Counter
 from collections.abc import Callable, Iterator
 from dataclasses import asdict
@@ -20,7 +16,6 @@ from rsicontext.analysis.musique_qualification import (
     evaluate_musique_offline_qualification,
     measure_musique_evaluator_items,
     measure_musique_records,
-    verify_tokenizer_snapshot,
 )
 from rsicontext.datasets.musique import (
     MuSiQueEvaluatorItem,
@@ -32,6 +27,14 @@ from rsicontext.datasets.musique_long_context import (
     gold_position_matches,
     pack_musique_long_context,
 )
+from rsicontext.experiment.offline_provenance import (
+    file_sha256,
+    producer_attestation,
+    require_clean_producer,
+    require_stable_attestation,
+    require_unchanged_file,
+)
+from rsicontext.registry.tokenizer import verify_tokenizer_snapshot
 
 _DEFAULT_INPUT = Path("data/musique-answerable-data-qualification/musique_ans_v1.0_dev.jsonl")
 _DEFAULT_TOKENIZER = Path("models/qwen3.6-27b")
@@ -52,6 +55,8 @@ _PRODUCER_FILES = (
     Path("src/rsicontext/analysis/musique_qualification.py"),
     Path("src/rsicontext/datasets/musique.py"),
     Path("src/rsicontext/datasets/musique_long_context.py"),
+    Path("src/rsicontext/experiment/offline_provenance.py"),
+    Path("src/rsicontext/registry/tokenizer.py"),
 )
 
 
@@ -67,64 +72,27 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while block := handle.read(1024 * 1024):
-            digest.update(block)
-    return digest.hexdigest()
-
-
 def _producer_attestation() -> dict[str, object]:
-    git = shutil.which("git")
-    if git is None:
-        raise RuntimeError("git is required for qualification producer attestation")
-    revision = subprocess.run(  # nosec B603
-        [git, "rev-parse", "HEAD"],
-        cwd=_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    ).stdout.strip()
-    status = subprocess.run(  # nosec B603
-        [git, "status", "--porcelain=v1", "--untracked-files=all"],
-        cwd=_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    ).stdout
-    return {
-        "git_revision": revision,
-        "worktree_dirty": bool(status),
-        "python_version": platform.python_version(),
-        "tokenizers_version": importlib.metadata.version("tokenizers"),
-        "transformers_version": importlib.metadata.version("transformers"),
-        "producer_file_sha256": {str(path): _sha256(_ROOT / path) for path in _PRODUCER_FILES},
-    }
+    return producer_attestation(
+        _ROOT,
+        _PRODUCER_FILES,
+        package_names=("tokenizers", "transformers"),
+    )
 
 
 def _require_clean_producer(attestation: dict[str, object]) -> None:
-    if attestation.get("worktree_dirty") is not False:
-        raise RuntimeError("qualification requires a clean producer worktree")
+    require_clean_producer(attestation)
 
 
 def _require_stable_attestation(
     before: dict[str, object],
     after: dict[str, object],
 ) -> None:
-    if before != after:
-        raise RuntimeError("qualification producer changed during execution")
+    require_stable_attestation(before, after)
 
 
 def _require_unchanged_source(path: Path, expected_sha256: str) -> None:
-    observed = _sha256(path)
-    if observed != expected_sha256:
-        raise RuntimeError(
-            "MuSiQue qualification source changed during execution: "
-            f"expected {expected_sha256}, observed {observed}"
-        )
+    require_unchanged_file(path, expected_sha256, label="MuSiQue qualification source")
 
 
 def _records(path: Path) -> Iterator[MuSiQueRecord]:
@@ -235,7 +203,7 @@ def main() -> int:
         raise FileExistsError(f"qualification output already exists: {args.output}")
     producer_attestation = _producer_attestation()
     _require_clean_producer(producer_attestation)
-    source_sha256 = _sha256(args.input)
+    source_sha256 = file_sha256(args.input)
     if source_sha256 != _EXPECTED_SHA256:
         raise ValueError(
             "MuSiQue qualification source digest mismatch: "

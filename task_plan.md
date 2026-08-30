@@ -1,12 +1,12 @@
-# A2 qualification and evaluator hardening
+# Real long-context, long-memory, and long-horizon qualification
 
 ## Goal
 
-Advance the next preregistered RSIBench-Context unit without launching an
-ineligible researcher matrix: qualify the real causal multi-hop data path,
-harden and test the frozen evaluator boundary needed by that path, execute the
-largest scientifically valid offline/smoke experiment available, and leave a
-reviewed, reproducible Git commit.
+Advance from static causal qualification to real long-memory evidence without
+launching an ineligible researcher matrix: qualify LongMemEval-V2 with the
+frozen tokenizer and evaluator strata, execute 128K+ offline trajectory-policy
+baselines, and specify a separate live long-horizon transfer gate while keeping
+the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Success criteria
 
@@ -65,6 +65,50 @@ reviewed, reproducible Git commit.
 - Commit with a focused conventional message and push the private branch.
 - Report achieved evidence, remaining gates, and next executable experiment.
 
+### Phase 6 — Real LongMemEval-V2 audit
+
+**Status:** complete
+
+- Audit the pinned real data, actual lengths, image subset, evaluator types,
+  adapter token accounting, and existing offline trajectory packer.
+- Select a text-only, exact-evaluator primary profile and separately label weak
+  judge transfer evidence.
+
+### Phase 7 — Long-memory qualification implementation
+
+**Status:** complete
+
+- Add behavior-first tests for frozen-tokenizer counts, provenance, immutable
+  aggregate reports, and 128K+ binding.
+- Implement only the missing qualification path; do not broaden the researcher
+  grammar or live harness.
+
+### Phase 8 — Real-data offline baselines
+
+**Status:** pending
+
+- Run full-context/truncation/lexical-or-recency context policies on qualified
+  real trajectories using the frozen reader only after difficulty gates pass.
+- Report exact and judge strata separately, with target/auxiliary calls and
+  replay evidence.
+
+### Phase 9 — Live long-horizon transfer design
+
+**Status:** pending
+
+- Freeze tools, task policy, skills, state kernel, and evaluator; expose only
+  trajectory select/compress/order/verify triggers as the transfer policy.
+- Select a pinned real benchmark and require matched retry, shared first
+  rollout, A/A replay, policy activation, last/peak/best, and tokens/success.
+
+### Phase 10 — Verification and Git handoff
+
+**Status:** in_progress
+
+- Run branch-coverage pytest, Ruff, strict mypy, Bandit, and risk-first review.
+- Commit and push only reproducible qualification evidence to the private
+  branch; keep raw data and evaluator-only artifacts ignored.
+
 ## Decisions
 
 | Decision                                                     | Rationale                                                                                                |
@@ -89,6 +133,6 @@ reviewed, reproducible Git commit.
 
 ## Next step
 
-Acquire and independently hash the author-distributed MuSiQue archive member;
-only after byte matching, causal-instrument construction, reader difficulty, and
-physical-isolation attestation may the A2 researcher matrix launch.
+Commit the reviewed qualifier so its clean-tree attestation can run, execute the
+full pinned small tier, and use the observed 128K/256K binding rates to decide
+whether frozen-reader offline baselines are scientifically eligible.

@@ -11,10 +11,10 @@ from rsicontext.analysis.musique_qualification import (
     evaluate_musique_offline_qualification,
     measure_musique_evaluator_items,
     measure_musique_records,
-    verify_tokenizer_snapshot,
 )
 from rsicontext.datasets.musique import musique_answerable_record
 from rsicontext.datasets.musique_long_context import pack_musique_long_context
+from rsicontext.registry.tokenizer import verify_tokenizer_snapshot
 
 
 def _passing() -> MuSiQueOfflineMeasurements:

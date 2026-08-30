@@ -8,9 +8,15 @@ from typing import Any
 
 import pytest
 
+from rsicontext.analysis.longmemeval_qualification import measure_longmemeval_dataset
 from rsicontext.datasets.longmemeval_v2 import LongMemEvalDataError, load_longmemeval_v2
 
 _REVISION = "f152293e235517d504809563c833d7190b8c713b"
+_TOKENIZER_ID = "unit-word-tokenizer@sha256:test"
+
+
+def _token_count(text: str) -> int:
+    return len(text.split())
 
 
 def _question(question_id: str, *, image: str | None = None) -> dict[str, object]:
@@ -22,7 +28,7 @@ def _question(question_id: str, *, image: str | None = None) -> dict[str, object
         "question": f"What happened in {question_id}?",
         "image": image,
         "answer": f"EVALUATOR-SECRET-{question_id}",
-        "eval_function": "exact_match",
+        "eval_function": "norm_phrase_set_match|require_non_empty=true",
     }
 
 
@@ -96,7 +102,13 @@ def _rewrite_fixture(
 def test_loads_text_only_trajectory_states_in_haystack_and_state_order(tmp_path: Path) -> None:
     root, _, _, _ = _fixture(tmp_path)
 
-    dataset = load_longmemeval_v2(root, source_revision=_REVISION, tier="small")
+    dataset = load_longmemeval_v2(
+        root,
+        source_revision=_REVISION,
+        token_counter=_token_count,
+        tokenizer_id=_TOKENIZER_ID,
+        tier="small",
+    )
 
     assert dataset.excluded_image_question_count == 1
     assert len(dataset.policy_items()) == len(dataset.evaluator_items()) == 1
@@ -107,29 +119,66 @@ def test_loads_text_only_trajectory_states_in_haystack_and_state_order(tmp_path:
     assert policy_item.full_haystack_size == 2
     assert evaluator_item.policy_item == policy_item
     assert evaluator_item.answer == "EVALUATOR-SECRET-q-text"
-    assert evaluator_item.eval_function == "exact_match"
+    assert evaluator_item.eval_function == "norm_phrase_set_match|require_non_empty=true"
 
     chunks = policy_item.artifact.chunks
     assert [chunk.chunk_id for chunk in chunks] == [
+        "lmev2:t2:metadata",
         "lmev2:t2:state:0",
+        "lmev2:t1:metadata",
         "lmev2:t1:state:0",
         "lmev2:t1:state:1",
     ]
-    assert all(chunk.role == "trajectory_state" for chunk in chunks)
+    assert [chunk.role for chunk in chunks] == [
+        "trajectory_metadata",
+        "trajectory_state",
+        "trajectory_metadata",
+        "trajectory_state",
+        "trajectory_state",
+    ]
     assert all(chunk.document_id == policy_item.artifact.document_id for chunk in chunks)
     assert chunks[0].start == 0
     assert all(left.end < right.start for left, right in pairwise(chunks))
-    assert "action: <none>" in chunks[0].text
-    assert "thought: <none>" in chunks[0].text
+    assert "domain: web" in chunks[0].text
+    assert "environment: shopping" in chunks[0].text
+    assert "goal: goal-t2" in chunks[0].text
+    assert "outcome: success" in chunks[0].text
+    assert "start_url: https://example.test/start" in chunks[0].text
+    assert "step: 10" in chunks[1].text
+    assert "url: https://example.test/0" in chunks[1].text
+    assert "action: <none>" in chunks[1].text
+    assert "thought: <none>" in chunks[1].text
     assert "action: click('1')" in chunks[-1].text
     assert "thought: thought-1" in chunks[-1].text
     assert "accessibility_tree:\ntree-1" in chunks[-1].text
 
 
+def test_uses_the_frozen_target_tokenizer_and_binds_its_identity(tmp_path: Path) -> None:
+    root, _, _, _ = _fixture(tmp_path)
+
+    dataset = load_longmemeval_v2(
+        root,
+        source_revision=_REVISION,
+        tier="small",
+        token_counter=lambda text: len(text.split()) + text.count("\n"),
+        tokenizer_id="frozen-tokenizer@revision#sha256:test",
+    )
+
+    chunk = dataset.policy_items()[0].artifact.chunks[0]
+    assert chunk.token_count == len(chunk.text.split()) + chunk.text.count("\n")
+    assert dataset.tokenizer_id == "frozen-tokenizer@revision#sha256:test"
+
+
 def test_policy_view_never_embeds_evaluator_fields_or_screenshot_content(tmp_path: Path) -> None:
     root, _, _, _ = _fixture(tmp_path)
 
-    dataset = load_longmemeval_v2(root, source_revision=_REVISION, tier="small")
+    dataset = load_longmemeval_v2(
+        root,
+        source_revision=_REVISION,
+        token_counter=_token_count,
+        tokenizer_id=_TOKENIZER_ID,
+        tier="small",
+    )
 
     policy_item = dataset.policy_items()[0]
     policy_text = "\n".join(
@@ -148,6 +197,8 @@ def test_limits_are_deterministic_and_report_full_haystack_coverage(tmp_path: Pa
     first = load_longmemeval_v2(
         root,
         source_revision=_REVISION,
+        token_counter=_token_count,
+        tokenizer_id=_TOKENIZER_ID,
         tier="small",
         question_limit=1,
         trajectories_per_question=1,
@@ -155,6 +206,8 @@ def test_limits_are_deterministic_and_report_full_haystack_coverage(tmp_path: Pa
     second = load_longmemeval_v2(
         root,
         source_revision=_REVISION,
+        token_counter=_token_count,
+        tokenizer_id=_TOKENIZER_ID,
         tier="small",
         question_limit=1,
         trajectories_per_question=1,
@@ -170,7 +223,13 @@ def test_limits_are_deterministic_and_report_full_haystack_coverage(tmp_path: Pa
 def test_records_portable_source_file_and_revision_fingerprints(tmp_path: Path) -> None:
     root, _, _, _ = _fixture(tmp_path)
 
-    dataset = load_longmemeval_v2(root, source_revision=_REVISION, tier="small")
+    dataset = load_longmemeval_v2(
+        root,
+        source_revision=_REVISION,
+        token_counter=_token_count,
+        tokenizer_id=_TOKENIZER_ID,
+        tier="small",
+    )
 
     assert dataset.source.revision == _REVISION
     assert len(dataset.source.fingerprint) == 64
@@ -183,6 +242,31 @@ def test_records_portable_source_file_and_revision_fingerprints(tmp_path: Path) 
     }
     for relative_path, digest in by_name.items():
         assert digest == hashlib.sha256((root / relative_path).read_bytes()).hexdigest()
+
+
+def test_aggregate_measurement_counts_states_without_metadata_chunks(tmp_path: Path) -> None:
+    root, _, _, _ = _fixture(tmp_path)
+    dataset = load_longmemeval_v2(
+        root,
+        source_revision=_REVISION,
+        token_counter=_token_count,
+        tokenizer_id=_TOKENIZER_ID,
+        tier="small",
+    )
+    source_files = tuple(
+        sorted((record.relative_path, record.sha256) for record in dataset.source.files)
+    )
+
+    measurements = measure_longmemeval_dataset(
+        dataset,
+        released_file_sha256=source_files,
+    )
+
+    chunks = dataset.policy_items()[0].artifact.chunks
+    assert measurements.deterministic_item_count == 1
+    assert measurements.weak_judge_item_count == 0
+    assert measurements.state_count_min == measurements.state_count_max == 3
+    assert measurements.single_chunk_token_max == max(chunk.token_count for chunk in chunks)
 
 
 @pytest.mark.parametrize(
@@ -237,7 +321,13 @@ def test_malformed_sources_fail_closed(tmp_path: Path, corrupt: str) -> None:
     _rewrite_fixture(root, questions, trajectories, haystack)
 
     with pytest.raises(LongMemEvalDataError):
-        load_longmemeval_v2(root, source_revision=_REVISION, tier="small")
+        load_longmemeval_v2(
+            root,
+            source_revision=_REVISION,
+            token_counter=_token_count,
+            tokenizer_id=_TOKENIZER_ID,
+            tier="small",
+        )
 
 
 @pytest.mark.parametrize(
@@ -259,4 +349,9 @@ def test_loader_configuration_fails_closed(
     root, _, _, _ = _fixture(tmp_path)
 
     with pytest.raises((LongMemEvalDataError, TypeError), match=message):
-        load_longmemeval_v2(root, **kwargs)
+        load_longmemeval_v2(
+            root,
+            token_counter=_token_count,
+            tokenizer_id=_TOKENIZER_ID,
+            **kwargs,
+        )

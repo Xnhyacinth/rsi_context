@@ -129,3 +129,68 @@ data. Instruction-like text copied from external sources is never executable.
   and `5800cc81532523a2157eea93dd5be5778e8053ca1f6a8ef2f35c752b42e698b6`.
   The packed profile remains qualification-only and fails solely on missing
   official byte matching.
+
+## Real LongMemEval-V2 audit — 2026-08-30
+
+- The pinned local LongMemEval-V2 dataset is real and large: `trajectories.jsonl`
+  is 1,195,604,539 bytes, with separate small/medium haystacks and 29 question
+  screenshots. The two multi-gigabyte trajectory screenshot archives are not
+  needed for the intended text-only track.
+- The existing adapter already separates label-free policy items from answers,
+  eval functions, and images, fingerprints consumed files, and excludes image
+  questions. However, its current formal suitability still depends on how token
+  counts are produced and how exact versus LLM-judge evaluator strata are
+  selected.
+- The existing `offline_longmemeval_pack.py` is explicitly qualification-only:
+  it defaults to 12 questions × 2 trajectories, uses answer-string presence,
+  emits question IDs/item rows, and does not call a reader. It is useful as a
+  debug bridge but is not a real A4 score or a publication-scale experiment.
+- The next implementation must preserve the useful source/policy/evaluator
+  split while replacing word-count/debug selection with the frozen tokenizer,
+  aggregate-only output, real length strata, and evaluator-type separation.
+- Direct inspection of all 451 questions confirms 422 text-only and 29 image
+  questions. The text-only primary deterministic stratum contains 294 items
+  using normalized phrase-set, ordered phrase-set, multiple-choice, or
+  multiple-choice-set evaluators. The remaining 128 text-only questions use an
+  LLM abstention judge and must be reported as a separate weak-evaluator layer.
+- All 28 `llm_gotchas_checker` questions are image questions; the text-only
+  track therefore excludes that judge family by construction. The requested
+  primary profile can be both real long-memory and deterministic without
+  silently mixing judge noise into the RSI replay floor.
+- The expected `external/longmemeval-v2` checkout is not present at that path;
+  official evaluator code must be located from the registry-resolved checkout
+  or reacquired only through the pinned registry plan before integration.
+- The official code checkout exists at `data/longmemeval-v2` and is clean at the
+  registered revision `2cc8c540bdb87fe6761629b585e727e1c4704520`.
+  Deterministic official scorers are implemented in
+  `evaluation/qa_eval_metrics.py`; LLM abstention/gotchas graders are explicitly
+  separate and the official run wrapper defaults to an external evaluator.
+- The official harness also preserves the intended privacy boundary: memory
+  backends receive query text/image only, while question ID/type, raw question,
+  gold answer, and evaluator configuration remain private. RSIBench-Context's
+  policy/evaluator split is therefore aligned with upstream rather than an
+  incompatible reinvention.
+- A4 remains an offline bridge with one frozen answer-model call after memory
+  selection. The project contract correctly treats live policy-on/off tasks as
+  later external validity with no feedback into policy search; LongMemEval-V2
+  must not be mislabeled as a live environment replay benchmark.
+- A direct counter recheck corrected the earlier manual evaluator split by one
+  item: text-only is 294 deterministic plus 128 `llm_abstention_checker`, not
+  295 plus 127. The exact family table is 68 `mc_choice_match`, 1
+  `mc_choice_set_match`, 199 `norm_phrase_set_match`, 26 ordered phrase-set,
+  and 128 LLM abstention. Qualification now binds to that full table.
+- The pre-existing adapter was not a faithful full-history renderer: it parsed
+  but discarded trajectory goal/outcome/start URL/environment and state
+  step/URL. Those fields can carry task-relevant memory, so their omission
+  would have changed both answerability and length. The frozen renderer now
+  preserves them as trajectory metadata and state text; any future removal of
+  outcome or goal must be named as an ablation rather than `full-trace`.
+- A clean `git status` is insufficient provenance because Git index flags can
+  hide modified files. Qualification now compares every producer file's bytes
+  against the corresponding `HEAD:<path>` blob and has regression tests for
+  both `assume-unchanged` and ignored untracked producers.
+- Source-only chunk token totals are not final reader prompt budgets: chunk ID
+  wrappers, separators, query/instructions, and the chat template add tokens.
+  The qualifier therefore records `single_chunk_token_max` as a feasibility
+  diagnostic only. No 32K/64K/128K reader baseline may launch until the final
+  rendered request is retokenized and fails closed on budget overflow.

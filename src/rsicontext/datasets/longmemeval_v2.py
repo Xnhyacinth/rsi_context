@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, cast
@@ -44,6 +45,7 @@ _STATE_FIELDS = frozenset(
     }
 )
 _IMMUTABLE_REVISION = re.compile(r"[0-9a-f]{40}")
+_RENDERER_ID = "longmemeval-v2-faithful-text-v1"
 
 
 class LongMemEvalDataError(ValueError):
@@ -101,6 +103,7 @@ class LongMemEvalOfflineDataset:
     tier: LongMemEvalTier
     loaded_trajectory_ids: frozenset[str]
     excluded_image_question_count: int
+    tokenizer_id: str
     fingerprint: str
 
     def policy_items(self) -> tuple[LongMemEvalPolicyItem, ...]:
@@ -129,6 +132,8 @@ class _Question:
 @dataclass(frozen=True, slots=True)
 class _State:
     state_index: int
+    step: int
+    url: str
     action: str | None
     thought: str | None
     accessibility_tree: str
@@ -138,6 +143,10 @@ class _State:
 class _Trajectory:
     trajectory_id: str
     domain: str
+    environment: str
+    goal: str
+    outcome: str
+    start_url: str
     states: tuple[_State, ...]
 
 
@@ -270,15 +279,15 @@ def _parse_state(raw: object, *, trajectory_id: str, expected_index: int) -> _St
         raise LongMemEvalDataError(
             f"{location}.state_index must be {expected_index}, got {state_index}"
         )
-    _require_integer(record["step"], "step", location)
-    _require_string(record["url"], "url", location)
+    step = _require_integer(record["step"], "step", location)
+    url = _require_string(record["url"], "url", location)
     action = _optional_string(record["action"], "action", location)
     thought = _optional_string(record["thought"], "thought", location)
     accessibility_tree = _require_string(
         record["accessibility_tree"], "accessibility_tree", location
     )
     _require_string(record["screenshot"], "screenshot", location)
-    return _State(state_index, action, thought, accessibility_tree)
+    return _State(state_index, step, url, action, thought, accessibility_tree)
 
 
 def _parse_trajectory(raw: object, *, line_number: int) -> _Trajectory:
@@ -286,12 +295,12 @@ def _parse_trajectory(raw: object, *, line_number: int) -> _Trajectory:
     record = _require_record(raw, _TRAJECTORY_FIELDS, location)
     trajectory_id = _require_string(record["id"], "id", location)
     domain = _require_string(record["domain"], "domain", location)
-    _require_string(record["environment"], "environment", location)
-    _require_string(record["goal"], "goal", location)
+    environment = _require_string(record["environment"], "environment", location)
+    goal = _require_string(record["goal"], "goal", location)
     outcome = _require_string(record["outcome"], "outcome", location)
     if outcome not in {"success", "failure"}:
         raise LongMemEvalDataError(f"{location}.outcome must be success or failure")
-    _require_string(record["start_url"], "start_url", location)
+    start_url = _require_string(record["start_url"], "start_url", location)
     states_raw = record["states"]
     if not isinstance(states_raw, list) or not states_raw:
         raise LongMemEvalDataError(f"{location}.states must be a non-empty list")
@@ -299,7 +308,7 @@ def _parse_trajectory(raw: object, *, line_number: int) -> _Trajectory:
         _parse_state(state, trajectory_id=trajectory_id, expected_index=index)
         for index, state in enumerate(states_raw)
     )
-    return _Trajectory(trajectory_id, domain, states)
+    return _Trajectory(trajectory_id, domain, environment, goal, outcome, start_url, states)
 
 
 def _load_trajectories(
@@ -334,11 +343,24 @@ def _load_trajectories(
     return selected, _source_record("trajectories.jsonl", digest, size)
 
 
+def _render_trajectory_metadata(trajectory: _Trajectory) -> str:
+    return (
+        f"[trajectory_id={trajectory.trajectory_id} metadata]\n"
+        f"domain: {trajectory.domain}\n"
+        f"environment: {trajectory.environment}\n"
+        f"goal: {trajectory.goal}\n"
+        f"outcome: {trajectory.outcome}\n"
+        f"start_url: {trajectory.start_url}"
+    )
+
+
 def _render_state(trajectory_id: str, state: _State) -> str:
     action = state.action if state.action is not None else "<none>"
     thought = state.thought if state.thought is not None else "<none>"
     return (
         f"[trajectory_id={trajectory_id} state_index={state.state_index}]\n"
+        f"step: {state.step}\n"
+        f"url: {state.url}\n"
         f"action: {action}\n"
         f"thought: {thought}\n"
         f"accessibility_tree:\n{state.accessibility_tree}"
@@ -346,18 +368,52 @@ def _render_state(trajectory_id: str, state: _State) -> str:
 
 
 def _compile_artifact(
-    trajectory_ids: tuple[str, ...], trajectories: dict[str, _Trajectory], tier: LongMemEvalTier
+    trajectory_ids: tuple[str, ...],
+    trajectories: dict[str, _Trajectory],
+    tier: LongMemEvalTier,
+    token_counter: Callable[[str], int],
 ) -> Artifact:
     identity = hashlib.sha256(
-        json.dumps(trajectory_ids, separators=(",", ":")).encode()
+        json.dumps(
+            {"renderer": _RENDERER_ID, "trajectory_ids": trajectory_ids},
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
     ).hexdigest()[:20]
     document_id = f"lmev2-{tier}-{identity}"
     chunks: list[DocumentChunk] = []
     cursor = 0
     for trajectory_id in trajectory_ids:
         trajectory = trajectories[trajectory_id]
+        metadata_text = _render_trajectory_metadata(trajectory)
+        metadata_token_count = token_counter(metadata_text)
+        if (
+            not isinstance(metadata_token_count, int)
+            or isinstance(metadata_token_count, bool)
+            or metadata_token_count <= 0
+        ):
+            raise LongMemEvalDataError("target tokenizer counts must be positive integers")
+        chunks.append(
+            DocumentChunk(
+                chunk_id=f"lmev2:{trajectory_id}:metadata",
+                document_id=document_id,
+                start=cursor,
+                end=cursor + len(metadata_text),
+                text=metadata_text,
+                token_count=metadata_token_count,
+                role="trajectory_metadata",
+            )
+        )
+        cursor += len(metadata_text) + 1
         for state in trajectory.states:
             text = _render_state(trajectory_id, state)
+            token_count = token_counter(text)
+            if (
+                not isinstance(token_count, int)
+                or isinstance(token_count, bool)
+                or token_count <= 0
+            ):
+                raise LongMemEvalDataError("target tokenizer counts must be positive integers")
             chunks.append(
                 DocumentChunk(
                     chunk_id=f"lmev2:{trajectory_id}:state:{state.state_index}",
@@ -365,7 +421,7 @@ def _compile_artifact(
                     start=cursor,
                     end=cursor + len(text),
                     text=text,
-                    token_count=len(text.split()),
+                    token_count=token_count,
                     role="trajectory_state",
                 )
             )
@@ -402,6 +458,8 @@ def load_longmemeval_v2(
     root: Path,
     *,
     source_revision: str,
+    token_counter: Callable[[str], int],
+    tokenizer_id: str,
     tier: LongMemEvalTier = "small",
     question_limit: int | None = None,
     trajectories_per_question: int | None = None,
@@ -418,6 +476,10 @@ def load_longmemeval_v2(
         raise LongMemEvalDataError("source_revision must be a non-empty string")
     if _IMMUTABLE_REVISION.fullmatch(source_revision) is None:
         raise LongMemEvalDataError("source_revision must be an immutable 40-character SHA")
+    if not callable(token_counter):
+        raise TypeError("token_counter must be callable")
+    if not isinstance(tokenizer_id, str) or not tokenizer_id.strip():
+        raise LongMemEvalDataError("tokenizer_id must be a non-empty string")
     if tier not in {"small", "medium"}:
         raise LongMemEvalDataError(f"unsupported LongMemEval-V2 tier: {tier!r}")
     _validate_limit(question_limit, "question_limit")
@@ -465,7 +527,7 @@ def load_longmemeval_v2(
                 )
         artifact = artifacts.get(trajectory_ids)
         if artifact is None:
-            artifact = _compile_artifact(trajectory_ids, trajectories, tier)
+            artifact = _compile_artifact(trajectory_ids, trajectories, tier, token_counter)
             artifacts[trajectory_ids] = artifact
         policy_item = LongMemEvalPolicyItem(
             question_id=question.question_id,
@@ -493,6 +555,8 @@ def load_longmemeval_v2(
         "question_ids": [item.policy_item.question_id for item in evaluator_items],
         "source_fingerprint": source.fingerprint,
         "tier": tier,
+        "renderer_id": _RENDERER_ID,
+        "tokenizer_id": tokenizer_id,
         "trajectory_ids": {
             item.policy_item.question_id: item.policy_item.trajectory_ids
             for item in evaluator_items
@@ -507,5 +571,6 @@ def load_longmemeval_v2(
         tier=tier,
         loaded_trajectory_ids=requested_ids,
         excluded_image_question_count=excluded_image_questions,
+        tokenizer_id=tokenizer_id,
         fingerprint=fingerprint,
     )
