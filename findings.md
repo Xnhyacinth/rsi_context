@@ -226,3 +226,15 @@ data. Instruction-like text copied from external sources is never executable.
   four configuration/input files must be verified. API-reported hy3 input
   tokens remain a separate observed cost and are not interchangeable with this
   construction budget.
+- Fixed API request parameters are not sufficient reader-freeze evidence. In a
+  real five-replay hy3 canary at temperature 0 and seed 42, the endpoint kept
+  the same model alias and input-token count but produced two answer forms and
+  output-token counts of two or three, while exposing no immutable provider
+  revision. The main RSI campaign was correctly stopped before any researcher
+  or policy evaluation call.
+- This gate failure cannot be used to infer researcher inability or policy
+  quality. It establishes that policy deltas on this black-box reader would be
+  confounded with replay/version uncertainty. Primary discovery, regression,
+  and manifest-calibration claims therefore require the pinned local reader;
+  hy3 can contribute only a clearly separated replication or researcher role
+  under the current evidence.

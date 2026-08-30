@@ -111,7 +111,7 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 11 — Locked autonomous RSI qualification
 
-**Status:** in_progress
+**Status:** complete (stopped at preregistered pre-canary gate)
 
 - Materialize an immutable per-run budget contract before the first reader
   call, binding the real dataset, reader/researcher identities, initial policy,
@@ -123,6 +123,10 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 - Run pre/post API canaries and one five-round real PopQA qualification only if
   the contract implementation and clean-producer gates pass. Keep this block
   outside the matched A2 estimand.
+- The 2026-08-30 hy3 pre-canary failed exact-answer, answer-replay,
+  usage-replay, and immutable-version checks. The five-round campaign was
+  therefore not launched; this is a valid gate outcome, not an incomplete RSI
+  curve.
 
 ### Phase 12 — Matched A2 enablement
 
@@ -158,6 +162,8 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Next step
 
-Implement and verify the immutable five-round visible RSI run contract, then
-attempt one real PopQA hy3 qualification with pre/post canaries. Do not relabel
-it A2 or researcher advantage without matched controls and formal isolation.
+Qualify a pinned local reader with final rendered-prompt token accounting and
+replay evidence, then run the same immutable five-round visible PopQA cell.
+Keep hy3 as a separately labeled API replication or researcher; do not relabel
+the visible cell A2 or researcher advantage without matched controls and formal
+isolation.

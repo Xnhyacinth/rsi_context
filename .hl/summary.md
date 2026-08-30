@@ -150,3 +150,11 @@ r0 0.75, then aborted when Codex exited 1 at round 1 with no manifest. `-03`
 reused the same panel; Codex was already over quota, so all five turns failed
 before any H was submitted (retry after 2026-08-21 06:16). That is not a
 discovery curve. Formal A2 remains refused; `-01`/`-02`/`-03` stay immutable.
+
+The locked hy3 visible qualification was stopped at its 2026-08-30 pre-canary.
+Five temperature-0, seed-42 calls retained the `hy3-ioa` alias and constant
+input usage, but yielded two answer forms, variable output usage, and no pinned
+provider revision. No main reader, researcher, or policy-evaluation call was
+made. A fixed black-box request is not a frozen reader; primary RSI claims now
+route to the pinned local reader, while hy3 remains a separately labeled
+replication or researcher.

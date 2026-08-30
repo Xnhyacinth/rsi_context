@@ -152,3 +152,16 @@
 - Final pre-run verification passes all 543 tests with 84.03% branch coverage,
   full Ruff, strict mypy over 167 files, targeted Bandit, and three independent
   risk-review rounds with no remaining blocker or high finding.
+- Committed and pushed the locked qualification producer as `a036c4a`. A real
+  five-replay hy3 pre-canary then failed exact-answer, answer-stability,
+  usage-stability, and provider-revision gates: two answer forms were observed,
+  while output usage varied between two and three tokens.
+- Stopped before the planned eight-item, five-slot campaign, exactly as the
+  preregistered launch rule requires. This block used five canary calls and made
+  zero main-reader, researcher, or candidate-policy calls; no post-canary was
+  needed because no experiment ran.
+- Recorded the aggregate gate evidence in
+  `docs/hy3-locked-qualification-gate-2026-08-30.md`. The next primary cell must
+  use a pinned local reader; hy3 remains eligible only as a separately labeled
+  API replication reader or researcher unless a future preregistered canary
+  establishes a usable replay floor and version identity.
