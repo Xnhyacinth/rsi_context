@@ -34,6 +34,7 @@ from rsicontext.eval import EvaluationItem, extractive_span_match
 from rsicontext.experiment import build_profile_reader, load_api_profiles, resolve_api_endpoint
 from rsicontext.policy import Budget
 from rsicontext.registry import load_registry, load_serving_profiles
+from rsicontext.registry.tokenizer import verify_tokenizer_snapshot
 from rsicontext.researcher import ProcessLimits
 
 _CELLS: dict[str, tuple[Path, str]] = {
@@ -54,6 +55,20 @@ _CELLS: dict[str, tuple[Path, str]] = {
         "trivia-k1000",
     ),
 }
+_TOKENIZER_REVISION = "Qwen/Qwen3.6-27B@1b559cf7215ebe67ff10758e14f6293ba883223b"
+_TOKENIZER_FILES = (
+    (
+        "merges.txt",
+        "a9d356d7bdf1ef4949e3e748e95b8e10ad9d4e2e838eddc38a0a7b6b94d1db8d",
+    ),
+    ("tokenizer.json", "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"),
+    (
+        "tokenizer_config.json",
+        "dbfb3c20ce3d5b8370faeecd548e771c1dcc8e4fdcf636797fc24b0d0733fb02",
+    ),
+    ("vocab.json", "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"),
+)
+_TOKENIZER_CLASS = "transformers.models.qwen2.tokenization_qwen2.Qwen2Tokenizer"
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -97,6 +112,19 @@ def _load_tokenizer(tokenizer_path: Path) -> EncodedWindowTokenizer:
         str(tokenizer_path),
         local_files_only=True,  # nosec B615
     )
+    tokenizer_class = f"{type(tokenizer).__module__}.{type(tokenizer).__qualname__}"
+    if tokenizer_class != _TOKENIZER_CLASS:
+        raise RuntimeError(f"unexpected canonical tokenizer class: {tokenizer_class}")
+    init_kwargs = tokenizer.init_kwargs
+    for field, filename in (("vocab_file", "vocab.json"), ("merges_file", "merges.txt")):
+        observed = init_kwargs.get(field)
+        if (
+            not isinstance(observed, str)
+            or Path(observed).resolve() != (tokenizer_path / filename).resolve()
+        ):
+            raise RuntimeError(f"canonical tokenizer did not bind {filename}")
+    if init_kwargs.get("tokenizer_file") is not None:
+        raise RuntimeError("canonical tokenizer unexpectedly uses tokenizer_file")
     return cast(EncodedWindowTokenizer, tokenizer)
 
 
@@ -186,6 +214,8 @@ def main() -> int:
     )
     if not executable:
         raise RuntimeError(f"researcher executable is unavailable: {args.researcher}")
+    tokenizer_snapshot = verify_tokenizer_snapshot(args.tokenizer_path, _TOKENIZER_FILES)
+    tokenizer_id = f"{_TOKENIZER_REVISION}#tokenizer-files-sha256:{tokenizer_snapshot}"
     tokenizer = _load_tokenizer(args.tokenizer_path)
     items = _load_items(
         cell_id=args.cell,
@@ -194,11 +224,14 @@ def main() -> int:
         unique_queries=args.unique_queries,
         min_gold_rank=args.min_gold_rank,
     )
+    if verify_tokenizer_snapshot(args.tokenizer_path, _TOKENIZER_FILES) != tokenizer_snapshot:
+        raise RuntimeError("canonical tokenizer snapshot changed during item compilation")
     fingerprint = public_visible_items_fingerprint(
         cell_id=f"{args.cell}-unique{int(args.unique_queries)}-minrank{args.min_gold_rank}",
         items=items,
         pack_budget_tokens=args.pack_tokens,
         scorer_name="extractive_span_match",
+        token_axis_id=tokenizer_id,
     )
     output_limit = dynamic_reader_output_limit(profile)
     reader = build_profile_reader(
@@ -232,6 +265,12 @@ def main() -> int:
             max_output_tokens=output_limit,
             serving_profile=serving,
         ),
+        require_attested_identities=True,
+        token_axis_identity={
+            "attested": True,
+            "label": "qwen-canonical-token-axis",
+            "tokenizer_id": tokenizer_id,
+        },
     )
     print(
         json.dumps(
@@ -247,6 +286,7 @@ def main() -> int:
                 "qualification_only": result.qualification_only,
                 "reader_calls": result.reader_calls,
                 "researcher": args.researcher,
+                "run_contract_sha256": result.run_contract_sha256,
                 "round_scores": [round_.score for round_ in result.campaign.rounds],
                 "split": result.split,
             },

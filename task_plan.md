@@ -109,6 +109,31 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 - Commit and push only reproducible qualification evidence to the private
   branch; keep raw data and evaluator-only artifacts ignored.
 
+### Phase 11 — Locked autonomous RSI qualification
+
+**Status:** in_progress
+
+- Materialize an immutable per-run budget contract before the first reader
+  call, binding the real dataset, reader/researcher identities, initial policy,
+  scorer, five slots, pack budget, feedback cap, process limits, and selection
+  semantics.
+- Enforce the contract inside the visible runner: every missing, invalid, or
+  timed-out submission consumes one slot; every valid candidate receives one
+  reader call per item; no candidate can exceed the prompt or process budget.
+- Run pre/post API canaries and one five-round real PopQA qualification only if
+  the contract implementation and clean-producer gates pass. Keep this block
+  outside the matched A2 estimand.
+
+### Phase 12 — Matched A2 enablement
+
+**Status:** pending
+
+- Freeze two qualified real profiles, physical evaluator isolation, host spend
+  caps, replay-noise evidence, Random-5 and Sequential-5 feedback parity.
+- Enable the existing 2×2×2×5 A2 runner only when every preregistered launch
+  condition is backed by an immutable evidence digest rather than a caller
+  assertion.
+
 ## Decisions
 
 | Decision                                                     | Rationale                                                                                                |
@@ -133,6 +158,6 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Next step
 
-Implement deterministic intra-state splitting and final rendered-prompt token
-accounting, then qualify matched frozen-reader baselines on the 294-item exact
-stratum. Keep LongMemEval-V2 as transfer evidence rather than A2 search fitness.
+Implement and verify the immutable five-round visible RSI run contract, then
+attempt one real PopQA hy3 qualification with pre/post canaries. Do not relabel
+it A2 or researcher advantage without matched controls and formal isolation.

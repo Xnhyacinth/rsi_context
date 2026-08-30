@@ -8,11 +8,13 @@ confidentiality.
 from __future__ import annotations
 
 import hashlib
+import inspect
 import json
 import math
 import shutil
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
+from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Self
@@ -40,6 +42,17 @@ from rsicontext.eval import (
     Scorer,
     exact_match,
 )
+from rsicontext.eval.openai_compatible import (
+    _SYSTEM_PROMPT,
+    OpenAICompatibleReader,
+    _urlopen_transport,
+)
+from rsicontext.experiment.rsi_run import (
+    BoundedRSIRunContract,
+    build_bounded_rsi_run_contract,
+    contract_file_sha256,
+    policy_tree_sha256,
+)
 from rsicontext.policy import Budget, ContextPack
 from rsicontext.researcher import (
     ClaudeCommandBuilder,
@@ -63,6 +76,7 @@ if TYPE_CHECKING:
 
 ResearcherKind = Literal["codex", "claude", "api"]
 ArtifactDelivery = Literal["workspace", "api-json"]
+_MAX_RESEARCHER_PROMPT_BYTES = 2_000_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,7 +224,9 @@ class DynamicFreshEvaluator:
     entrypoint: str = "policy.py"
     scorer: Scorer = exact_match
     timer: Callable[[], float] = time.perf_counter
+    pre_reader_integrity_check: Callable[[], bool] | None = None
     observations: list[DynamicEvaluationObservation] = field(default_factory=list, init=False)
+    attempted_reader_calls: int = field(default=0, init=False)
 
     def __post_init__(self) -> None:
         self.items = tuple(self.items)
@@ -247,6 +263,12 @@ class DynamicFreshEvaluator:
         reader_input_tokens = 0
         reader_output_tokens = 0
         for item, context in contexts:
+            if (
+                self.pre_reader_integrity_check is not None
+                and not self.pre_reader_integrity_check()
+            ):
+                raise RuntimeError("locked run inputs changed before reader execution")
+            self.attempted_reader_calls += 1
             output = self.reader.read(item.query, context)
             if not isinstance(output, ReaderOutput):
                 raise TypeError("reader must return ReaderOutput")
@@ -289,12 +311,16 @@ class DynamicResearcherCallback:
     max_budget_usd: float | None = None
     api_profiles_path: Path | None = None
     api_profile_id: str | None = None
+    max_prompt_bytes: int = _MAX_RESEARCHER_PROMPT_BYTES
+    post_turn_integrity_check: Callable[[], bool] | None = None
     evaluation_observations: list[DynamicEvaluationObservation] = field(default_factory=list)
     prompts: list[ResearcherPromptRecord] = field(default_factory=list, init=False)
     results: list[ResearcherProcessResult] = field(default_factory=list, init=False)
     process_failures: list[ResearcherProcessFailure] = field(default_factory=list, init=False)
 
     def __call__(self, request: ResearchRoundRequest) -> None:
+        if self.post_turn_integrity_check is not None and not self.post_turn_integrity_check():
+            raise RuntimeError("locked run inputs changed before researcher execution")
         prior = self.evaluation_observations[-1] if self.evaluation_observations else None
         if prior is not None and prior.round_index != request.round_index - 1:
             raise ValueError("prior visible outcomes do not match the requested parent round")
@@ -304,6 +330,8 @@ class DynamicResearcherCallback:
             prior,
             artifact_delivery="api-json" if self.researcher_kind == "api" else "workspace",
         )
+        if len(prompt.encode()) > self.max_prompt_bytes:
+            raise ResearcherTurnError("researcher prompt exceeds the frozen byte budget")
         self.prompts.append(
             ResearcherPromptRecord(
                 round_index=request.round_index,
@@ -359,11 +387,17 @@ class DynamicResearcherCallback:
                     stderr_bytes=len(stderr) or None,
                 )
             )
+            if self.post_turn_integrity_check is not None and not self.post_turn_integrity_check():
+                raise RuntimeError("locked run inputs changed during researcher execution") from exc
             if isinstance(exc, ResearcherProcessError):
                 raise ResearcherTurnError(str(exc)) from exc
             raise
         self.results.append(result)
-        _reject_visible_hardcoding(request.policy_directory, self.visible_feedback)
+        try:
+            _reject_visible_hardcoding(request.policy_directory, self.visible_feedback)
+        finally:
+            if self.post_turn_integrity_check is not None and not self.post_turn_integrity_check():
+                raise RuntimeError("locked run inputs changed during researcher execution")
 
 
 @dataclass(frozen=True, slots=True)
@@ -384,11 +418,16 @@ class AutonomousDynamicPilotResult:
     evaluation_observations: tuple[DynamicEvaluationObservation, ...]
     campaign: ResearchCampaignResult
     reader_identity: DynamicReaderIdentity | None
+    run_contract: BoundedRSIRunContract
     qualification_only: bool = True
     autonomous_researcher: bool = True
     formal_sealed_isolation: bool = False
     process_failures: tuple[ResearcherProcessFailure, ...] = ()
     cost_accounting_complete: bool = True
+
+    @property
+    def run_contract_sha256(self) -> str:
+        return self.run_contract.contract_sha256
 
     def to_dict(self) -> dict[str, Any]:
         artifact_summary = {
@@ -429,6 +468,8 @@ class AutonomousDynamicPilotResult:
                 observation.to_dict() for observation in self.evaluation_observations
             ],
             "rounds": self.rounds,
+            "run_contract": self.run_contract.to_dict(),
+            "run_contract_sha256": self.run_contract_sha256,
             "schema_version": self.schema_version,
             "split": self.split,
         }
@@ -494,6 +535,7 @@ def public_visible_items_fingerprint(
     items: tuple[EvaluationItem, ...],
     pack_budget_tokens: int,
     scorer_name: str,
+    token_axis_id: str,
 ) -> str:
     """Bind public visible items without homemade generator metadata."""
 
@@ -501,6 +543,8 @@ def public_visible_items_fingerprint(
         raise ValueError("cell_id must be a non-empty string")
     if not items:
         raise ValueError("public fingerprint items must be non-empty")
+    if not token_axis_id.strip():
+        raise ValueError("token_axis_id must be a non-empty string")
     payload = {
         "cell_id": cell_id,
         "items": [
@@ -521,9 +565,29 @@ def public_visible_items_fingerprint(
             for item in items
         ],
         "pack_budget_tokens": pack_budget_tokens,
-        "schema": "public-visible-v1",
+        "schema": "public-visible-v2",
         "scorer": scorer_name,
+        "token_axis_id": token_axis_id,
     }
+    blob = json.dumps(payload, allow_nan=False, separators=(",", ":"), sort_keys=True).encode()
+    return hashlib.sha256(blob).hexdigest()
+
+
+def _visible_items_sha256(items: tuple[EvaluationItem, ...]) -> str:
+    payload = [
+        {
+            "answer": item.answer,
+            "artifact": {
+                "chunks": [asdict(chunk) for chunk in item.artifact.chunks],
+                "document_id": item.artifact.document_id,
+                "notes": [asdict(note) for note in item.artifact.notes],
+            },
+            "gold_chunk_ids": sorted(item.gold_chunk_ids),
+            "item_id": item.item_id,
+            "query": item.query,
+        }
+        for item in items
+    ]
     blob = json.dumps(payload, allow_nan=False, separators=(",", ":"), sort_keys=True).encode()
     return hashlib.sha256(blob).hexdigest()
 
@@ -550,6 +614,9 @@ def run_autonomous_dynamic_pilot(
     visible_items: tuple[EvaluationItem, ...] | None = None,
     dataset_fingerprint: str | None = None,
     scorer: Scorer = exact_match,
+    token_axis_identity: Mapping[str, object] | None = None,
+    max_researcher_prompt_bytes: int = _MAX_RESEARCHER_PROMPT_BYTES,
+    require_attested_identities: bool = False,
 ) -> AutonomousDynamicPilotResult:
     """Run a visible qualification with an actual researcher CLI process."""
 
@@ -571,51 +638,134 @@ def run_autonomous_dynamic_pilot(
         items_per_profile = len(items)
     if not items:
         raise ValueError("visible campaign items must be non-empty")
+    effective_api_profiles_path: Path | None = None
+    if researcher_api_profiles_path is not None:
+        source_profiles = Path(researcher_api_profiles_path)
+        if not source_profiles.is_file():
+            raise ValueError("researcher API profiles path must be a file")
+        effective_api_profiles_path = output / "researcher-api-profiles.json"
+        shutil.copyfile(source_profiles, effective_api_profiles_path)
+    researcher_identity = _researcher_identity(
+        kind=researcher_kind,
+        model=researcher_model,
+        executable=researcher_executable,
+        api_profiles_path=effective_api_profiles_path,
+        api_profile_id=researcher_api_profile_id,
+        endpoint_sha256=researcher_endpoint_sha256,
+    )
+    runtime_source_root = Path(__file__).parents[1]
+    runtime_source_sha256 = _python_tree_sha256(runtime_source_root)
+    researcher_executable_path = Path(researcher_identity.executable_path)
+    api_profiles_sha256 = (
+        None if effective_api_profiles_path is None else _file_sha256(effective_api_profiles_path)
+    )
+    effective_token_axis_identity = (
+        token_axis_identity
+        if token_axis_identity is not None
+        else {"attested": False, "label": "unspecified-token-axis"}
+    )
+    if require_attested_identities and effective_token_axis_identity.get("attested") is not True:
+        raise ValueError("locked qualification requires an attested token axis")
+    reader_contract_identity = _reader_runtime_identity(reader, reader_identity)
+    reader_contract_identity["runtime_source_sha256"] = runtime_source_sha256
+    if require_attested_identities and not reader_contract_identity["attested"]:
+        raise ValueError("locked qualification requires an attested reader identity")
+    if require_attested_identities and (
+        researcher_identity.model is None
+        or (researcher_kind == "api" and researcher_identity.endpoint_sha256 is None)
+    ):
+        raise ValueError("locked qualification requires an attested researcher identity")
+    initial_policy_snapshot = output / "initial-policy-snapshot"
+    shutil.copytree(
+        Path(initial_policy_directory),
+        initial_policy_snapshot,
+        symlinks=True,
+    )
+    run_contract = build_bounded_rsi_run_contract(
+        dataset_fingerprint=fingerprint,
+        visible_items_sha256=_visible_items_sha256(items),
+        visible_item_ids=tuple(item.item_id for item in items),
+        initial_policy_directory=initial_policy_snapshot,
+        scorer=scorer,
+        token_axis_identity=effective_token_axis_identity,
+        reader_identity=reader_contract_identity,
+        researcher_identity={
+            "api_profiles_sha256": api_profiles_sha256,
+            "declared": researcher_identity.to_dict(),
+            "runtime_source_sha256": runtime_source_sha256,
+        },
+        researcher_environment_allowlist=researcher_environment_allowlist,
+        max_budget_usd=max_budget_usd,
+        rounds=rounds,
+        budget=actual_budget,
+        max_prompt_bytes=max_researcher_prompt_bytes,
+        process_limits=actual_process_limits,
+    )
+    run_contract_path = output / "run_contract.json"
+    _write_new_json(
+        run_contract_path,
+        {**run_contract.to_dict(), "contract_sha256": run_contract.contract_sha256},
+    )
+    run_contract_file_sha256 = contract_file_sha256(run_contract_path)
+
+    def integrity_check() -> bool:
+        return _locked_run_inputs_unchanged(
+            contract_path=run_contract_path,
+            contract_file_sha256=run_contract_file_sha256,
+            policy_snapshot=initial_policy_snapshot,
+            policy_sha256=run_contract.initial_policy_sha256,
+            runtime_source_root=runtime_source_root,
+            runtime_source_sha256=runtime_source_sha256,
+            researcher_executable=researcher_executable_path,
+            researcher_executable_sha256=researcher_identity.executable_sha256,
+            api_profiles_path=effective_api_profiles_path,
+            api_profiles_sha256=api_profiles_sha256,
+        )
+
     baseline_evaluator = DynamicFreshEvaluator(
         items=items,
         reader=reader,
         budget=actual_budget,
         entrypoint="seed.py",
         scorer=scorer,
-    )
-    baseline = baseline_evaluator.evaluate_directory(
-        Path(initial_policy_directory),
-        round_index=-1,
-    )
-    feedback = build_visible_feedback_from_items(
-        items,
-        baseline,
-        baseline_predictions=baseline_evaluator.observations[-1].predictions,
+        pre_reader_integrity_check=integrity_check,
     )
     evaluator = DynamicFreshEvaluator(
         items=items,
         reader=reader,
         budget=actual_budget,
         scorer=scorer,
+        pre_reader_integrity_check=integrity_check,
     )
-    researcher = DynamicResearcherCallback(
-        visible_feedback=feedback,
-        researcher_kind=researcher_kind,
-        researcher_executable=researcher_executable,
-        process_limits=actual_process_limits,
-        researcher_model=researcher_model,
-        environment_allowlist=researcher_environment_allowlist,
-        max_budget_usd=max_budget_usd,
-        api_profiles_path=researcher_api_profiles_path,
-        api_profile_id=researcher_api_profile_id,
-        evaluation_observations=evaluator.observations,
-    )
-    researcher_identity = _researcher_identity(
-        kind=researcher_kind,
-        model=researcher_model,
-        executable=researcher_executable,
-        api_profiles_path=researcher_api_profiles_path,
-        api_profile_id=researcher_api_profile_id,
-        endpoint_sha256=researcher_endpoint_sha256,
-    )
+    researcher: DynamicResearcherCallback | None = None
     try:
+        baseline = baseline_evaluator.evaluate_directory(
+            initial_policy_snapshot,
+            round_index=-1,
+        )
+        if policy_tree_sha256(initial_policy_snapshot) != run_contract.initial_policy_sha256:
+            raise RuntimeError("initial policy snapshot changed during baseline evaluation")
+        feedback = build_visible_feedback_from_items(
+            items,
+            baseline,
+            baseline_predictions=baseline_evaluator.observations[-1].predictions,
+        )
+        researcher = DynamicResearcherCallback(
+            visible_feedback=feedback,
+            researcher_kind=researcher_kind,
+            researcher_executable=researcher_identity.executable_path,
+            process_limits=actual_process_limits,
+            researcher_model=researcher_model,
+            environment_allowlist=researcher_environment_allowlist,
+            max_budget_usd=max_budget_usd,
+            api_profiles_path=effective_api_profiles_path,
+            api_profile_id=researcher_api_profile_id,
+            max_prompt_bytes=max_researcher_prompt_bytes,
+            post_turn_integrity_check=integrity_check,
+            evaluation_observations=evaluator.observations,
+        )
         campaign = run_researcher_campaign(
-            initial_policy_directory=initial_policy_directory,
+            initial_policy_directory=initial_policy_snapshot,
             output_directory=output / "campaign",
             researcher=researcher,
             evaluator=evaluator,
@@ -625,12 +775,25 @@ def run_autonomous_dynamic_pilot(
                 prediction_item_ids=tuple(item.item_id for item in items),
             ),
         )
+        if not integrity_check():
+            raise RuntimeError("locked run inputs changed during researcher execution")
     except Exception as exc:
         error = str(exc).encode()
+        process_failures = () if researcher is None else tuple(researcher.process_failures)
+        processes = () if researcher is None else tuple(researcher.results)
+        prompts = () if researcher is None else tuple(researcher.prompts)
+        attempted_reader_calls = (
+            baseline_evaluator.attempted_reader_calls + evaluator.attempted_reader_calls
+        )
+        completed_reader_calls = sum(
+            observation.reader_calls
+            for observation in (*baseline_evaluator.observations, *evaluator.observations)
+        )
+        reader_accounting_complete = attempted_reader_calls == completed_reader_calls
         _write_new_json(
             output / "failure.json",
             {
-                "cost_accounting_complete": not researcher.process_failures,
+                "cost_accounting_complete": not process_failures and reader_accounting_complete,
                 "dataset_fingerprint": fingerprint,
                 "error_bytes": len(error),
                 "error_sha256": hashlib.sha256(error).hexdigest(),
@@ -639,28 +802,41 @@ def run_autonomous_dynamic_pilot(
                     observation.to_dict()
                     for observation in (*baseline_evaluator.observations, *evaluator.observations)
                 ],
-                "processes": [_process_result_to_dict(process) for process in researcher.results],
-                "process_failures": [failure.to_dict() for failure in researcher.process_failures],
+                "locked_run_inputs_unchanged": integrity_check(),
+                "processes": [_process_result_to_dict(process) for process in processes],
+                "process_failures": [failure.to_dict() for failure in process_failures],
+                "reader_calls_attempted": attempted_reader_calls,
+                "reader_usage_accounting_complete": reader_accounting_complete,
                 "reader_identity": (
                     asdict(reader_identity) if reader_identity is not None else None
                 ),
                 "researcher_identity": researcher_identity.to_dict(),
-                "researcher_prompts": [prompt.to_dict() for prompt in researcher.prompts],
-                "schema_version": 3,
+                "researcher_prompts": [prompt.to_dict() for prompt in prompts],
+                "run_contract": run_contract.to_dict(),
+                "run_contract_sha256": run_contract.contract_sha256,
+                "schema_version": 4,
                 "split": "visible",
                 "status": "failed",
             },
         )
         raise
+    if researcher is None:  # pragma: no cover - assigned before campaign execution.
+        raise RuntimeError("researcher callback was not initialized")
     all_observations = (*baseline_evaluator.observations, *evaluator.observations)
+    reader_calls = baseline_evaluator.attempted_reader_calls + evaluator.attempted_reader_calls
+    run_contract.validate_observed(
+        round_slots=len(campaign.rounds),
+        valid_candidate_rounds=sum(round_.valid for round_ in campaign.rounds),
+        reader_calls=reader_calls,
+    )
     result = AutonomousDynamicPilotResult(
-        schema_version=3,
+        schema_version=4,
         dataset_fingerprint=fingerprint,
         split="visible",
         items_per_profile=items_per_profile,
         rounds=rounds,
         baseline_score=baseline.score,
-        reader_calls=sum(observation.reader_calls for observation in all_observations),
+        reader_calls=reader_calls,
         reader_input_tokens=sum(
             observation.reader_input_tokens for observation in all_observations
         ),
@@ -674,6 +850,7 @@ def run_autonomous_dynamic_pilot(
         evaluation_observations=all_observations,
         campaign=campaign,
         reader_identity=reader_identity,
+        run_contract=run_contract,
         process_failures=tuple(researcher.process_failures),
         cost_accounting_complete=not researcher.process_failures,
     )
@@ -873,6 +1050,132 @@ def _create_new_output(raw_output: str | Path) -> Path:
         raise FileExistsError(f"pilot output already exists: {output}")
     output.mkdir(parents=True)
     return output.resolve()
+
+
+def _reader_runtime_identity(
+    reader: FrozenReader,
+    declared: DynamicReaderIdentity | None,
+) -> dict[str, object]:
+    endpoint = getattr(reader, "endpoint", None)
+    system_prompt = getattr(reader, "system_prompt", None)
+    transport = getattr(reader, "transport", None)
+    transport_name = None
+    transport_sha256 = None
+    if callable(transport):
+        transport_name = f"{transport.__module__}.{transport.__qualname__}"
+        with suppress(OSError, TypeError):
+            transport_sha256 = hashlib.sha256(inspect.getsource(transport).encode()).hexdigest()
+    runtime = {
+        "allowed_hosts": getattr(reader, "allowed_hosts", None),
+        "chat_template_enable_thinking": getattr(reader, "chat_template_enable_thinking", None),
+        "endpoint_sha256": (
+            hashlib.sha256(endpoint.encode()).hexdigest() if isinstance(endpoint, str) else None
+        ),
+        "max_model_len": getattr(reader, "max_model_len", None),
+        "max_tokens": getattr(reader, "max_tokens", None),
+        "model": getattr(reader, "model", None),
+        "reader_type": f"{type(reader).__module__}.{type(reader).__qualname__}",
+        "require_response_model": getattr(reader, "require_response_model", None),
+        "seed": getattr(reader, "seed", None),
+        "stream": getattr(reader, "stream", None),
+        "system_prompt_sha256": (
+            hashlib.sha256(system_prompt.encode()).hexdigest()
+            if isinstance(system_prompt, str)
+            else None
+        ),
+        "timeout_seconds": getattr(reader, "timeout_seconds", None),
+        "transport_name": transport_name,
+        "transport_sha256": transport_sha256,
+    }
+    required_runtime = (
+        "endpoint_sha256",
+        "model",
+        "system_prompt_sha256",
+        "timeout_seconds",
+        "transport_name",
+        "transport_sha256",
+    )
+    exact_reader = type(reader) is OpenAICompatibleReader
+    single_request_transport = transport is _urlopen_transport
+    declared_matches_runtime = declared is not None and all(
+        (
+            declared.requested_model == runtime["model"],
+            declared.max_model_len == runtime["max_model_len"],
+            declared.max_output_tokens == runtime["max_tokens"],
+            declared.seed == runtime["seed"],
+            declared.temperature == 0.0,
+            declared.chat_template_enable_thinking == runtime["chat_template_enable_thinking"],
+            runtime["stream"] is True,
+            runtime["require_response_model"] is True,
+            system_prompt == _SYSTEM_PROMPT,
+        )
+    )
+    return {
+        "attested": declared is not None
+        and exact_reader
+        and single_request_transport
+        and declared_matches_runtime
+        and all(runtime[field] is not None for field in required_runtime),
+        "declared": asdict(declared) if declared is not None else {"provided": False},
+        "declared_matches_runtime": declared_matches_runtime,
+        "single_request_transport": single_request_transport,
+        "runtime": runtime,
+    }
+
+
+def _python_tree_sha256(root: Path) -> str:
+    digest = hashlib.sha256()
+    paths = sorted(path for path in root.rglob("*.py") if path.is_file())
+    if not paths:
+        raise ValueError("runtime source tree contains no Python files")
+    for path in paths:
+        relative = path.relative_to(root).as_posix().encode()
+        content = path.read_bytes()
+        digest.update(len(relative).to_bytes(4, "big"))
+        digest.update(relative)
+        digest.update(len(content).to_bytes(8, "big"))
+        digest.update(content)
+    return digest.hexdigest()
+
+
+def _file_sha256(path: Path) -> str:
+    if not path.is_file():
+        raise ValueError(f"locked runtime file is unavailable: {path}")
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _locked_run_inputs_unchanged(
+    *,
+    contract_path: Path,
+    contract_file_sha256: str,
+    policy_snapshot: Path,
+    policy_sha256: str,
+    runtime_source_root: Path,
+    runtime_source_sha256: str,
+    researcher_executable: Path,
+    researcher_executable_sha256: str,
+    api_profiles_path: Path | None,
+    api_profiles_sha256: str | None,
+) -> bool:
+    try:
+        observed_contract = hashlib.sha256(contract_path.read_bytes()).hexdigest()
+        observed_policy = policy_tree_sha256(policy_snapshot)
+        observed_runtime_source = _python_tree_sha256(runtime_source_root)
+        observed_executable = _file_sha256(researcher_executable)
+        observed_api_profiles = (
+            None if api_profiles_path is None else _file_sha256(api_profiles_path)
+        )
+    except (OSError, ValueError):
+        return False
+    return all(
+        (
+            observed_contract == contract_file_sha256,
+            observed_policy == policy_sha256,
+            observed_runtime_source == runtime_source_sha256,
+            observed_executable == researcher_executable_sha256,
+            observed_api_profiles == api_profiles_sha256,
+        )
+    )
 
 
 def _write_new_json(path: Path, value: object) -> None:

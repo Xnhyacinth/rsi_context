@@ -12,7 +12,6 @@ from rsicontext.artifacts import (
     EvidenceClaim,
     FlipProbabilities,
     Manifest,
-    ManifestError,
     MechanismClaim,
     PromotionRecommendation,
     QuestionPrediction,
@@ -28,7 +27,7 @@ from rsicontext.campaign.researcher import (
 )
 from rsicontext.eval import EvaluationItem, PolicyFactory, ToyFrozenReader, evaluate
 from rsicontext.policy import Artifact, Budget, DocumentChunk, LexicalPolicy, TruncationPolicy
-from rsicontext.security import AuditReport, PolicyAuditor, PolicySecurityError
+from rsicontext.security import AuditReport, PolicyAuditor
 
 
 def _seed_policy(tmp_path: Path, name: str = "seed-policy") -> Path:
@@ -364,33 +363,142 @@ def test_all_invalid_rounds_keep_h0_without_calling_the_reader(tmp_path: Path) -
     assert process_from_campaign_directory(tmp_path / "campaign") == result.process
 
 
-def test_campaign_rejects_researcher_workspace_pollution_before_evaluation(
+@pytest.mark.parametrize(
+    ("invalid_mode", "reason_fragment"),
+    [
+        ("workspace-shape", "unexpected workspace entries"),
+        ("manifest-json", "cannot load manifest"),
+        ("manifest-schema", "prediction coverage mismatch"),
+        ("wrong-parent", "parent_artifact_id"),
+        ("wrong-policy-path", "missing policy paths"),
+    ],
+)
+def test_invalid_submission_consumes_slot_without_reader_and_continues(
     tmp_path: Path,
+    invalid_mode: str,
+    reason_fragment: str,
 ) -> None:
-    evaluated = False
+    received_reasons: list[str | None] = []
+    evaluation_calls = 0
 
-    def polluting_researcher(request: ResearchRoundRequest) -> None:
-        (request.workspace / "notes.txt").write_text("stale", encoding="utf-8")
+    def researcher(request: ResearchRoundRequest) -> None:
+        received_reasons.append(request.last_invalid_reason)
         _manifest(request)
+        if request.round_index != 0:
+            return
+        if invalid_mode == "workspace-shape":
+            (request.workspace / "notes.txt").write_text("stale", encoding="utf-8")
+        elif invalid_mode == "manifest-json":
+            request.manifest_path.write_text("{not-json\n", encoding="utf-8")
+        elif invalid_mode == "manifest-schema":
+            _manifest(request, item_ids=("wrong-item",))
+        elif invalid_mode == "wrong-parent":
+            payload = request.manifest_path.read_text(encoding="utf-8")
+            request.manifest_path.write_text(
+                payload.replace(request.parent_artifact_id, "a" * 64),
+                encoding="utf-8",
+            )
+        elif invalid_mode == "wrong-policy-path":
+            payload = request.manifest_path.read_text(encoding="utf-8")
+            request.manifest_path.write_text(
+                payload.replace("policy/policy.py", "policy/missing.py"),
+                encoding="utf-8",
+            )
 
     def evaluator(policy_directory: Path, *, round_index: int) -> RoundEvaluation:
-        nonlocal evaluated
+        nonlocal evaluation_calls
         del policy_directory, round_index
-        evaluated = True
+        evaluation_calls += 1
         return RoundEvaluation(1.0, (("visible-1", 1.0),), 1, 1, 0.1)
 
-    with pytest.raises(CampaignError, match="unexpected workspace entries"):
-        run_researcher_campaign(
-            initial_policy_directory=_seed_policy(tmp_path, "coverage-seed-policy"),
-            output_directory=tmp_path / "campaign",
-            researcher=polluting_researcher,
-            evaluator=evaluator,
-            config=CampaignConfig(rounds=1, prediction_item_ids=("visible-1",)),
-        )
-    assert evaluated is False
+    result = run_researcher_campaign(
+        initial_policy_directory=_seed_policy(tmp_path, f"{invalid_mode}-seed"),
+        initial_evaluation=RoundEvaluation(0.5, (("visible-1", 0.5),), 1, 1, 0.1),
+        output_directory=tmp_path / f"{invalid_mode}-campaign",
+        researcher=researcher,
+        evaluator=evaluator,
+        config=CampaignConfig(rounds=2, prediction_item_ids=("visible-1",)),
+    )
+
+    assert evaluation_calls == 1
+    assert [round_.valid for round_ in result.rounds] == [False, True]
+    assert result.rounds[0].invalid_reason is not None
+    assert reason_fragment in result.rounds[0].invalid_reason
+    assert result.rounds[1].parent_artifact_id == result.seed_artifact_id
+    assert received_reasons[0] is None
+    assert received_reasons[1] == result.rounds[0].invalid_reason
+    store = ArtifactStore(tmp_path / f"{invalid_mode}-campaign" / "store")
+    assert store.get_record(result.rounds[0].evaluation_artifact_id).kind == "invalid-submission"
 
 
-def test_campaign_rejects_unsafe_policy_and_manifest_coverage(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    ("invalid_mode", "reason_fragment"),
+    [
+        ("deleted-policy", "unexpected workspace entries"),
+        ("symlink-policy", "symlink"),
+        ("non-python", "only .py files"),
+        ("binary", "codec can't decode byte"),
+    ],
+)
+def test_invalid_policy_shape_uses_parent_bytes_and_continues(
+    tmp_path: Path,
+    invalid_mode: str,
+    reason_fragment: str,
+) -> None:
+    received_reasons: list[str | None] = []
+    evaluation_calls = 0
+
+    def researcher(request: ResearchRoundRequest) -> None:
+        received_reasons.append(request.last_invalid_reason)
+        _manifest(request)
+        if request.round_index != 0:
+            return
+        if invalid_mode == "deleted-policy":
+            (request.policy_directory / "policy.py").unlink()
+            request.policy_directory.rmdir()
+        elif invalid_mode == "symlink-policy":
+            external_policy = tmp_path / "external-policy"
+            external_policy.mkdir()
+            (external_policy / "policy.py").write_text('MODE = "external"\n', encoding="utf-8")
+            (request.policy_directory / "policy.py").unlink()
+            request.policy_directory.rmdir()
+            request.policy_directory.symlink_to(external_policy, target_is_directory=True)
+        elif invalid_mode == "non-python":
+            (request.policy_directory / "notes.txt").write_text("not policy code", encoding="utf-8")
+        elif invalid_mode == "binary":
+            (request.policy_directory / "policy.py").write_bytes(b"\xff")
+
+    def evaluator(policy_directory: Path, *, round_index: int) -> RoundEvaluation:
+        nonlocal evaluation_calls
+        del policy_directory, round_index
+        evaluation_calls += 1
+        return RoundEvaluation(1.0, (("visible-1", 1.0),), 1, 1, 0.1)
+
+    campaign_directory = tmp_path / f"{invalid_mode}-campaign"
+    result = run_researcher_campaign(
+        initial_policy_directory=_seed_policy(tmp_path, f"{invalid_mode}-seed"),
+        initial_evaluation=RoundEvaluation(0.5, (("visible-1", 0.5),), 1, 1, 0.1),
+        output_directory=campaign_directory,
+        researcher=researcher,
+        evaluator=evaluator,
+        config=CampaignConfig(rounds=2, prediction_item_ids=("visible-1",)),
+    )
+
+    assert evaluation_calls == 1
+    assert [round_.valid for round_ in result.rounds] == [False, True]
+    assert result.rounds[0].invalid_reason is not None
+    assert reason_fragment in result.rounds[0].invalid_reason
+    assert result.rounds[1].parent_artifact_id == result.seed_artifact_id
+    assert received_reasons == [None, result.rounds[0].invalid_reason]
+    store = ArtifactStore(campaign_directory / "store")
+    assert store.read_files(result.rounds[0].candidate_artifact_id) == store.read_files(
+        result.seed_artifact_id
+    )
+    assert store.get_record(result.rounds[0].candidate_artifact_id).kind == "rejected-policy"
+    assert store.get_record(result.rounds[0].evaluation_artifact_id).kind == "invalid-submission"
+
+
+def test_campaign_rejects_unsafe_policy_without_reader_call(tmp_path: Path) -> None:
     evaluation_calls = 0
 
     def evaluator(policy_directory: Path, *, round_index: int) -> RoundEvaluation:
@@ -414,19 +522,6 @@ def test_campaign_rejects_unsafe_policy_and_manifest_coverage(tmp_path: Path) ->
     assert unsafe.rounds[0].valid is False
     assert unsafe.selected_round is None
     assert unsafe.process is None
-
-    def incomplete_researcher(request: ResearchRoundRequest) -> None:
-        _manifest(request, item_ids=("wrong-item",))
-
-    with pytest.raises(ManifestError, match="coverage mismatch"):
-        run_researcher_campaign(
-            initial_policy_directory=_seed_policy(tmp_path),
-            output_directory=tmp_path / "coverage-campaign",
-            researcher=incomplete_researcher,
-            evaluator=evaluator,
-            config=CampaignConfig(rounds=1, prediction_item_ids=("visible-1",)),
-        )
-    assert evaluation_calls == 0
 
 
 def test_campaign_rejects_evaluation_coverage_and_evaluator_policy_mutation(
@@ -463,8 +558,15 @@ def test_campaign_rejects_evaluation_coverage_and_evaluator_policy_mutation(
         )
 
 
+@pytest.mark.parametrize(
+    ("tamper_mode", "reason_fragment"),
+    [("unsafe-bytes", "import"), ("deleted-root", "does not exist")],
+)
 def test_campaign_reaudits_the_exact_candidate_bytes_after_tree_audit(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    tamper_mode: str,
+    reason_fragment: str,
 ) -> None:
     class TamperingAuditor(PolicyAuditor):
         calls = 0
@@ -473,35 +575,76 @@ def test_campaign_reaudits_the_exact_candidate_bytes_after_tree_audit(
             report = super().audit_tree(root)
             self.calls += 1
             if self.calls == 2:
-                (Path(root) / "policy.py").write_text("import os\n", encoding="utf-8")
+                policy_path = Path(root) / "policy.py"
+                if tamper_mode == "unsafe-bytes":
+                    policy_path.write_text("import os\n", encoding="utf-8")
+                else:
+                    policy_path.unlink()
+                    Path(root).rmdir()
             return report
 
-    evaluated = False
+    evaluation_calls = 0
 
     def researcher(request: ResearchRoundRequest) -> None:
         _manifest(request)
 
     def evaluator(policy_directory: Path, *, round_index: int) -> RoundEvaluation:
-        nonlocal evaluated
+        nonlocal evaluation_calls
         del policy_directory, round_index
-        evaluated = True
+        evaluation_calls += 1
         return RoundEvaluation(1.0, (("visible-1", 1.0),), 1, 1, 0.1)
 
     monkeypatch.setattr(researcher_campaign, "PolicyAuditor", TamperingAuditor)
-    with pytest.raises(PolicySecurityError):
+    campaign_directory = tmp_path / "toctou-campaign"
+    result = run_researcher_campaign(
+        initial_policy_directory=_seed_policy(tmp_path, "toctou-seed"),
+        initial_evaluation=RoundEvaluation(0.5, (("visible-1", 0.5),), 1, 1, 0.1),
+        output_directory=campaign_directory,
+        researcher=researcher,
+        evaluator=evaluator,
+        config=CampaignConfig(rounds=2, prediction_item_ids=("visible-1",)),
+    )
+
+    assert evaluation_calls == 1
+    assert [round_.valid for round_ in result.rounds] == [False, True]
+    assert result.rounds[0].invalid_reason is not None
+    assert reason_fragment in result.rounds[0].invalid_reason
+    assert result.rounds[1].parent_artifact_id == result.seed_artifact_id
+    store = ArtifactStore(campaign_directory / "store")
+    assert store.read_files(result.rounds[0].candidate_artifact_id) == store.read_files(
+        result.seed_artifact_id
+    )
+
+
+def test_invalid_recorder_store_failure_remains_fatal(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    original_read_files = ArtifactStore.read_files
+    read_calls = 0
+
+    def fail_invalid_read(store: ArtifactStore, artifact_id: str) -> dict[str, bytes]:
+        nonlocal read_calls
+        read_calls += 1
+        if read_calls == 2:
+            raise RuntimeError("artifact store unavailable")
+        return original_read_files(store, artifact_id)
+
+    def invalid_researcher(request: ResearchRoundRequest) -> None:
+        (request.workspace / "notes.txt").write_text("invalid shape", encoding="utf-8")
+        _manifest(request)
+
+    monkeypatch.setattr(ArtifactStore, "read_files", fail_invalid_read)
+    with pytest.raises(RuntimeError, match="artifact store unavailable"):
         run_researcher_campaign(
-            initial_policy_directory=_seed_policy(tmp_path, "toctou-seed"),
-            output_directory=tmp_path / "toctou-campaign",
-            researcher=researcher,
-            evaluator=evaluator,
+            initial_policy_directory=_seed_policy(tmp_path, "store-failure-seed"),
+            output_directory=tmp_path / "store-failure-campaign",
+            researcher=invalid_researcher,
+            evaluator=ToyIsolatedEvaluator(),
             config=CampaignConfig(rounds=1, prediction_item_ids=("visible-1",)),
         )
-    assert evaluated is False
 
 
-def test_campaign_requires_a_clean_output_directory_and_exact_manifest_parent(
-    tmp_path: Path,
-) -> None:
+def test_campaign_requires_a_clean_output_directory(tmp_path: Path) -> None:
     dirty = tmp_path / "dirty"
     dirty.mkdir()
     (dirty / "prior.txt").write_text("prior", encoding="utf-8")
@@ -510,21 +653,6 @@ def test_campaign_requires_a_clean_output_directory_and_exact_manifest_parent(
             initial_policy_directory=_seed_policy(tmp_path),
             output_directory=dirty,
             researcher=FakeResearcher(),
-            evaluator=ToyIsolatedEvaluator(),
-            config=CampaignConfig(rounds=1, prediction_item_ids=("visible-1",)),
-        )
-
-    def wrong_parent_researcher(request: ResearchRoundRequest) -> None:
-        _manifest(request)
-        path = request.manifest_path
-        raw = path.read_text(encoding="utf-8").replace(request.parent_artifact_id, "a" * 64)
-        path.write_text(raw, encoding="utf-8")
-
-    with pytest.raises(CampaignError, match="parent_artifact_id"):
-        run_researcher_campaign(
-            initial_policy_directory=_seed_policy(tmp_path, "wrong-parent-seed-policy"),
-            output_directory=tmp_path / "parent-campaign",
-            researcher=wrong_parent_researcher,
             evaluator=ToyIsolatedEvaluator(),
             config=CampaignConfig(rounds=1, prediction_item_ids=("visible-1",)),
         )

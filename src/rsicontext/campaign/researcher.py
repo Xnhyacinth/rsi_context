@@ -12,12 +12,13 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Protocol
 
 from rsicontext.analysis.process import CampaignProcessTrace, campaign_process_trace
-from rsicontext.artifacts import ArtifactStore, Manifest, load_manifest
+from rsicontext.artifacts import ArtifactStore, Manifest, ManifestError, load_manifest
 from rsicontext.security import PolicyAuditor, PolicySecurityError
 
 
@@ -247,7 +248,6 @@ def run_researcher_campaign(
             rounds.append(
                 _record_invalid_submission(
                     store,
-                    policy_directory=policy_directory,
                     manifest_path=manifest_path,
                     parent_artifact_id=parent_artifact_id,
                     incumbent_artifact_id=incumbent_artifact_id,
@@ -257,14 +257,63 @@ def run_researcher_campaign(
             )
             last_invalid_reason = str(exc)
             continue
-        _require_submission_shape(workspace, manifest_path)
+        try:
+            _require_submission_shape(workspace, manifest_path)
+        except CampaignError as exc:
+            rounds.append(
+                _record_invalid_submission(
+                    store,
+                    manifest_path=manifest_path,
+                    parent_artifact_id=parent_artifact_id,
+                    incumbent_artifact_id=incumbent_artifact_id,
+                    round_index=round_index,
+                    reason=str(exc),
+                )
+            )
+            last_invalid_reason = str(exc)
+            continue
         try:
             auditor.audit_tree(policy_directory).require_safe()
         except PolicySecurityError as exc:
             rounds.append(
                 _record_invalid_submission(
                     store,
-                    policy_directory=policy_directory,
+                    manifest_path=manifest_path,
+                    parent_artifact_id=parent_artifact_id,
+                    incumbent_artifact_id=incumbent_artifact_id,
+                    round_index=round_index,
+                    reason=str(exc),
+                )
+            )
+            last_invalid_reason = str(exc)
+            continue
+        try:
+            candidate_files = _snapshot_and_reaudit_policy(policy_directory, auditor)
+        except (CampaignError, PolicySecurityError) as exc:
+            rounds.append(
+                _record_invalid_submission(
+                    store,
+                    manifest_path=manifest_path,
+                    parent_artifact_id=parent_artifact_id,
+                    incumbent_artifact_id=incumbent_artifact_id,
+                    round_index=round_index,
+                    reason=str(exc),
+                )
+            )
+            last_invalid_reason = str(exc)
+            continue
+        try:
+            manifest = load_manifest(manifest_path)
+            manifest.validate_for_items(config.prediction_item_ids)
+            if manifest.parent_artifact_id != parent_artifact_id:
+                raise CampaignError(
+                    "manifest parent_artifact_id does not match the research parent"
+                )
+            _validate_claimed_policy_paths(manifest, candidate_files)
+        except (CampaignError, ManifestError) as exc:
+            rounds.append(
+                _record_invalid_submission(
+                    store,
                     manifest_path=manifest_path,
                     parent_artifact_id=parent_artifact_id,
                     incumbent_artifact_id=incumbent_artifact_id,
@@ -275,12 +324,6 @@ def run_researcher_campaign(
             last_invalid_reason = str(exc)
             continue
         last_invalid_reason = None
-        candidate_files = _snapshot_and_reaudit_policy(policy_directory, auditor)
-        manifest = load_manifest(manifest_path)
-        manifest.validate_for_items(config.prediction_item_ids)
-        if manifest.parent_artifact_id != parent_artifact_id:
-            raise CampaignError("manifest parent_artifact_id does not match the research parent")
-        _validate_claimed_policy_paths(manifest, candidate_files)
 
         candidate_record = store.put_files(
             candidate_files,
@@ -304,7 +347,6 @@ def run_researcher_campaign(
             rounds.append(
                 _record_invalid_submission(
                     store,
-                    policy_directory=evaluation_policy_directory,
                     manifest_path=manifest_path,
                     parent_artifact_id=parent_artifact_id,
                     incumbent_artifact_id=incumbent_artifact_id,
@@ -408,7 +450,6 @@ def run_researcher_campaign(
 def _record_invalid_submission(
     store: ArtifactStore,
     *,
-    policy_directory: Path,
     manifest_path: Path,
     parent_artifact_id: str,
     incumbent_artifact_id: str | None,
@@ -417,9 +458,12 @@ def _record_invalid_submission(
 ) -> ResearchCampaignRound:
     """Keep an illegal H on the trajectory without calling the frozen reader."""
 
-    rejected_files = _policy_snapshot(policy_directory)
-    if manifest_path.is_file():
-        manifest = load_manifest(manifest_path)
+    rejected_files = store.read_files(parent_artifact_id)
+    manifest: Manifest | None = None
+    if manifest_path.is_file() and not manifest_path.is_symlink():
+        with suppress(ManifestError):
+            manifest = load_manifest(manifest_path)
+    if manifest is not None:
         candidate_name = manifest.candidate_name
         researcher_recommendation = manifest.promotion.decision
         manifest_payload = manifest.to_dict()
@@ -431,7 +475,7 @@ def _record_invalid_submission(
             "parent_artifact_id": parent_artifact_id,
             "reason": reason,
             "round_index": round_index,
-            "status": "missing-manifest",
+            "status": "missing-or-invalid-manifest",
         }
     candidate_record = store.put_files(
         rejected_files,

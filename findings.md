@@ -204,3 +204,25 @@ data. Instruction-like text copied from external sources is never executable.
   This makes LongMemEval-V2 valuable as an offline trajectory transfer bridge,
   but weak as the only environment for estimating researcher discovery or
   long-horizon RSI reliability.
+- The current visible autonomous loop already preserves the last-attempt
+  lineage while separately selecting strict historical-best, and invalid or
+  missing submissions consume a slot without a reader call. Its remaining
+  reproducibility gap is pre-run budget identity: budget/process/scorer/prompt
+  limits are passed as Python arguments but are not committed together before
+  the first model call. A run contract must close that gap before more hy3
+  trajectories are interpretable.
+- A total-call cap is insufficient evidence on its own. Calls must be recorded
+  before transport and reconciled exactly as `|visible| * (1 + valid_rounds)`;
+  otherwise a partial batch failure can hide real endpoint calls. H0 must share
+  the same failure ledger as candidate evaluations.
+- Hashing a caller-owned H0 directory is also insufficient: contract creation,
+  H0 scoring, and campaign lineage must consume one evaluator-owned byte
+  snapshot. Qualification-only researcher processes are not OS sandboxes, so
+  the contract and H0 snapshot additionally require post-turn and end-of-run
+  byte checks; this detects tampering but does not replace the physical A2 gate.
+- A semantic 8K cap is meaningless without naming and freezing its token axis.
+  For the hy3 qualification the available reproducible axis is the pinned Qwen
+  tokenizer, whose slow tokenizer consumes `vocab.json` and `merges.txt`; all
+  four configuration/input files must be verified. API-reported hy3 input
+  tokens remain a separate observed cost and are not interchangeable with this
+  construction budget.

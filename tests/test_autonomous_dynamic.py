@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import urllib.request
 from pathlib import Path
 
 import pytest
@@ -16,7 +17,12 @@ from rsicontext.campaign.autonomous_dynamic import (
 )
 from rsicontext.campaign.researcher import ResearchRoundRequest
 from rsicontext.datasets import generate_dynamic_long_context_dataset
-from rsicontext.eval import EvaluationItem, ReaderOutput, extractive_span_match
+from rsicontext.eval import (
+    EvaluationItem,
+    OpenAICompatibleReader,
+    ReaderOutput,
+    extractive_span_match,
+)
 from rsicontext.experiment import Split
 from rsicontext.experiment.api import load_api_profiles
 from rsicontext.policy import Artifact, Budget, ContextPack, DocumentChunk
@@ -56,8 +62,29 @@ def _seed_policy(tmp_path: Path) -> Path:
     return policy
 
 
+def _declared_reader_identity(model: str) -> DynamicReaderIdentity:
+    return DynamicReaderIdentity(
+        profile_id="test-reader",
+        profile_hash="a" * 64,
+        provider="test-provider",
+        requested_model=model,
+        provider_revision=None,
+        max_model_len=131_072,
+        max_output_tokens=64,
+        seed=42,
+        temperature=0.0,
+        chat_template_enable_thinking=False,
+        serving_profile_id=None,
+        serving_profile_hash=None,
+    )
+
+
 def _fake_codex(
-    tmp_path: Path, *, hardcode: bool = False, policy_source: str | None = None
+    tmp_path: Path,
+    *,
+    hardcode: bool = False,
+    mutate_contract: bool = False,
+    policy_source: str | None = None,
 ) -> Path:
     tmp_path.mkdir(parents=True, exist_ok=True)
     executable = tmp_path / "fake-codex"
@@ -93,6 +120,7 @@ POLICY_WRITE
     json.dumps(manifest, indent=2, sort_keys=True) + "\\n",
     encoding="utf-8",
 )
+CONTRACT_MUTATION
 print(json.dumps({
     "type": "item.completed",
     "item": {"type": "agent_message", "text": "TRACE-SECRET"},
@@ -108,21 +136,46 @@ print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 17, "outpu
     "ITEM = " + repr(manifest["predictions"][0]["item_id"]) + "\\n",
     encoding="utf-8",
 )"""
+    contract_mutation = (
+        "(workspace.parents[2] / 'run_contract.json').write_text('{}', encoding='utf-8')"
+        if mutate_contract
+        else ""
+    )
     executable.write_text(
-        script.replace("POLICY_WRITE", hardcoded_write if hardcode else generic_write),
+        script.replace("POLICY_WRITE", hardcoded_write if hardcode else generic_write).replace(
+            "CONTRACT_MUTATION", contract_mutation
+        ),
         encoding="utf-8",
     )
     executable.chmod(0o700)
     return executable
 
 
-def _failing_codex(tmp_path: Path) -> Path:
+def _failing_codex(tmp_path: Path, *, mutate_executable: bool = False) -> Path:
     executable = tmp_path / "failing-codex"
+    mutation = (
+        "import pathlib\npathlib.Path(sys.argv[0]).write_text('# changed\\n', encoding='utf-8')\n"
+        if mutate_executable
+        else ""
+    )
     executable.write_text(
-        "#!/usr/bin/python3\n"
-        "import sys\n"
-        'print("FAILURE-SECRET", file=sys.stderr)\n'
-        "raise SystemExit(7)\n",
+        (
+            "#!/usr/bin/python3\n"
+            "import sys\n"
+            + mutation
+            + 'print("FAILURE-SECRET", file=sys.stderr)\n'
+            + "raise SystemExit(7)\n"
+        ),
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+    return executable
+
+
+def _sleeping_codex(tmp_path: Path) -> Path:
+    executable = tmp_path / "sleeping-codex"
+    executable.write_text(
+        "#!/usr/bin/python3\nimport time\ntime.sleep(5)\n",
         encoding="utf-8",
     )
     executable.chmod(0o700)
@@ -364,7 +417,11 @@ def test_two_round_codex_micro_pilot_records_usage_and_refuses_overwrite(tmp_pat
     )
 
     assert result.split == "visible"
-    assert result.schema_version == 3
+    assert result.schema_version == 4
+    assert result.run_contract.rounds == 2
+    assert result.run_contract.max_reader_calls == 6
+    assert result.run_contract_sha256 == result.run_contract.contract_sha256
+    assert (tmp_path / "result" / "run_contract.json").is_file()
     assert result.qualification_only is True
     assert result.autonomous_researcher is True
     assert result.formal_sealed_isolation is False
@@ -424,7 +481,7 @@ def test_pilot_rejects_candidate_that_hardcodes_visible_identifiers(tmp_path: Pa
 
     failure = json.loads((output / "failure.json").read_text(encoding="utf-8"))
     assert failure["status"] == "failed"
-    assert failure["schema_version"] == 3
+    assert failure["schema_version"] == 4
     assert failure["dataset_fingerprint"]
     assert "reader_identity" in failure
     assert failure["error_type"] == "ValueError"
@@ -461,6 +518,276 @@ def test_process_failure_consumes_slot_without_raw_output(tmp_path: Path) -> Non
     assert stored["researcher_traces"][0]["process"] is None
     assert stored["researcher_traces"][0]["failure"]["stderr_bytes"] > 0
     assert "FAILURE-SECRET" not in json.dumps(stored)
+
+
+def test_researcher_timeout_consumes_slot_without_reader_call(tmp_path: Path) -> None:
+    seed = "researcher-timeout"
+    reader = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    result = run_autonomous_dynamic_pilot(
+        initial_policy_directory=_seed_policy(tmp_path),
+        output_directory=tmp_path / "researcher-timeout-result",
+        reader=reader,
+        researcher_executable=str(_sleeping_codex(tmp_path)),
+        dataset_seed=seed,
+        items_per_profile=1,
+        rounds=1,
+        process_limits=ProcessLimits(timeout_seconds=0.05),
+    )
+
+    assert result.campaign.rounds[0].valid is False
+    assert "timed out" in (result.campaign.rounds[0].invalid_reason or "")
+    assert result.process_failures[0].error_type == "ResearcherProcessError"
+    assert result.reader_calls == 2
+    assert reader.calls == 2
+
+
+def test_failed_researcher_cannot_change_its_locked_executable(tmp_path: Path) -> None:
+    seed = "failed-researcher-mutation"
+    output = tmp_path / "failed-researcher-mutation-result"
+    reader = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    with pytest.raises(RuntimeError, match="locked run inputs changed"):
+        run_autonomous_dynamic_pilot(
+            initial_policy_directory=_seed_policy(tmp_path),
+            output_directory=output,
+            reader=reader,
+            researcher_executable=str(_failing_codex(tmp_path, mutate_executable=True)),
+            dataset_seed=seed,
+            items_per_profile=1,
+            rounds=1,
+            process_limits=ProcessLimits(timeout_seconds=2),
+        )
+
+    failure = json.loads((output / "failure.json").read_text(encoding="utf-8"))
+    assert failure["locked_run_inputs_unchanged"] is False
+    assert reader.calls == 2
+
+
+def test_prompt_budget_consumes_slot_without_researcher_or_reader_call(tmp_path: Path) -> None:
+    seed = "prompt-budget"
+    reader = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    result = run_autonomous_dynamic_pilot(
+        initial_policy_directory=_seed_policy(tmp_path),
+        output_directory=tmp_path / "prompt-budget-result",
+        reader=reader,
+        researcher_executable=str(_fake_codex(tmp_path)),
+        dataset_seed=seed,
+        items_per_profile=1,
+        rounds=1,
+        max_researcher_prompt_bytes=1,
+        process_limits=ProcessLimits(timeout_seconds=2),
+    )
+
+    assert result.campaign.rounds[0].valid is False
+    assert "frozen byte budget" in (result.campaign.rounds[0].invalid_reason or "")
+    assert result.researcher_processes == ()
+    assert result.reader_calls == 2
+    assert reader.calls == 2
+
+
+def test_run_contract_exists_before_first_reader_call(tmp_path: Path) -> None:
+    seed = "contract-before-reader"
+    output = tmp_path / "contract-before-reader-result"
+    inner = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    class ContractAwareReader:
+        def read(self, query: str, context: ContextPack) -> ReaderOutput:
+            assert (output / "run_contract.json").is_file()
+            return inner.read(query, context)
+
+    run_autonomous_dynamic_pilot(
+        initial_policy_directory=_seed_policy(tmp_path),
+        output_directory=output,
+        reader=ContractAwareReader(),
+        researcher_executable=str(_fake_codex(tmp_path)),
+        dataset_seed=seed,
+        items_per_profile=1,
+        rounds=1,
+        process_limits=ProcessLimits(timeout_seconds=2),
+    )
+
+
+def test_locked_qualification_rejects_unattested_reader(tmp_path: Path) -> None:
+    seed = "unattested-reader"
+    reader = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    with pytest.raises(ValueError, match="attested reader identity"):
+        run_autonomous_dynamic_pilot(
+            initial_policy_directory=_seed_policy(tmp_path),
+            output_directory=tmp_path / "unattested-reader-result",
+            reader=reader,
+            researcher_executable=str(_fake_codex(tmp_path)),
+            dataset_seed=seed,
+            items_per_profile=1,
+            rounds=1,
+            token_axis_identity={"attested": True, "label": "unit-token-axis"},
+            require_attested_identities=True,
+            process_limits=ProcessLimits(timeout_seconds=2),
+        )
+
+    assert reader.calls == 0
+
+
+@pytest.mark.parametrize(
+    "token_axis_identity",
+    [None, {"attested": False}, {"attested": "yes"}],
+)
+def test_locked_qualification_rejects_unattested_token_axis(
+    tmp_path: Path,
+    token_axis_identity: dict[str, object] | None,
+) -> None:
+    seed = "unattested-token-axis"
+    reader = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    with pytest.raises(ValueError, match="attested token axis"):
+        run_autonomous_dynamic_pilot(
+            initial_policy_directory=_seed_policy(tmp_path),
+            output_directory=tmp_path / "unattested-token-axis-result",
+            reader=reader,
+            researcher_executable=str(_fake_codex(tmp_path)),
+            dataset_seed=seed,
+            items_per_profile=1,
+            rounds=1,
+            token_axis_identity=token_axis_identity,
+            require_attested_identities=True,
+            process_limits=ProcessLimits(timeout_seconds=2),
+        )
+
+    assert reader.calls == 0
+
+
+@pytest.mark.parametrize("mismatch", ["model", "transport"])
+def test_locked_qualification_rejects_reader_runtime_mismatch(
+    tmp_path: Path,
+    mismatch: str,
+) -> None:
+    def retrying_transport(request: urllib.request.Request, timeout: float) -> bytes:
+        del request, timeout
+        raise AssertionError("transport must not run during attestation")
+
+    if mismatch == "transport":
+        reader = OpenAICompatibleReader(
+            endpoint="http://127.0.0.1:8000/v1/chat/completions",
+            model="actual-reader",
+            max_tokens=64,
+            max_model_len=131_072,
+            chat_template_enable_thinking=False,
+            transport=retrying_transport,
+        )
+    else:
+        reader = OpenAICompatibleReader(
+            endpoint="http://127.0.0.1:8000/v1/chat/completions",
+            model="actual-reader",
+            max_tokens=64,
+            max_model_len=131_072,
+            chat_template_enable_thinking=False,
+        )
+    declared_model = "wrong-reader" if mismatch == "model" else "actual-reader"
+
+    with pytest.raises(ValueError, match="attested reader identity"):
+        run_autonomous_dynamic_pilot(
+            initial_policy_directory=_seed_policy(tmp_path),
+            output_directory=tmp_path / f"reader-{mismatch}-result",
+            reader=reader,
+            reader_identity=_declared_reader_identity(declared_model),
+            researcher_executable=str(_fake_codex(tmp_path)),
+            dataset_seed=f"reader-{mismatch}",
+            items_per_profile=1,
+            rounds=1,
+            token_axis_identity={"attested": True, "label": "unit-token-axis"},
+            require_attested_identities=True,
+            process_limits=ProcessLimits(timeout_seconds=2),
+        )
+
+
+def test_h0_partial_reader_failure_records_every_attempt(tmp_path: Path) -> None:
+    output = tmp_path / "h0-reader-failure"
+
+    class FailingReader:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def read(self, query: str, context: ContextPack) -> ReaderOutput:
+            del query
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("reader endpoint failed")
+            return ReaderOutput("", context.token_count, 0)
+
+    reader = FailingReader()
+    with pytest.raises(RuntimeError, match="reader endpoint failed"):
+        run_autonomous_dynamic_pilot(
+            initial_policy_directory=_seed_policy(tmp_path),
+            output_directory=output,
+            reader=reader,
+            researcher_executable=str(_fake_codex(tmp_path)),
+            dataset_seed="h0-reader-failure",
+            items_per_profile=1,
+            rounds=1,
+            process_limits=ProcessLimits(timeout_seconds=2),
+        )
+
+    failure = json.loads((output / "failure.json").read_text(encoding="utf-8"))
+    assert reader.calls == 2
+    assert failure["reader_calls_attempted"] == 2
+    assert failure["cost_accounting_complete"] is False
+    assert failure["reader_usage_accounting_complete"] is False
+    assert failure["evaluation_observations"] == []
+    assert failure["processes"] == []
+
+
+def test_initial_policy_snapshot_is_stable_when_source_changes(tmp_path: Path) -> None:
+    seed = "source-policy-mutation"
+    source_policy = _seed_policy(tmp_path)
+    inner = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    class SourceMutatingReader:
+        def read(self, query: str, context: ContextPack) -> ReaderOutput:
+            if inner.calls == 0:
+                (source_policy / "seed.py").write_text("VALUE = 'mutated'\n", encoding="utf-8")
+            return inner.read(query, context)
+
+    output = tmp_path / "source-policy-mutation-result"
+    result = run_autonomous_dynamic_pilot(
+        initial_policy_directory=source_policy,
+        output_directory=output,
+        reader=SourceMutatingReader(),
+        researcher_executable=str(_fake_codex(tmp_path)),
+        dataset_seed=seed,
+        items_per_profile=1,
+        rounds=1,
+        process_limits=ProcessLimits(timeout_seconds=2),
+    )
+
+    snapshot_source = (output / "initial-policy-snapshot" / "seed.py").read_text(encoding="utf-8")
+    assert snapshot_source.startswith("from rsicontext.policy")
+    assert (source_policy / "seed.py").read_text(encoding="utf-8") == "VALUE = 'mutated'\n"
+    assert result.run_contract.initial_policy_sha256
+
+
+def test_researcher_cannot_mutate_locked_contract(tmp_path: Path) -> None:
+    seed = "contract-mutation"
+    output = tmp_path / "contract-mutation-result"
+    reader = GoldEvidenceReader(seed=seed, items_per_profile=1)
+
+    with pytest.raises(RuntimeError, match="locked run inputs changed"):
+        run_autonomous_dynamic_pilot(
+            initial_policy_directory=_seed_policy(tmp_path),
+            output_directory=output,
+            reader=reader,
+            researcher_executable=str(_fake_codex(tmp_path, mutate_contract=True)),
+            dataset_seed=seed,
+            items_per_profile=1,
+            rounds=1,
+            process_limits=ProcessLimits(timeout_seconds=2),
+        )
+
+    failure = json.loads((output / "failure.json").read_text(encoding="utf-8"))
+    assert failure["locked_run_inputs_unchanged"] is False
+    assert failure["reader_calls_attempted"] == 2
+    assert reader.calls == 2
 
 
 def test_runtime_invalid_policy_consumes_slot_without_reader_call(tmp_path: Path) -> None:
@@ -506,6 +833,7 @@ def test_short_visible_answers_are_not_treated_as_hardcoded_lookups(tmp_path: Pa
         items=(item,),
         pack_budget_tokens=8192,
         scorer_name="extractive_span_match",
+        token_axis_id="unit-token-axis",
     )
     result = run_autonomous_dynamic_pilot(
         initial_policy_directory=_seed_policy(tmp_path),
@@ -568,6 +896,7 @@ def test_public_visible_fingerprint_binds_cell_query_and_chunk_bytes() -> None:
         items=(item,),
         pack_budget_tokens=8192,
         scorer_name="extractive_span_match",
+        token_axis_id="unit-token-axis",
     )
     mutated = EvaluationItem(
         item_id=item.item_id,
@@ -593,6 +922,7 @@ def test_public_visible_fingerprint_binds_cell_query_and_chunk_bytes() -> None:
         items=(mutated,),
         pack_budget_tokens=8192,
         scorer_name="extractive_span_match",
+        token_axis_id="unit-token-axis",
     )
 
 
@@ -604,6 +934,7 @@ def test_public_items_pilot_uses_extractive_span_match(tmp_path: Path) -> None:
         items=(item,),
         pack_budget_tokens=8192,
         scorer_name="extractive_span_match",
+        token_axis_id="unit-token-axis",
     )
     result = run_autonomous_dynamic_pilot(
         initial_policy_directory=_seed_policy(tmp_path),

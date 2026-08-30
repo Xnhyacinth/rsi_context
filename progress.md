@@ -115,3 +115,40 @@
   states, with 100% binding beyond 256K. The largest atomic state is 127,192
   tokens, so deterministic intra-state splitting and final rendered-prompt
   accounting are now explicit blockers before any reader baseline.
+
+## 2026-08-30 — Locked autonomous RSI continuation
+
+- Re-audited the normative study contract, A2 preregistration, A2 call
+  projection, campaign loop, API researcher, and real public pilot. The core
+  five-slot behavior exists, but visible pilot outputs do not yet bind pack,
+  feedback, process, scorer, initial-policy, or total-call budgets into one
+  immutable pre-run artifact.
+- Kept formal A2 fail-closed. Its two task profiles, replay/noise evidence,
+  physical isolation, host spend caps, and matched-controller evidence are not
+  all qualified, so changing `qualification_only` would violate the protocol.
+- Added a schema-v2 pre-run contract that binds the evaluator-owned H0 snapshot,
+  actual visible-item payload, scorer and module source, complete semantic
+  budget, reader/researcher runtime identities, five-slot allocation, process
+  limits, environment names, and per-turn/aggregate researcher ceilings.
+- Closed failure-accounting gaps found in independent review: every reader
+  attempt is charged before transport, H0 failures produce a failure artifact,
+  invalid manifests consume a slot without reader calls, real timeouts are
+  covered, and researcher mutation of the contract or H0 snapshot fails before
+  candidate evaluation.
+- The locked public runner now requires attested endpoint, prompt, timeout,
+  transport, model, and researcher identities. It remains explicitly visible
+  qualification with `formal_process_isolation=false`; formal A2 is still
+  disabled.
+- Independent risk review found and closed four further failure paths: rejected
+  policy trees now record evaluator-owned parent bytes; only the audited
+  single-request reader transport is accepted; API profiles/executables/package
+  source are snapshotted or continuously checked; partial reader failures mark
+  token/cost accounting incomplete.
+- The public token budget is now explicitly a pinned
+  `qwen-canonical-token-axis`, not a claimed hy3-native cap. The contract binds
+  the Qwen revision, tokenizer class, and exact `merges.txt`, `vocab.json`,
+  `tokenizer.json`, and `tokenizer_config.json` digest set. Locked runs reject
+  missing or weak token-axis identities before any reader call.
+- Final pre-run verification passes all 543 tests with 84.03% branch coverage,
+  full Ruff, strict mypy over 167 files, targeted Bandit, and three independent
+  risk-review rounds with no remaining blocker or high finding.

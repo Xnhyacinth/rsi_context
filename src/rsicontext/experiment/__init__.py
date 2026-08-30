@@ -43,6 +43,11 @@ from rsicontext.experiment.rsi_contract import (
     pack_within_envelope,
     researcher_path_allowed,
 )
+from rsicontext.experiment.rsi_run import (
+    BoundedRSIRunContract,
+    build_bounded_rsi_run_contract,
+    policy_tree_sha256,
+)
 from rsicontext.experiment.runtime_attestation import (
     EndpointObservation,
     FormalRunDescriptor,
@@ -82,6 +87,7 @@ __all__ = [
     "APIProfiles",
     "AttemptBudgetError",
     "AttemptRecord",
+    "BoundedRSIRunContract",
     "BudgetSpec",
     "EndpointObservation",
     "FormalRunDescriptor",
@@ -102,6 +108,7 @@ __all__ = [
     "Track",
     "attest_run",
     "build_a2_pilot_plan",
+    "build_bounded_rsi_run_contract",
     "build_profile_reader",
     "canonical_reader_endpoint",
     "consume_attempt_slot",
@@ -111,6 +118,7 @@ __all__ = [
     "observe_runtime_endpoint",
     "observe_runtime_process",
     "pack_within_envelope",
+    "policy_tree_sha256",
     "researcher_path_allowed",
     "resolve_api_endpoint",
     "run_api_canary",
