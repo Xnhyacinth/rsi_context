@@ -98,6 +98,22 @@ def test_rejects_inconsistent_support_and_decomposition_indices() -> None:
         musique_answerable_record(raw)
 
 
+def test_accepts_official_integer_decomposition_ids() -> None:
+    raw = _raw_fixture()
+    steps = raw["question_decomposition"]
+    assert isinstance(steps, list)
+    first = steps[0]
+    second = steps[1]
+    assert isinstance(first, dict)
+    assert isinstance(second, dict)
+    first["id"] = 460946
+    second["id"] = 294723
+
+    record = musique_answerable_record(raw)
+
+    assert tuple(step.step_id for step in record.steps) == ("460946", "294723")
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [

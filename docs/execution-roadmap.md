@@ -149,17 +149,17 @@ confidence intervals are informative.
 
 ## Go/no-go ledger
 
-| Gate                          | Current status           | Required next evidence                                                         |
-| ----------------------------- | ------------------------ | ------------------------------------------------------------------------------ |
-| three-way API/policy boundary | implemented and tested   | re-attest in formal image                                                      |
-| real routing profile          | promising, not frozen    | complete PopQA qualification                                                   |
-| causal multi-hop profile      | blocked                  | offline dataset selection + pinned adapter + reader qualification              |
-| replay floor                  | local qualification only | repeat on both final profiles and formal endpoint                              |
-| spend caps                    | blocked                  | signed host/provider `SpendCaps`                                               |
-| physical gate isolation       | blocked                  | evaluator process/container/mount/network attestation and negative access test |
-| runtime identity              | partial                  | endpoint/model-response and all code/data/runtime hashes                       |
-| A2                            | not launched             | every gate above passes                                                        |
-| A3/A3-L/A4/A5                 | conditional              | preceding stage analysis frozen                                                |
+| Gate                          | Current status                            | Required next evidence                                                         |
+| ----------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------ |
+| three-way API/policy boundary | implemented and tested                    | re-attest in formal image                                                      |
+| real routing profile          | promising, not frozen                     | complete PopQA qualification                                                   |
+| causal multi-hop profile      | structurally qualified on mirror; blocked | official byte match + causal instruments + reader qualification                |
+| replay floor                  | local qualification only                  | repeat on both final profiles and formal endpoint                              |
+| spend caps                    | blocked                                   | signed host/provider `SpendCaps`                                               |
+| physical gate isolation       | blocked                                   | evaluator process/container/mount/network attestation and negative access test |
+| runtime identity              | partial                                   | endpoint/model-response and all code/data/runtime hashes                       |
+| A2                            | not launched                              | every gate above passes                                                        |
+| A3/A3-L/A4/A5                 | conditional                               | preceding stage analysis frozen                                                |
 
 The immediate implementation unit is deliberately narrow: produce the offline
 multi-hop dataset qualification artifact, select one candidate, and only then

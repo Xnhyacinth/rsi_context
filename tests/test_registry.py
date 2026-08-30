@@ -27,6 +27,7 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         "longmemeval-v2-data",
         "rsibench-context-prepared-visible",
         "musique",
+        "musique-answerable-data-qualification",
         "hotpotqa",
         "2wikimultihopqa",
         "gepa",
@@ -50,6 +51,10 @@ def test_project_registry_has_required_entries_and_modes() -> None:
     assert entries["longbench-v2-data"].license == "Apache-2.0"
     assert entries["llama-3.3-70b-instruct"].access == "gated"
     assert entries["musique"].revision == "922ac98f19a201998dbdae6d7f2887a5258dbdeb"
+    musique_data = entries["musique-answerable-data-qualification"]
+    assert musique_data.revision == "763b65f844118a148e92bb88e7de5cb191b4c5dc"
+    assert musique_data.integration == "adapter"
+    assert "qualification only" in musique_data.notes
     assert entries["hotpotqa"].revision == "3635853403a8735609ee997664e1528f4480762a"
     assert entries["2wikimultihopqa"].revision == "13800e5be57df1b4040b9b1588c6c811779e69e9"
 

@@ -106,6 +106,14 @@ def _index(value: object, field: str, location: str) -> int:
     return value
 
 
+def _step_id(value: object, location: str) -> str:
+    if isinstance(value, str) and value.strip():
+        return value
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return str(value)
+    raise MuSiQueDataError(f"{location}.id must be a non-empty string or non-negative integer")
+
+
 def _paragraphs(raw: object) -> tuple[MuSiQueParagraph, ...]:
     if not isinstance(raw, list) or not raw:
         raise MuSiQueDataError("record.paragraphs must be a non-empty list")
@@ -139,7 +147,7 @@ def _steps(raw: object) -> tuple[MuSiQueStep, ...]:
         value = _record(item, _STEP_FIELDS, location)
         steps.append(
             MuSiQueStep(
-                step_id=_string(value["id"], "id", location),
+                step_id=_step_id(value["id"], location),
                 question=_string(value["question"], "question", location),
                 answer=_string(value["answer"], "answer", location),
                 paragraph_support_idx=_index(

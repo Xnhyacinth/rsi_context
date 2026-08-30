@@ -110,6 +110,24 @@
       "notes": "Official repository HEAD verified on 2026-08-29. Repository pins code, evaluator, leakage IDs, and download instructions; the separately hosted dataset archive must receive its own checksum before adapter qualification or reporting."
     },
     {
+      "id": "musique-answerable-data-qualification",
+      "name": "MuSiQue-Answerable data qualification mirror",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "huggingface",
+      "url": "https://huggingface.co/datasets/dgslibisey/MuSiQue",
+      "revision": "763b65f844118a148e92bb88e7de5cb191b4c5dc",
+      "license": "CC-BY-4.0 per the official MuSiQue repository",
+      "size_bytes": 299855512,
+      "access": "public",
+      "checksum": {
+        "algorithm": "hf-revision",
+        "value": "763b65f844118a148e92bb88e7de5cb191b4c5dc",
+        "verified": true
+      },
+      "notes": "Third-party mirror revision and LFS metadata verified on 2026-08-30. Use for qualification only; formal benchmark eligibility requires byte-level matching against the author-distributed musique_v1.0.zip. Expected dev JSONL: 30439728 bytes, sha256 15fa63794d18a94ce12411aca6e2327e65b6e83b0b1490efab3f1962e48abf3b."
+    },
+    {
       "id": "hotpotqa",
       "name": "HotpotQA",
       "kind": "dataset",
