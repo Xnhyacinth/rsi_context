@@ -207,7 +207,7 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 16 — elastic context-envelope revision
 
-**Status:** pending — normative design revised before A2 launch
+**Status:** in progress — allocator/preflight implemented; candidate wiring pending
 
 - Retain fixed 8K as a replay, causal, and equal-budget instrument; remove it as
   the only admissible A2 policy length.
@@ -274,15 +274,12 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Next step
 
-First implement the envelope schema, final-rendered-input counter, full-batch
-preflight, and legacy-plan refusal with zero reader calls. Then freeze the failed
-Phase 13b result and design one independently preregistered held-out confirmation
-block rather than rerunning or relaxing its gate. Freeze the original-panel
-exclusion rule, held-out seed/digest, and both failed sensitivity conditions;
-allow no optional extension and retain the present failure in every joint
-report. Do not expose scores to a researcher or start the five-round campaign:
-Phase 13b observed a +0.275 lexical-minus-head contrast but failed its bootstrap
-and worst-case replay-sensitivity conditions. Long-memory and live long-horizon
-work remains zero-reader-call offline analysis until a held-out signal block and
-task-specific causal gates pass; any hy3 frozen-policy transfer requires a
-separate qualification-only preregistration.
+Wire policy-only length preferences through the fresh worker without exposing
+evaluator-owned overhead or allocations, then build the elastic `PolicySpec`
+grammar, schema-v2 A2 plan, token-matched controls, and zero-call controller
+preflight. After a clean commit, run the already pinned LongMemEval-V2 medium
+zero-reader qualification twice. Separately design one independently
+pre-registered unseen hy3 fixed-policy confirmation rather than rerunning or
+relaxing the failed Phase 13b gate. Do not expose scores to a researcher or
+start the five-round campaign: Phase 13b observed a +0.275 lexical-minus-head
+contrast but failed its bootstrap and worst-case replay-sensitivity conditions.

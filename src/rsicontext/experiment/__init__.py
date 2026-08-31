@@ -27,6 +27,18 @@ from rsicontext.experiment.api_length import (
 )
 from rsicontext.experiment.attempts import AttemptBudgetError, AttemptRecord, consume_attempt_slot
 from rsicontext.experiment.config import BudgetSpec, ModelSpec, RunSpec, Split, Track
+from rsicontext.experiment.elastic_envelope import (
+    ElasticBatchAllocation,
+    ElasticContextEnvelope,
+    ElasticItemAllocation,
+    ElasticItemRequest,
+    ElasticLengthPreference,
+    RenderedBatchPreflight,
+    RenderedInputObservation,
+    allocate_elastic_batch,
+    count_rendered_chat_input,
+    preflight_rendered_batch,
+)
 from rsicontext.experiment.feedback import RoundFeedback
 from rsicontext.experiment.ledger import SpendCapError, SpendCaps, SpendLedger, SpendSnapshot
 from rsicontext.experiment.operational_replay import (
@@ -113,6 +125,11 @@ __all__ = [
     "AttemptRecord",
     "BoundedRSIRunContract",
     "BudgetSpec",
+    "ElasticBatchAllocation",
+    "ElasticContextEnvelope",
+    "ElasticItemAllocation",
+    "ElasticItemRequest",
+    "ElasticLengthPreference",
     "EndpointObservation",
     "FormalRunDescriptor",
     "FormalRunError",
@@ -129,6 +146,8 @@ __all__ = [
     "PairedPolicyDiagnosticContract",
     "PairedPolicyDiagnosticResult",
     "PairedPolicySummary",
+    "RenderedBatchPreflight",
+    "RenderedInputObservation",
     "ResolvedAPIEndpoint",
     "RoundFeedback",
     "RunSpec",
@@ -139,6 +158,7 @@ __all__ = [
     "SpendSnapshot",
     "Split",
     "Track",
+    "allocate_elastic_batch",
     "attest_run",
     "build_a2_pilot_plan",
     "build_bounded_rsi_run_contract",
@@ -147,6 +167,7 @@ __all__ = [
     "build_profile_reader",
     "canonical_reader_endpoint",
     "consume_attempt_slot",
+    "count_rendered_chat_input",
     "fingerprint_model_directory",
     "launch_a2_pilot",
     "load_api_profiles",
@@ -156,6 +177,7 @@ __all__ = [
     "pack_within_envelope",
     "paired_call_schedule",
     "policy_tree_sha256",
+    "preflight_rendered_batch",
     "researcher_path_allowed",
     "resolve_api_endpoint",
     "run_api_canary",

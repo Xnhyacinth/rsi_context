@@ -20,7 +20,7 @@ def _caps() -> SpendCaps:
     )
 
 
-def test_a2_launch_is_blocked_while_the_plan_is_qualification_only() -> None:
+def test_a2_launch_refuses_the_legacy_fixed_budget_schema() -> None:
     plan = build_a2_pilot_plan(
         researchers=("codex-gpt-5.6-sol", "claude-opus"),
         task_profiles=("compositional_multihop", "dense_global_comparison"),
@@ -34,7 +34,7 @@ def test_a2_launch_is_blocked_while_the_plan_is_qualification_only() -> None:
         difficulty_profiles_passed=plan.task_profiles,
     )
 
-    with pytest.raises(A2LaunchError, match="qualification-only"):
+    with pytest.raises(A2LaunchError, match="legacy fixed-budget"):
         launch_a2_pilot(request)
     assert plan.qualification_only is True
 
@@ -56,7 +56,7 @@ def test_a2_launch_refuses_a_failed_landscape_before_execution() -> None:
         difficulty_profiles_passed=plan.task_profiles,
     )
 
-    with pytest.raises(A2LaunchError, match="landscape"):
+    with pytest.raises(A2LaunchError, match="legacy fixed-budget"):
         launch_a2_pilot(request)
 
 
@@ -84,7 +84,7 @@ def test_a2_launch_refuses_missing_isolation_and_stays_disabled() -> None:
         difficulty_profiles_passed=plan.task_profiles,
     )
 
-    with pytest.raises(A2LaunchError, match="physical isolation"):
+    with pytest.raises(A2LaunchError, match="legacy fixed-budget"):
         launch_a2_pilot(missing_isolation)
-    with pytest.raises(A2LaunchError, match="not enabled"):
+    with pytest.raises(A2LaunchError, match="legacy fixed-budget"):
         launch_a2_pilot(ready)

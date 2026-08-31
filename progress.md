@@ -1,5 +1,27 @@
 # Progress
 
+## 2026-08-31 elastic allocator and autonomous-loop decision
+
+- Implemented a frozen elastic rendered-input envelope with evaluator-owned
+  per-item overhead, policy-only desired length/priority, deterministic
+  order-invariant weighted water filling, and exact public-digest tie breaking.
+- Added complete-batch preflight that independently revalidates allocation
+  identities, totals, item maxima, endpoint output reserve, and batch caps
+  before any target call. Added a frozen chat-render token-count boundary.
+- Changed the A2 controller to refuse the legacy fixed-budget schema
+  unconditionally. This is a zero-reader-call safety change, not A2 enablement.
+- Added behavior tests for order invariance, weighted/capped allocation,
+  evaluator-owned overhead feasibility, forged-allocation rejection, complete
+  item coverage, quota overrun, endpoint limits, and complete chat wrappers.
+- Audited MGM and Recuris against their current papers and official code. Kept
+  the benchmark-owned five/ten-slot loop, component-scoped manifests,
+  structured traces, and paired admission; rejected whole-repository evolution,
+  evaluator/private-test exposure, and provisional-lineage success claims.
+- Formal hy3 RSI remains blocked by the failed Phase 13b uncertainty and
+  instability gates. The next safe experiment after a clean commit is the
+  LongMemEval-V2 medium zero-reader qualification/replay, not a new researcher
+  trajectory.
+
 ## 2026-08-31 paired signal diagnostic
 
 - Added an initial preregistration, behavior tests, and a matched interleaved

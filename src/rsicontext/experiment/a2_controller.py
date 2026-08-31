@@ -31,15 +31,6 @@ def launch_a2_pilot(request: A2LaunchRequest) -> SpendLedger:
         raise TypeError("request must be an A2LaunchRequest")
     if not isinstance(request.plan, A2PilotPlan):
         raise TypeError("plan must be an A2PilotPlan")
-    if request.plan.qualification_only:
-        raise A2LaunchError("the pre-registered plan is still qualification-only")
-    if not request.landscape_passed:
-        raise A2LaunchError(
-            "A2 is blocked until both primary profiles pass the disposable landscape"
-        )
-    required = frozenset(request.plan.task_profiles)
-    if frozenset(request.difficulty_profiles_passed) != required:
-        raise A2LaunchError("difficulty assessment has not passed every A2 task profile")
-    if not request.isolation_formal:
-        raise A2LaunchError("formal gate scoring requires attested physical isolation")
-    raise A2LaunchError("A2 execution is not enabled in this workspace")
+    raise A2LaunchError(
+        "legacy fixed-budget A2 schema is launch-invalid after the elastic-envelope revision"
+    )
