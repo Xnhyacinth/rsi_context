@@ -207,7 +207,8 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 16 — elastic context-envelope revision
 
-**Status:** in progress — allocator/preflight implemented; candidate wiring pending
+**Status:** in progress — allocator/preflight and medium stress profile complete;
+candidate wiring pending
 
 - Retain fixed 8K as a replay, causal, and equal-budget instrument; remove it as
   the only admissible A2 policy length.
@@ -238,6 +239,10 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 - Replay selected elastic/max-use artifacts at their realized lengths; clamp the
   selected policy to `pack-8K`/`pack-32K` instruments, and report locked-quota plus
   reallocating gold-drop effects separately.
+- Keep LongMemEval-V2 medium outside discovery fitness. Its pinned profile has
+  35.5M--157.8M source tokens per item and a 135,980-token maximum atomic state,
+  so intra-state splitting and frozen-policy transfer are required before reader
+  scoring.
 - Name batch tiers `rendered-mean-8K`/`rendered-mean-32K`; use pre-dispatch
   rendered tokens for the lexicographic efficiency tie-break, and construct the
   token-matched lexical control by mechanically reusing selected quotas.

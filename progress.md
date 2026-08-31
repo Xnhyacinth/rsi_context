@@ -310,3 +310,25 @@
   and the model alias stayed `hy3-ioa`; raw output form and output-token usage
   were not stable. No researcher, alternative policy, LongMemEval reader, or
   live long-horizon run was launched.
+
+## 2026-08-31 — LongMemEval-V2 medium stress profile
+
+- The first clean medium compilation exposed repeated tokenization across 447
+  distinct haystacks. It was stopped before writing an artifact after almost
+  three hours and about 30 GB RSS; continuing would not have changed the
+  scientific estimand.
+- Added a failing overlap test, then cached immutable rendered trajectory text
+  and target-tokenizer counts within one loader invocation while rebuilding
+  artifact-specific IDs and offsets. The final suite passed all 589 tests with
+  83.60% branch coverage; Ruff, strict mypy, targeted Bandit, and independent
+  review passed with no must-fix.
+- Committed and privately pushed the repair as `108956e`, then completed the
+  pinned medium profile in roughly nine minutes. It made zero model calls and
+  produced aggregate artifact SHA-256
+  `d3cdea4b6de7b07aafab3bccebca7577f7e560d2b33f90968bdc8cf8295f48c4`.
+- All 422 text-only items exceed 256K: source lengths are 35.54M--157.82M
+  tokens, with a 98.75M median and 150.07M p95. The largest atomic state is
+  135,980 tokens, so deterministic intra-state splitting remains mandatory.
+- The verdict is the expected preregistered rejection because the primary
+  qualification gate names the small 100-trajectory tier. Medium is retained
+  as a zero-update frozen-policy transfer profile, not relabeled as passing A2.

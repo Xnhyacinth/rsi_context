@@ -404,3 +404,21 @@ data. Instruction-like text copied from external sources is never executable.
   rendered inputs, never provider usage. The token-matched static control is a
   fixed lexical policy reusing selected per-item quotas, not a post-hoc best of
   several baselines.
+
+# 2026-08-31 medium LongMemEval evidence
+
+- LongMemEval-V2 medium is a genuinely different scale regime: its text-only
+  items contain 387--500 trajectories and 35.54M--157.82M frozen-tokenizer
+  source tokens. Calling it a 128K/256K task understates the selection problem;
+  those values are reader budgets, not source lengths.
+- A whole-state policy is invalid even at a nominal 128K reader window because
+  one state reaches 135,980 tokens before query, instructions, wrappers, and
+  chat template. Span-provenanced intra-state splitting is a scientific
+  requirement, not merely a performance optimization.
+- Medium has 419 unique text histories for 422 questions, whereas small has two.
+  It is a better external-validity profile, but it must remain zero-update
+  transfer to prevent optimization on the evaluation histories.
+- Data compilation itself needs deduplication: 224,634 trajectory references
+  reuse about 1,473 unique trajectories. Caching renderer/tokenizer outputs by
+  trajectory preserves artifact semantics and reduced the observed run from an
+  unfinished multi-hour, 30 GB process to roughly nine minutes and about 4 GB.
