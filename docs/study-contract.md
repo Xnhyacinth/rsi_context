@@ -1,16 +1,17 @@
 # RSIBench-Context study contract
 
 Status: **normative project charter; no paper-scale A2 result has been run**.
-The executable A2 instance is frozen in
-[`a2-preregistration.md`](a2-preregistration.md). If the two documents diverge,
-the run stops until both are reconciled and re-hashed before evaluation.
+The historical fixed-8K executable is launch-invalid after the elastic-envelope
+revision. A new executable instance must be reconciled with and frozen in
+[`a2-preregistration.md`](a2-preregistration.md), then re-hashed before
+evaluation.
 
 ## Research question and claim boundary
 
 The project asks:
 
-> Under a fixed reader, evaluator, feedback interface, and resource budget, can
-> a general coding researcher autonomously discover, predict, retain, and
+> Under a fixed reader, evaluator, feedback interface, and resource envelope,
+> can a general coding researcher autonomously discover, predict, retain, and
 > transfer a better source-to-context compiler than matched non-agent search?
 
 This is a benchmark of **bounded externalized self-improvement at the context
@@ -23,7 +24,10 @@ Let `R` be the frozen researcher system, `H_k` the editable context policy,
 feedback after round `k`. The benchmark loop is:
 
 `H_(k+1) = R(H_k, F_k; B)`, followed by `F_(k+1) = E(M0(H_(k+1)(x)))`, under
-the fixed budget `B`.
+the fixed resource envelope `B`. `B` constrains maximum rendered context,
+per-candidate batch input tokens, derived trajectory input tokens, calls, wall
+time, and retries; it does not force every policy or item to consume the same
+number of context tokens.
 
 We use the following terms only when their conditions are met:
 
@@ -91,28 +95,43 @@ and reader endpoint have no internet access in all formal runs.
 
 Two types of resource are separated:
 
-1. **Matched allocation budget** determines the scientific treatment: candidate
-   slots, visible items, feedback bytes, per-turn wall timeout, policy budget,
-   target calls, and retry policy. These are identical across researchers and
-   matched controls.
+1. **Matched resource envelope** determines the scientific treatment: candidate
+   slots, visible items, feedback bytes, per-turn wall timeout, maximum rendered
+   context, per-candidate batch input cap, derived trajectory input cap, target
+   calls, and retry policy. These upper bounds are identical across researchers
+   and matched controls. Actual context use may differ and is part of the policy
+   outcome. Unused tokens do not carry across candidate slots.
 2. **Accounting measurements** describe implementation cost: researcher tokens
    and dollars, reader input/output tokens, latency, GPU-seconds, peak HBM, KV
    capacity, prefix-cache state, and scheduler settings. They are recorded when
    observable but are not semantic-policy fitness variables.
 
-The A2 allocation is executable and hashed by `build_a2_pilot_plan`:
+Hard context limits use a frozen target tokenizer over the final rendered chat
+request, including system prompt, query, chunk wrappers, separators, and chat
+template. Each item also reserves the fixed maximum output allowance when
+checking the endpoint context window. Provider-reported input tokens are
+post-call cost and drift observations; they never enforce a pre-dispatch cap.
 
-| Quantity                                 |                                    A2 value |
-| ---------------------------------------- | ------------------------------------------: |
-| researchers × profiles × research seeds  |                `2 × 2 × 2` = 8 trajectories |
-| candidate slots per trajectory           |                                           5 |
-| hard researcher timeout per slot         |                               1,800 seconds |
-| aggregate researcher wall ceiling        |              72,000 seconds across 40 turns |
-| visible and gate items per profile/split |                                          40 |
-| policy pack                              |               8,192 target-tokenizer tokens |
-| target calls, nominal full matrix        |                                      10,720 |
-| gate evaluations                         |               once per visible-selected arm |
-| fixed-policy replay                      | 5 repetitions in A2; 3 for key A3 artifacts |
+`pack-8K` and `pack-32K` name historical context-payload instruments.
+`rendered-mean-8K` and `rendered-mean-32K` name elastic batch envelopes over the
+complete input request. For a rendered mean tier `T`, `C_split = n × T` counts
+input tokens only; output reserve enters only the per-item endpoint-window check.
+The two token units are never compared as if interchangeable.
+
+The historical fixed-8K allocation was executable and hashed by
+`build_a2_pilot_plan`; the table records the revised fields that must replace it:
+
+| Quantity                                 |                                                                   A2 value |
+| ---------------------------------------- | -------------------------------------------------------------------------: |
+| researchers × profiles × research seeds  |                                               `2 × 2 × 2` = 8 trajectories |
+| candidate slots per trajectory           |                                                                          5 |
+| hard researcher timeout per slot         |                                                              1,800 seconds |
+| aggregate researcher wall ceiling        |                                             72,000 seconds across 40 turns |
+| visible and gate items per profile/split |                                                                         40 |
+| policy pack                              |    elastic per item up to qualified `Lmax`; batch cap frozen before launch |
+| target calls, nominal full matrix        | historical fixed-8K projection 10,720; invalid until elastic re-projection |
+| gate evaluations                         |                                              once per visible-selected arm |
+| fixed-policy replay                      |                                5 repetitions in A2; 3 for key A3 artifacts |
 
 The 20-hour aggregate ceiling is not a promise of equal API dollars: provider
 pricing and token accounting differ. Dollar cost and researcher tokens are
@@ -134,15 +153,15 @@ Length alone is not difficulty. Every fitness profile must be complete-evidence
 solvable, non-parametric, non-saturated over the actual policy grammar, position
 balanced, and causally dependent on its gold evidence.
 
-| Phase | Purpose                                              | Tasks and status                                                                                                                               | Search allowed?                     |
-| ----- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| A0/T0 | harness, noise, causal, and difficulty qualification | 8K single-needle null; synthetic topology instruments; current hard-panel attempts are retained failures                                       | no researcher claim                 |
-| A1    | realistic visible qualification                      | HELMET PopQA k1000, approximately 111K source tokens to 8K pack; current run is incomplete/qualification-only                                  | visible only                        |
-| A2    | micro researcher screen                              | two roles: real long-document evidence routing and causal multi-hop/global reasoning; exact dataset cells freeze only after both pass T0       | 2×2×2×5                             |
-| A3    | paper-scale discovery/reliability                    | four qualified evidence profiles spanning sparse multi-hop, dense/global aggregation, retrieval under distractors, and verification/abstention | 4×4×4×10                            |
-| A3-L  | length transfer                                      | 32K/128K/256K source, fixed 8K policy and frozen selected `H`; vary one axis at a time                                                         | no new search first                 |
-| A4    | offline trajectory transfer                          | official LongMemEval-V2 scoring plus full trace, last-k, lexical/hybrid, random, and state-grounded memory baselines                           | frozen `H`                          |
-| A5    | live external validity                               | one preregistered tau²/SkillFlow-style task family with frozen host agent, matched retry budget, policy on/off                                 | no feedback into the benchmark loop |
+| Phase | Purpose                                              | Tasks and status                                                                                                                                 | Search allowed?                     |
+| ----- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| A0/T0 | harness, noise, causal, and difficulty qualification | 8K single-needle null; synthetic topology instruments; current hard-panel attempts are retained failures                                         | no researcher claim                 |
+| A1    | realistic visible qualification                      | HELMET PopQA k1000, approximately 111K source tokens; fixed 8K cells remain noise and policy-sensitivity instruments                             | visible only                        |
+| A2    | micro researcher screen                              | two elastic-context roles: real long-document evidence routing and causal multi-hop/global reasoning; exact `Lmax` and batch cap freeze after T0 | 2×2×2×5                             |
+| A3    | paper-scale discovery/reliability                    | four qualified evidence profiles spanning sparse multi-hop, dense/global aggregation, retrieval under distractors, and verification/abstention   | 4×4×4×10                            |
+| A3-L  | length and budget transfer                           | 32K/128K/256K source; report both fixed-budget instruments and frozen elastic `H`; vary one source or budget axis at a time                      | no new search first                 |
+| A4    | offline trajectory transfer                          | official LongMemEval-V2 scoring plus full trace, last-k, lexical/hybrid, random, and state-grounded memory baselines                             | frozen `H`                          |
+| A5    | live external validity                               | one preregistered tau²/SkillFlow-style task family with frozen host agent, matched retry budget, policy on/off                                   | no feedback into the benchmark loop |
 
 Synthetic tasks are instruments, not the paper headline. RULER NIAH remains a
 noise/saturation control. LongBench-v2 is a once-only public transfer set, not a
@@ -163,7 +182,14 @@ retry effects make it a weaker place to identify researcher discovery.
 Every primary profile reports:
 
 - H0, head, tail/head-tail, lexical/BM25, hand-written hybrid, and full context
-  when it fits;
+  when it fits the endpoint and per-candidate batch envelope;
+- elastic H0 requests the source up to `Lmax` with uniform item priorities; the
+  evaluator's frozen batch allocator makes the request envelope-feasible, then
+  H0 uses full source when its assigned payload fits and lexical selection
+  otherwise; fixed-8K lexical remains a diagnostic rather than the primary H0;
+- `pack-8K`/`pack-32K` policy instruments, maximum-use controls, and elastic
+  policies that choose item-level length, including no-compression and
+  near-full-context behavior when affordable;
 - Random-5 and sequential Hamming-one search under the exact canonical grammar,
   H0, five slots, and byte-identical feedback;
 - gold-aware exhaustive recall as a strong visible-gold non-agent control;
@@ -190,8 +216,27 @@ contains:
 - manifest Brier score, log loss, ECE, and improve/regress precision-recall;
 - accuracy or task success, pack/reader tokens, calls, latency, GPU-seconds,
   dollars, and cost per correct item;
+- performance at the common hard envelope and the accuracy--actual-token Pareto
+  frontier; lower token use is not rewarded inside the primary score unless a
+  separately preregistered constrained-cost estimand says so;
 - causal gold-drop/keep, counterfactual following, and parametric-answer deletion;
 - transfer by length, position, topology, template, domain, reader, and horizon.
+
+Fixed-budget instruments do not enter the primary elastic matched estimand. For
+every selected elastic `H`, the evaluator additionally reports the same
+selector/order logic with only its budget rule clamped to 8K and 32K, plus a
+static baseline matched to the elastic policy's realized token consumption.
+Each fixed-budget cell has its own envelope and interpretation.
+
+The token-matched static baseline is mechanical: it freezes the lexical selector
+and evidence order, then reuses the selected elastic `H`'s precommitted per-item
+quota schedule. The evaluator never selects among multiple static baselines
+after seeing gate outcomes.
+
+Evidence-causality checks report two effects. The controlled direct effect
+freezes the selected artifact's per-item quotas and schedule before gold
+drop/keep. The total effect permits the frozen policy to reallocate after the
+intervention. Neither silently substitutes for the other.
 
 A2 does not launch unless both profiles pass the pre-registered difficulty and
 causal thresholds, replay standard deviation is below 20% of the median
@@ -229,3 +274,45 @@ Current evidence supports only that context-policy changes can move a frozen
 reader beyond the locally measured replay floor on a tiny visible panel. It does
 not yet establish researcher advantage, sealed transfer, a population-level
 regression rate, official HELMET/LongMemEval performance, or long-horizon gain.
+
+## Pre-launch revision — 2026-08-31
+
+No A2 trajectory had run when this contract was revised. The original A2 used a
+fixed 8,192-token cap for every policy. That design is retained only for matched
+causal and replay instruments. The primary A2 now uses a matched elastic resource
+envelope so that policy code can choose item-level length, compression, ordering,
+and unused capacity while actual consumption is recorded.
+
+This revision invalidates the current executable A2 hash. A2 remains blocked
+until `PolicySpecV1`, matched Random/Sequential controls, contracts, call
+projections, difficulty landscapes, and tests implement the elastic envelope;
+the exact endpoint-qualified `Lmax`, per-candidate batch cap, and derived
+trajectory cap must then be frozen and re-hashed before any researcher sees
+scores. Each candidate must declare all item-level requested lengths before its
+first reader call; the evaluator rejects the whole candidate if their sum
+exceeds the batch cap.
+
+The revision occurred after qualification-only fixed-8K observations, including
+the Phase 13b PopQA contrast, but before formal A2 task identities, panels,
+researchers, or the elastic envelope were frozen. Those observations cannot
+select the formal envelope or count as confirmatory A2 evidence. Formal panels
+must be independent and exclude the prior qualification items.
+
+`Lmax` is the largest of the predeclared 32K/64K/128K rendered-input canaries
+that passes request acceptance, reserve, truncation, and replay checks, capped by
+the reader's registered limit. The mean batch tier is the largest of 8K or 32K
+whose worst-case projected A2 input and dollar cost fit the host `SpendCaps`;
+reader task scores do not enter either selection. For a split with `n` items,
+`C_split = n × mean_batch_tier`. Every attempted canary/tier and the deterministic
+selection outcome is retained, even when the study stops.
+
+Before dispatch, each item supplies a desired rendered length and a positive,
+dataset-agnostic priority. A frozen order-invariant weighted water-filling rule
+subtracts fixed request overhead, allocates the remaining batch payload subject
+to desired lengths and `Lmax`, and breaks exact ties by the item's public-input
+digest. H0 and maximum-use controls use uniform priority. Allocation uses no
+labels, scores, item order, or mutable policy state.
+
+Fixed-8K replay is only an anchor. Every selected elastic artifact, maximum-use
+control, and primary rendered-length stratum receives its own exact-byte replay
+before its score can support discovery or retention.

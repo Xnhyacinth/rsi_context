@@ -63,6 +63,31 @@
   both failed decision conditions. It also tightened the claim from policy
   “headroom” to sensitivity between two tested baselines: improvement above H0
   remains unestablished, and hidden provider weights remain unattested.
+- Revised the unlaunched A2 design from a fixed 8K primary to an elastic context
+  envelope. Fixed 8K remains a controlled diagnostic, while formal researchers
+  may choose item-level length, compression, or no compression under identical
+  per-item maximum, per-candidate batch, call, timeout, and retry caps.
+- Marked the existing 32-configuration executable A2 plan and 10,720-call
+  projection invalid for launch. They must be rebuilt with dynamic budget rules,
+  matched controls, batch/trajectory accounting, new difficulty landscapes, and new
+  hashes before any researcher receives scores.
+- Independent method audit supported elastic envelopes but required exact scope
+  and token semantics. The revision now gives each candidate/split an independent
+  batch cap, compiles the whole panel before any reader call, forbids cross-item
+  mutable state and cross-round banking, and counts complete rendered requests
+  on the frozen tokenizer rather than provider usage.
+- Predeclared request canaries select `Lmax`; precommitted spend feasibility
+  selects the mean 8K-or-32K batch tier. Reader scores cannot choose either.
+  Formal panels exclude prior PopQA qualification items, and replay/causal
+  checks are repeated at the selected elastic lengths.
+- Second method audit closed the original seven blockers and found three final
+  specification ambiguities. Added order-invariant weighted water-filling so H0
+  is batch-feasible, separated historical `pack-8K/32K` from elastic
+  `rendered-mean-8K/32K`, and fixed the efficiency tie-break and token-matched
+  lexical baseline to pre-dispatch deterministic constructions.
+- Final independent check found no remaining must-fix in the protocol text. The
+  elastic design is ready for test-first implementation, but no elastic run or
+  executable A2 eligibility is claimed.
 
 ## 2026-08-30
 

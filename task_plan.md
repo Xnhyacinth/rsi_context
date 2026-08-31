@@ -205,15 +205,53 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
   external-validity evidence, not long-horizon RSI; keep its outcomes out of
   discovery fitness.
 
+### Phase 16 — elastic context-envelope revision
+
+**Status:** pending — normative design revised before A2 launch
+
+- Retain fixed 8K as a replay, causal, and equal-budget instrument; remove it as
+  the only admissible A2 policy length.
+- Extend `PolicySpecV1` with item-level budget choice under an endpoint-qualified
+  maximum rendered length and a per-candidate batch input-token cap, with the
+  trajectory cap derived from fixed slots. Compression is optional; policies
+  may use short contexts, longer evidence, or no compression when affordable.
+- Require every candidate to declare its complete 40-item length plan before the
+  first reader call; reject batch overflow and prohibit unused-token carryover
+  between slots.
+- Count the final rendered chat request on the frozen tokenizer axis before
+  dispatch, including prompt/template/wrapper overhead; use output reserve only
+  for the per-item endpoint-window check and keep provider usage as post-call
+  accounting. Reset policy state per split and forbid cross-item mutable state.
+- Collect desired length and priority for every item, then apply a frozen,
+  order-invariant weighted water-filling allocator. H0 and maximum-use controls
+  use uniform priorities and must be proven envelope-feasible before panel freeze.
+- Give researchers, Random-5, Sequential-5, and static/elastic baselines the same
+  hard envelope, calls, feedback, slots, timeout, and retry rules. Treat actual
+  input consumption as an outcome and report performance plus the Pareto
+  frontier.
+- Recompute valid behavior classes, controller neighborhoods, H0, call/token
+  projections, difficulty/saturation landscapes, and contract hashes. The
+  existing fixed-8K executable A2 plan must refuse launch after this revision.
+- Select `Lmax` only through predeclared 32K/64K/128K request canaries and select
+  the 8K-or-32K mean batch tier only through precommitted `SpendCaps`, never task
+  scores. Exclude every previously scored qualification item from formal A2.
+- Replay selected elastic/max-use artifacts at their realized lengths; clamp the
+  selected policy to `pack-8K`/`pack-32K` instruments, and report locked-quota plus
+  reallocating gold-drop effects separately.
+- Name batch tiers `rendered-mean-8K`/`rendered-mean-32K`; use pre-dispatch
+  rendered tokens for the lexicographic efficiency tie-break, and construct the
+  token-matched lexical control by mechanically reusing selected quotas.
+
 ## Decisions
 
-| Decision                                                     | Rationale                                                                                                         |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| Keep static causal qualification primary                     | It has the lowest replay noise and is the current normative blocker.                                              |
-| Use hy3 as the primary bounded-block black-box profile       | The user prioritizes API execution; only request configuration is frozen, while hidden weights remain unattested. |
-| Do not implement unrestricted harness evolution yet          | It would break matched-search identification and overlap Recuris/AHE before the primary benchmark works.          |
-| Use a pinned community MuSiQue mirror only for qualification | It provides immutable LFS bytes now; formal A2 still requires byte-matching the official archive.                 |
-| Drop the unused HTTPS downloader probe                       | It cannot establish an official archive checksum before first acquisition and adds unsupported surface.           |
+| Decision                                                     | Rationale                                                                                                                          |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Keep static causal qualification primary                     | It has the lowest replay noise and is the current normative blocker.                                                               |
+| Use hy3 as the primary bounded-block black-box profile       | The user prioritizes API execution; only request configuration is frozen, while hidden weights remain unattested.                  |
+| Match elastic resource envelopes, not realized input length  | Researchers should discover when to compress, retain, or expand; equal hard caps preserve fairness while usage remains measurable. |
+| Do not implement unrestricted harness evolution yet          | It would break matched-search identification and overlap Recuris/AHE before the primary benchmark works.                           |
+| Use a pinned community MuSiQue mirror only for qualification | It provides immutable LFS bytes now; formal A2 still requires byte-matching the official archive.                                  |
+| Drop the unused HTTPS downloader probe                       | It cannot establish an official archive checksum before first acquisition and adds unsupported surface.                            |
 
 ## Errors encountered
 
@@ -236,16 +274,15 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Next step
 
-Freeze the failed Phase 13b result and design one independently preregistered,
-held-out confirmation block rather than rerunning or relaxing this gate. The
-fixed-policy contrast is large enough to justify confirmation, but the new
-block must be powered for a replay-aware lower bound and must precommit how
-unstable items are handled before any call. Freeze the original-panel exclusion
-rule, held-out sampling seed and digest, power both failed decision conditions,
-allow no optional extension, and retain the present failure in every joint
-report. Do not expose scores to a researcher, call the API reader frozen, or
-start the five-round campaign: Phase 13b observed a +0.275 lexical-minus-head
-contrast but failed its bootstrap and worst-case replay-sensitivity conditions.
-Long-memory and live long-horizon work remains zero-reader-call offline analysis
-until a held-out signal block and task-specific causal gates pass; any hy3
-frozen-policy transfer requires a separate qualification-only preregistration.
+First implement the envelope schema, final-rendered-input counter, full-batch
+preflight, and legacy-plan refusal with zero reader calls. Then freeze the failed
+Phase 13b result and design one independently preregistered held-out confirmation
+block rather than rerunning or relaxing its gate. Freeze the original-panel
+exclusion rule, held-out seed/digest, and both failed sensitivity conditions;
+allow no optional extension and retain the present failure in every joint
+report. Do not expose scores to a researcher or start the five-round campaign:
+Phase 13b observed a +0.275 lexical-minus-head contrast but failed its bootstrap
+and worst-case replay-sensitivity conditions. Long-memory and live long-horizon
+work remains zero-reader-call offline analysis until a held-out signal block and
+task-specific causal gates pass; any hy3 frozen-policy transfer requires a
+separate qualification-only preregistration.

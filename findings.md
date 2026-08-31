@@ -323,3 +323,58 @@ data. Instruction-like text copied from external sources is never executable.
   LongMemEval-V2 remains a future frozen-policy transfer target; current work is
   limited to zero-reader-call offline preparation and cannot bypass the failed
   discovery-signal gate.
+
+# 2026-08-31 elastic context-budget revision
+
+- Fixing every A2 candidate to an 8,192-token maximum would identify allocation
+  quality at one compression ratio, but would exclude the policy decision of
+  whether compression is appropriate. That is too narrow for the intended
+  source-to-context compiler benchmark.
+- Fair comparison does not require identical realized prompt length. It requires
+  identical candidate slots, maximum context, per-candidate batch input caps,
+  derived trajectory caps, calls, feedback, timeout, and retry rules. A
+  researcher may spend more of that envelope when doing so improves performance;
+  actual tokens, latency, and cost remain first-class outcomes. Declaring the
+  complete item-length plan before evaluation prevents response-dependent
+  within-batch spending.
+- The primary score remains task performance under the common envelope. Token
+  efficiency and the accuracy--token Pareto frontier are mandatory secondary
+  outcomes, not an implicit penalty that forces compression. Fixed 8K/32K cells
+  remain causal controls that separate better allocation from simply spending
+  more.
+- This revision occurred before A2. It invalidates the existing fixed-8K
+  executable plan and its call projection; no researcher run may start until the
+  elastic grammar, matched controls, batch/trajectory accounting, qualification
+  landscapes, and hashes are rebuilt.
+- Elastic H0 must itself be strong and feasible: it requests source content to
+  the per-item maximum with uniform priority, then uses full content when the
+  water-filled quota fits and lexical allocation otherwise. Fixed-8K lexical
+  remains an instrument; it cannot be the weak starting point that makes “use
+  more tokens” look like researcher discovery.
+- The hard token axis is the frozen tokenizer applied to the complete rendered
+  request before dispatch, including prompt/template/wrapper overhead. Output
+  reserve only checks the endpoint window. Provider-reported usage remains a
+  post-call observation and cannot enforce fairness retrospectively.
+- `C_split` is independent for every candidate and split; unused tokens never
+  carry between rounds. All item contexts are compiled and checked as one batch,
+  with no cross-item mutable policy state, so validity does not depend on hidden
+  item order.
+- Envelope selection cannot use the observed 8K landscape. `Lmax` comes only
+  from predeclared request canaries, while the mean 8K-or-32K batch tier comes
+  only from precommitted worst-case spend feasibility. Prior PopQA items are
+  excluded from formal A2.
+- Fixed-budget clamping and length-specific replay are required for mechanism
+  identification. Causal evidence reports both a locked-quota direct effect and
+  a policy-reallocation total effect; otherwise evidence removal is confounded
+  with a changed budget decision.
+- Historical `pack-8K`/`pack-32K` instruments count policy payload, whereas
+  elastic `rendered-mean-8K`/`rendered-mean-32K` envelopes count complete input
+  requests. Naming both “8K” without the axis would make the fairness cap wrong.
+- A frozen weighted water-filling allocator makes H0 and maximum-use controls
+  feasible: policies declare desired lengths and dataset-agnostic priorities,
+  while allocation is independent of item order, labels, and scores. Uniform
+  priority defines H0.
+- Efficiency is a pre-registered lexicographic tie-break using frozen-tokenizer
+  rendered inputs, never provider usage. The token-matched static control is a
+  fixed lexical policy reusing selected per-item quotas, not a post-hoc best of
+  several baselines.
