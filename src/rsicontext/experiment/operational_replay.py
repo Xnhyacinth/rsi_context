@@ -321,6 +321,11 @@ class OperationalReplayResult:
     reader_calls: int
     aggregate_scores: tuple[float, ...]
     score_standard_deviation: float
+    task_input_tokens_total: int
+    task_output_tokens_total: int
+    policy_pack_tokens_total: int
+    task_latency_seconds_total: float
+    task_latency_seconds_mean: float
     item_count: int
     item_flip_count: int
     item_flip_rate: float
@@ -337,7 +342,7 @@ class OperationalReplayResult:
     qualification_only: bool = True
     rsi_launch_eligible: bool = False
     meaningful_policy_delta: float | None = None
-    schema_version: int = 1
+    schema_version: int = 2
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
@@ -641,6 +646,8 @@ def run_operational_api_replay(
         item_replays = _item_replays(items, frozen_evaluations, tuple(recording_reader.calls))
         aggregate_scores = tuple(evaluation.score for evaluation in frozen_evaluations)
         score_standard_deviation = statistics.pstdev(aggregate_scores)
+        task_calls = tuple(recording_reader.calls)
+        task_latencies = tuple(call.latency_seconds for call in task_calls)
         item_flip_count = sum(len(set(item.scores)) > 1 for item in item_replays)
         item_flip_rate = item_flip_count / len(item_replays)
         anchors = (
@@ -689,6 +696,13 @@ def run_operational_api_replay(
             reader_calls=reader_calls,
             aggregate_scores=aggregate_scores,
             score_standard_deviation=score_standard_deviation,
+            task_input_tokens_total=sum(call.output.input_tokens for call in task_calls),
+            task_output_tokens_total=sum(call.output.output_tokens for call in task_calls),
+            policy_pack_tokens_total=sum(
+                sum(evaluation.token_counts) for evaluation in frozen_evaluations
+            ),
+            task_latency_seconds_total=sum(task_latencies),
+            task_latency_seconds_mean=statistics.fmean(task_latencies),
             item_count=len(item_replays),
             item_flip_count=item_flip_count,
             item_flip_rate=item_flip_rate,

@@ -134,6 +134,11 @@ def test_operational_replay_uses_scorer_stability_not_raw_punctuation() -> None:
     assert tuple(anchor.phase for anchor in result.anchor_summaries) == ("pre", "mid", "post")
     assert result.item_flip_count == 0
     assert result.item_flip_rate_upper_95 > 0.0
+    assert result.task_input_tokens_total == 510
+    assert result.task_output_tokens_total == 15
+    assert result.policy_pack_tokens_total == 42
+    assert result.task_latency_seconds_total == pytest.approx(0.6)
+    assert result.task_latency_seconds_mean == pytest.approx(0.1)
     assert result.rsi_launch_eligible is False
 
 
@@ -494,6 +499,7 @@ def test_operational_replay_contract_and_result_writes_are_exclusive(tmp_path: P
     result_path = tmp_path / "result.json"
     write_operational_replay_result(result, result_path)
     result_payload = json.loads(result_path.read_text(encoding="utf-8"))
+    assert result_payload["schema_version"] == 2
     assert result_payload["operational_block_passed"] is True
     assert "item_replays" not in result_payload
     with pytest.raises(FileExistsError):

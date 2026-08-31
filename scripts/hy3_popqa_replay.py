@@ -310,6 +310,11 @@ def main() -> int:
         "qualification_only": True,
         "reader_calls": result.reader_calls,
         "score_standard_deviation": result.score_standard_deviation,
+        "task_input_tokens_total": result.task_input_tokens_total,
+        "task_latency_seconds_mean": result.task_latency_seconds_mean,
+        "task_latency_seconds_total": result.task_latency_seconds_total,
+        "task_output_tokens_total": result.task_output_tokens_total,
+        "policy_pack_tokens_total": result.policy_pack_tokens_total,
         "rsi_launch_eligible": result.rsi_launch_eligible,
         "source_tokens": _source_token_summary(items),
     }

@@ -85,7 +85,7 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 8 — Real-data offline baselines
 
-**Status:** in_progress
+**Status:** completed — operational gate failed
 
 - Run full-context/truncation/lexical-or-recency context policies on qualified
   real trajectories using the frozen reader only after difficulty gates pass.
@@ -155,7 +155,7 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 14 — Unified long-context and long-memory API runner
 
-**Status:** pending
+**Status:** pending — blocked from autonomous scores by Phase 13 noise
 
 - Reuse the same contracted API profile within separately bounded PopQA k1000,
   packed MuSiQue, and deterministic LongMemEval-V2 text blocks. Do not merge
@@ -212,8 +212,9 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Next step
 
-Implement and test the scorer-aware hy3 replay contract, then run a bounded
-real-PopQA H0 replay qualification. A pass advances only to the evaluator-only
-static policy and causal landscape; do not expose scores to a researcher or
-start the five-round campaign until the replay-to-delta and isolation gates
-also pass.
+Pre-register a matched, randomized, interleaved H0-versus-fixed-policy
+signal-to-noise diagnostic with repeated H0 anchors and an immutable call cap.
+Do not expose scores to a researcher, call the API reader frozen, or start the
+five-round campaign: the first real block had zero aggregate SD but 2/40
+item-level flips. Long-memory and live long-horizon work remains offline or
+frozen-policy transfer until the diagnostic and task-specific causal gates pass.

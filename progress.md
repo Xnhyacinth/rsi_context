@@ -191,3 +191,11 @@
   Ruff, strict mypy over 171 source files, Bandit with no medium/high findings,
   `git diff --check`, and an independent review with no remaining
   blocker/high/medium findings.
+- Committed and pushed the qualification producer as `e23f845`, then ran the
+  clean-HEAD 209-call lexical H0 block on 40 real PopQA k1000 items. The run
+  completed all calls but failed the operational gate: aggregate scores were
+  0.600 × 5 with SD 0, while 2/40 items flipped (rate 0.05; Wilson upper 0.1650).
+- Pre/mid/post canonical canaries were 9/9 correct, input usage stayed at 67,
+  and the model alias stayed `hy3-ioa`; raw output form and output-token usage
+  were not stable. No researcher, alternative policy, LongMemEval reader, or
+  live long-horizon run was launched.

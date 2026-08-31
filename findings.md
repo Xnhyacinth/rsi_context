@@ -260,3 +260,13 @@ data. Instruction-like text copied from external sources is never executable.
   policy discovered on qualified visible tasks. Calling those runs
   "long-horizon RSI" would confound discovery with external validity unless a
   separate bounded researcher loop and matched controls are preregistered.
+- The first 209-call real hy3 PopQA block exposed exactly the failure that an
+  aggregate replay metric would miss: all five aggregate scores were 0.600
+  with population SD 0, while 2 of 40 items flipped scorer-level outcomes. The
+  observed any-flip rate was 0.05 and its Wilson 95% upper bound was 0.1650.
+  Stable prompt-token usage and model alias therefore do not establish a
+  negligible evaluator floor for this API profile.
+- All nine canonical canaries remained correct and used 67 input tokens, but
+  raw punctuation and output-token counts varied in every pre/mid/post block.
+  This separates semantic anchor validity from byte/usage drift while showing
+  that a trivial canary cannot certify task-level determinism.
