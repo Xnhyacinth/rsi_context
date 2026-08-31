@@ -169,6 +169,52 @@ def test_uses_the_frozen_target_tokenizer_and_binds_its_identity(tmp_path: Path)
     assert dataset.tokenizer_id == "frozen-tokenizer@revision#sha256:test"
 
 
+def test_shared_trajectories_are_tokenized_once_across_distinct_haystacks(
+    tmp_path: Path,
+) -> None:
+    root, questions, trajectories, haystack = _fixture(tmp_path)
+    questions[1] = _question("q-second")
+    haystack = {"q-text": ["t1", "t2"], "q-second": ["t2", "t1"]}
+    _rewrite_fixture(root, questions, trajectories, haystack)
+    counted_texts: list[str] = []
+
+    def count_once(text: str) -> int:
+        counted_texts.append(text)
+        return _token_count(text)
+
+    dataset = load_longmemeval_v2(
+        root,
+        source_revision=_REVISION,
+        token_counter=count_once,
+        tokenizer_id=_TOKENIZER_ID,
+        tier="small",
+    )
+
+    assert len(dataset.policy_items()) == 2
+    assert len({item.artifact.document_id for item in dataset.policy_items()}) == 2
+    assert len(counted_texts) == 5
+    assert len(counted_texts) == len(set(counted_texts))
+    first_chunks, second_chunks = (item.artifact.chunks for item in dataset.policy_items())
+    assert [chunk.chunk_id for chunk in first_chunks] == [
+        "lmev2:t1:metadata",
+        "lmev2:t1:state:0",
+        "lmev2:t1:state:1",
+        "lmev2:t2:metadata",
+        "lmev2:t2:state:0",
+    ]
+    assert [chunk.chunk_id for chunk in second_chunks] == [
+        "lmev2:t2:metadata",
+        "lmev2:t2:state:0",
+        "lmev2:t1:metadata",
+        "lmev2:t1:state:0",
+        "lmev2:t1:state:1",
+    ]
+    for item in dataset.policy_items():
+        assert all(chunk.document_id == item.artifact.document_id for chunk in item.artifact.chunks)
+        assert all(left.end < right.start for left, right in pairwise(item.artifact.chunks))
+        assert all(chunk.token_count == _token_count(chunk.text) for chunk in item.artifact.chunks)
+
+
 def test_policy_view_never_embeds_evaluator_fields_or_screenshot_content(tmp_path: Path) -> None:
     root, _, _, _ = _fixture(tmp_path)
 

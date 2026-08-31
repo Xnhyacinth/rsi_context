@@ -150,6 +150,14 @@ class _Trajectory:
     states: tuple[_State, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class _RenderedTrajectoryChunk:
+    chunk_id: str
+    text: str
+    token_count: int
+    role: str
+
+
 def _require_record(raw: object, fields: frozenset[str], location: str) -> dict[str, object]:
     if not isinstance(raw, dict) or any(not isinstance(key, str) for key in raw):
         raise LongMemEvalDataError(f"{location} must be a JSON object with string keys")
@@ -372,6 +380,7 @@ def _compile_artifact(
     trajectories: dict[str, _Trajectory],
     tier: LongMemEvalTier,
     token_counter: Callable[[str], int],
+    rendered_trajectories: dict[str, tuple[_RenderedTrajectoryChunk, ...]],
 ) -> Artifact:
     identity = hashlib.sha256(
         json.dumps(
@@ -385,47 +394,48 @@ def _compile_artifact(
     cursor = 0
     for trajectory_id in trajectory_ids:
         trajectory = trajectories[trajectory_id]
-        metadata_text = _render_trajectory_metadata(trajectory)
-        metadata_token_count = token_counter(metadata_text)
-        if (
-            not isinstance(metadata_token_count, int)
-            or isinstance(metadata_token_count, bool)
-            or metadata_token_count <= 0
-        ):
-            raise LongMemEvalDataError("target tokenizer counts must be positive integers")
-        chunks.append(
-            DocumentChunk(
-                chunk_id=f"lmev2:{trajectory_id}:metadata",
-                document_id=document_id,
-                start=cursor,
-                end=cursor + len(metadata_text),
-                text=metadata_text,
-                token_count=metadata_token_count,
-                role="trajectory_metadata",
+        rendered = rendered_trajectories.get(trajectory_id)
+        if rendered is None:
+            rendered_text = (
+                (
+                    f"lmev2:{trajectory_id}:metadata",
+                    _render_trajectory_metadata(trajectory),
+                    "trajectory_metadata",
+                ),
+                *(
+                    (
+                        f"lmev2:{trajectory_id}:state:{state.state_index}",
+                        _render_state(trajectory_id, state),
+                        "trajectory_state",
+                    )
+                    for state in trajectory.states
+                ),
             )
-        )
-        cursor += len(metadata_text) + 1
-        for state in trajectory.states:
-            text = _render_state(trajectory_id, state)
-            token_count = token_counter(text)
-            if (
-                not isinstance(token_count, int)
-                or isinstance(token_count, bool)
-                or token_count <= 0
-            ):
-                raise LongMemEvalDataError("target tokenizer counts must be positive integers")
+            rendered_chunks: list[_RenderedTrajectoryChunk] = []
+            for chunk_id, text, role in rendered_text:
+                token_count = token_counter(text)
+                if (
+                    not isinstance(token_count, int)
+                    or isinstance(token_count, bool)
+                    or token_count <= 0
+                ):
+                    raise LongMemEvalDataError("target tokenizer counts must be positive integers")
+                rendered_chunks.append(_RenderedTrajectoryChunk(chunk_id, text, token_count, role))
+            rendered = tuple(rendered_chunks)
+            rendered_trajectories[trajectory_id] = rendered
+        for rendered_chunk in rendered:
             chunks.append(
                 DocumentChunk(
-                    chunk_id=f"lmev2:{trajectory_id}:state:{state.state_index}",
+                    chunk_id=rendered_chunk.chunk_id,
                     document_id=document_id,
                     start=cursor,
-                    end=cursor + len(text),
-                    text=text,
-                    token_count=token_count,
-                    role="trajectory_state",
+                    end=cursor + len(rendered_chunk.text),
+                    text=rendered_chunk.text,
+                    token_count=rendered_chunk.token_count,
+                    role=rendered_chunk.role,
                 )
             )
-            cursor += len(text) + 1
+            cursor += len(rendered_chunk.text) + 1
     return Artifact(document_id=document_id, chunks=tuple(chunks))
 
 
@@ -516,6 +526,7 @@ def load_longmemeval_v2(
     )
 
     artifacts: dict[tuple[str, ...], Artifact] = {}
+    rendered_trajectories: dict[str, tuple[_RenderedTrajectoryChunk, ...]] = {}
     evaluator_items: list[LongMemEvalEvaluatorItem] = []
     for question in selected_questions:
         trajectory_ids = selected_ids_by_question[question.question_id]
@@ -527,7 +538,13 @@ def load_longmemeval_v2(
                 )
         artifact = artifacts.get(trajectory_ids)
         if artifact is None:
-            artifact = _compile_artifact(trajectory_ids, trajectories, tier, token_counter)
+            artifact = _compile_artifact(
+                trajectory_ids,
+                trajectories,
+                tier,
+                token_counter,
+                rendered_trajectories,
+            )
             artifacts[trajectory_ids] = artifact
         policy_item = LongMemEvalPolicyItem(
             question_id=question.question_id,
