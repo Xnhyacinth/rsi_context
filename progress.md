@@ -165,3 +165,29 @@
   use a pinned local reader; hy3 remains eligible only as a separately labeled
   API replication reader or researcher unless a future preregistered canary
   establishes a usable replay floor and version identity.
+
+## 2026-08-31 — hy3-primary continuation
+
+- Changed the execution priority at the user's direction: hy3-ioa is now the
+  default reader, with an explicitly operational/configuration-frozen evidence
+  tier rather than an unverifiable weight-snapshot claim.
+- Re-audited all five stored hy3 canary blocks. Across 21 calls the semantic
+  answer was always `amber`; raw output alternated between `amber` and
+  `amber.`, and input usage changed from 65 tokens on 2026-08-14 to 67 tokens
+  on 2026-08-29/30. This motivates scorer-level within-block replay plus
+  pre/mid/post drift anchors, not a raw-string-only launch rule.
+- Started Phase 13. The first implementation target is a scorer-bound
+  task-level replay artifact on real PopQA items. Broad RSI, LongMemEval reader
+  scoring, and live long-horizon calls remain gated until this evidence exists.
+- Locked the public Phase 13 block to 40 fixed items × five task replays plus
+  three pre/mid/post canary blocks (209 total calls), with zero observed
+  scorer-level flip/SD thresholds. Results report the non-zero Wilson upper
+  bound and hard-code `rsi_launch_eligible=false`.
+- Replaced caller-supplied contract guards with internal persisted-file checks,
+  bound a clean Git producer attestation and source/tokenizer identities, and
+  made contract/result/failure writes atomic. Mocked CLI success, failure-ledger,
+  source-drift, and tokenizer-drift paths now pass before any paid run.
+- Final pre-run validation passed 565 tests with 83.97% branch coverage, full
+  Ruff, strict mypy over 171 source files, Bandit with no medium/high findings,
+  `git diff --check`, and an independent review with no remaining
+  blocker/high/medium findings.

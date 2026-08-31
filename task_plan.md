@@ -138,32 +138,82 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
   condition is backed by an immutable evidence digest rather than a caller
   assertion.
 
+### Phase 13 — hy3-primary scorer-aware qualification
+
+**Status:** in_progress
+
+- Replace raw-string and usage equality as semantic launch gates with a
+  scorer-bound replay contract while retaining both as drift/cost diagnostics.
+- Bind the operational-freeze evidence tier, pre/mid/post anchor schedule,
+  task scorer, item order, repetition budget, and invalidation rules before the
+  first scored API call.
+- Qualify actual PopQA items under repeated H0 evaluation before allowing any
+  policy landscape evaluation. A passing block means only that the fixed
+  40-item panel showed no scorer-level flip in five consecutive replays; it
+  does not establish a frozen weight snapshot, population-wide noise floor, or
+  permission to expose scores to a researcher.
+
+### Phase 14 — Unified long-context and long-memory API runner
+
+**Status:** pending
+
+- Reuse the same contracted API profile within separately bounded PopQA k1000,
+  packed MuSiQue, and deterministic LongMemEval-V2 text blocks. Do not merge
+  different time blocks as if they shared one immutable weight snapshot.
+- Add deterministic final-prompt token enforcement, intra-state splitting for
+  LongMemEval, aggregate-only result artifacts, and per-task exact/judge
+  scorer separation.
+- Freeze a 40-item difficulty and causal landscape with no-context, gold-only,
+  bounded oracle, gold-drop, counterfactual/parametric deletion, policy-order,
+  and position strata. Define the meaningful policy delta from that landscape,
+  then compare replay noise to signal before autonomous rounds.
+- Keep 128K/256K as source-length strata unless the API length canary
+  establishes a larger accepted rendered prompt. A Phase 13 pass authorizes
+  this evaluator-only landscape, not RSI.
+
+### Phase 15 — hy3 matched micro-RSI and long-horizon transfer
+
+**Status:** pending
+
+- Run two researchers × two qualified task profiles × two seeds × five slots
+  only after both profiles pass difficulty/causal qualification,
+  replay-to-delta, physical isolation, spend-cap, and matched-control parity
+  gates backed by immutable digests. Use Random-5 and Sequential-5
+  feedback/call parity and interleaved H0 anchors.
+- Freeze tools, task policy, skills, environment, and evaluator for live
+  transfer. Expose only trajectory select/compress/order/memory-update/verify
+  policy surfaces. LongMemEval/live execution is frozen-policy transfer and
+  external-validity evidence, not long-horizon RSI; keep its outcomes out of
+  discovery fitness.
+
 ## Decisions
 
-| Decision                                                     | Rationale                                                                                                |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| Keep static causal qualification primary                     | It has the lowest replay noise and is the current normative blocker.                                     |
-| Treat all-hy3 runs as API replication                        | The alias lacks an immutable provider revision and failed the latest strict post-canary.                 |
-| Do not implement unrestricted harness evolution yet          | It would break matched-search identification and overlap Recuris/AHE before the primary benchmark works. |
-| Use a pinned community MuSiQue mirror only for qualification | It provides immutable LFS bytes now; formal A2 still requires byte-matching the official archive.        |
-| Drop the unused HTTPS downloader probe                       | It cannot establish an official archive checksum before first acquisition and adds unsupported surface.  |
+| Decision                                                     | Rationale                                                                                                         |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Keep static causal qualification primary                     | It has the lowest replay noise and is the current normative blocker.                                              |
+| Use hy3 as the primary bounded-block black-box profile       | The user prioritizes API execution; only request configuration is frozen, while hidden weights remain unattested. |
+| Do not implement unrestricted harness evolution yet          | It would break matched-search identification and overlap Recuris/AHE before the primary benchmark works.          |
+| Use a pinned community MuSiQue mirror only for qualification | It provides immutable LFS bytes now; formal A2 still requires byte-matching the official archive.                 |
+| Drop the unused HTTPS downloader probe                       | It cannot establish an official archive checksum before first acquisition and adds unsupported surface.           |
 
 ## Errors encountered
 
-| Error                                                           | Attempt | Resolution                                                                               |
-| --------------------------------------------------------------- | ------- | ---------------------------------------------------------------------------------------- |
-| New HTTPS registry tests failed before implementation           | 1       | Expected TDD red state confirmed.                                                        |
-| Official MuSiQue archive has no published checksum              | 1       | Use a pinned mirror for qualification only; keep official-byte matching as an A2 gate.   |
-| Combined cleanup patch missed autoformatted plan lines          | 1       | Split the patch into exact, smaller edits.                                               |
-| Combined tokenizer/statistics probe returned no captured output | 1       | Run the tokenizer analysis as a separately polled process.                               |
-| Real MuSiQue row used integer decomposition IDs                 | 1       | Added a regression test and normalized official non-negative integer IDs to strings.     |
-| Packed v1 compiled below its declared 32,768-token target       | 1       | Added a regression test and top up after measuring compiled chunk tokens.                |
-| Reviewer found v2 causal/provenance assertions were incomplete  | 1       | Added intermediate leakage, derived digests, tokenizer attestation, and token positions. |
+| Error                                                                    | Attempt | Resolution                                                                               |
+| ------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------------------- |
+| New HTTPS registry tests failed before implementation                    | 1       | Expected TDD red state confirmed.                                                        |
+| Official MuSiQue archive has no published checksum                       | 1       | Use a pinned mirror for qualification only; keep official-byte matching as an A2 gate.   |
+| Combined cleanup patch missed autoformatted plan lines                   | 1       | Split the patch into exact, smaller edits.                                               |
+| Combined tokenizer/statistics probe returned no captured output          | 1       | Run the tokenizer analysis as a separately polled process.                               |
+| Real MuSiQue row used integer decomposition IDs                          | 1       | Added a regression test and normalized official non-negative integer IDs to strings.     |
+| Packed v1 compiled below its declared 32,768-token target                | 1       | Added a regression test and top up after measuring compiled chunk tokens.                |
+| Reviewer found v2 causal/provenance assertions were incomplete           | 1       | Added intermediate leakage, derived digests, tokenizer attestation, and token positions. |
+| New operational-replay test helper lacked a strict return type           | 1       | Added the explicit `OperationalReplayContract` annotation before continuing.             |
+| Source identity arguments were patched into the dataset fingerprint call | 1       | Moved them to the operational replay contract after strict mypy exposed the mismatch.    |
 
 ## Next step
 
-Qualify a pinned local reader with final rendered-prompt token accounting and
-replay evidence, then run the same immutable five-round visible PopQA cell.
-Keep hy3 as a separately labeled API replication or researcher; do not relabel
-the visible cell A2 or researcher advantage without matched controls and formal
-isolation.
+Implement and test the scorer-aware hy3 replay contract, then run a bounded
+real-PopQA H0 replay qualification. A pass advances only to the evaluator-only
+static policy and causal landscape; do not expose scores to a researcher or
+start the five-round campaign until the replay-to-delta and isolation gates
+also pass.

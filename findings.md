@@ -238,3 +238,25 @@ data. Instruction-like text copied from external sources is never executable.
   and manifest-calibration claims therefore require the pinned local reader;
   hy3 can contribute only a clearly separated replication or researcher role
   under the current evidence.
+- Rechecking all stored hy3 canaries changes the narrow interpretation without
+  erasing the strict result. The 21 responses are semantically identical
+  (`amber` after terminal-punctuation normalization), so the trivial probe has
+  zero scorer-level error even though byte-level and usage-level replay fail.
+  The 65-to-67 input-token shift across dates is evidence of longer-timescale
+  backend/template drift, while short blocks kept input usage fixed.
+- The correct API-primary estimand is therefore conditional: improvement of an
+  editable context policy under a fixed profile and bounded time block, with
+  task-scorer A/A replay and interleaved anchors. It cannot support a claim that
+  hidden provider weights are immutable. Raw answer, token usage, latency, and
+  alias stability remain drift diagnostics rather than substitutes for the
+  task-level replay floor.
+- The first public hy3 qualification block is deliberately not an RSI launch
+  gate. Even zero observed flips on 40 fixed items imply a non-zero 95% Wilson
+  upper sensitivity bound (about 0.0876), and the deterministic first-40 panel
+  does not justify population or cross-time extrapolation. The next admissible
+  step is an evaluator-only causal/static policy landscape that defines a
+  meaningful policy delta; only then can replay noise be compared with signal.
+- LongMemEval-V2 and live tool tasks are currently transfer profiles for a
+  policy discovered on qualified visible tasks. Calling those runs
+  "long-horizon RSI" would confound discovery with external validity unless a
+  separate bounded researcher loop and matched controls are preregistered.

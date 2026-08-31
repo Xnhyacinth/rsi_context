@@ -9,7 +9,6 @@ import importlib.metadata
 import json
 import shutil
 import sys
-from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import cast
 
@@ -24,11 +23,7 @@ from rsicontext.campaign.autonomous_dynamic import (
 )
 from rsicontext.datasets.helmet_rag import (
     EncodedWindowTokenizer,
-    HelmetRagRecord,
-    compile_helmet_rag,
-    helmet_kilt_record,
-    select_helmet_kilt_records,
-    split_encoded_windows,
+    load_helmet_kilt_items,
 )
 from rsicontext.eval import EvaluationItem, extractive_span_match
 from rsicontext.experiment import build_profile_reader, load_api_profiles, resolve_api_endpoint
@@ -128,13 +123,6 @@ def _load_tokenizer(tokenizer_path: Path) -> EncodedWindowTokenizer:
     return cast(EncodedWindowTokenizer, tokenizer)
 
 
-def _token_counter(tokenizer: EncodedWindowTokenizer) -> Callable[[str], int]:
-    def counter(text: str) -> int:
-        return len(tokenizer.encode(text, add_special_tokens=False))
-
-    return counter
-
-
 def _load_items(
     *,
     cell_id: str,
@@ -144,27 +132,13 @@ def _load_items(
     min_gold_rank: int,
 ) -> tuple[EvaluationItem, ...]:
     source, prefix = _CELLS[cell_id]
-    counter = _token_counter(tokenizer)
-
-    def split_parts(text: str) -> tuple[str, ...]:
-        return split_encoded_windows(text, tokenizer, 512)
-
-    def records() -> Iterator[HelmetRagRecord]:
-        with source.open(encoding="utf-8") as handle:
-            for index, line in enumerate(handle):
-                if not line.strip():
-                    continue
-                yield helmet_kilt_record(json.loads(line), item_id=f"{prefix}-{index:04d}")
-
-    selected = select_helmet_kilt_records(
-        records(),
+    return load_helmet_kilt_items(
+        source,
+        item_prefix=prefix,
         limit=limit,
+        tokenizer=tokenizer,
         unique_queries=unique_queries,
         min_gold_passage_index=min_gold_rank,
-    )
-    return tuple(
-        compile_helmet_rag(record, token_counter=counter, split_parts=split_parts)
-        for record in selected
     )
 
 

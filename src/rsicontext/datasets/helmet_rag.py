@@ -6,9 +6,11 @@ run on the compiled ``EvaluationItem``; researcher code does not answer.
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 from rsicontext.eval import EvaluationItem
@@ -177,6 +179,56 @@ def select_helmet_kilt_records(
     if len(selected) < limit:
         raise ValueError("not enough unique HELMET KILT records after gold-rank filtering")
     return tuple(selected)
+
+
+def load_helmet_kilt_items(
+    path: Path,
+    *,
+    item_prefix: str,
+    limit: int,
+    tokenizer: EncodedWindowTokenizer,
+    unique_queries: bool = True,
+    min_gold_passage_index: int = 0,
+    tokens_per_chunk: int = 512,
+) -> tuple[EvaluationItem, ...]:
+    """Load, select, and compile one pinned HELMET KILT JSONL cell."""
+
+    if not isinstance(path, Path):
+        raise TypeError("HELMET source path must be a pathlib.Path")
+    if not isinstance(item_prefix, str) or not item_prefix:
+        raise ValueError("item_prefix must be a non-empty string")
+
+    def records() -> Iterable[HelmetRagRecord]:
+        with path.open(encoding="utf-8") as handle:
+            for index, line in enumerate(handle):
+                if line.strip():
+                    yield helmet_kilt_record(
+                        json.loads(line),
+                        item_id=f"{item_prefix}-{index:04d}",
+                    )
+
+    selected = select_helmet_kilt_records(
+        records(),
+        limit=limit,
+        unique_queries=unique_queries,
+        min_gold_passage_index=min_gold_passage_index,
+    )
+
+    def token_count(text: str) -> int:
+        return len(tokenizer.encode(text, add_special_tokens=False))
+
+    def split_parts(text: str) -> tuple[str, ...]:
+        return split_encoded_windows(text, tokenizer, tokens_per_chunk)
+
+    return tuple(
+        compile_helmet_rag(
+            record,
+            token_counter=token_count,
+            tokens_per_chunk=tokens_per_chunk,
+            split_parts=split_parts,
+        )
+        for record in selected
+    )
 
 
 def ruler_qa_record(raw: Mapping[str, object], *, item_id: str) -> HelmetRagRecord:

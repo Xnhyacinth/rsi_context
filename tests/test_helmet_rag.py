@@ -12,6 +12,7 @@ from rsicontext.datasets.helmet_rag import (
     chunks_covering_documents,
     compile_helmet_rag,
     helmet_kilt_record,
+    load_helmet_kilt_items,
     relabel_ruler_qa_gold,
     ruler_qa_record,
     select_helmet_kilt_records,
@@ -198,6 +199,46 @@ def test_select_helmet_kilt_records_drops_clones_and_head_gold() -> None:
     )
     selected = select_helmet_kilt_records(records, limit=2, min_gold_passage_index=1)
     assert tuple(record.item_id for record in selected) == ("a1", "b1")
+
+
+def test_load_helmet_kilt_items_compiles_selected_real_jsonl(tmp_path: Path) -> None:
+    path = tmp_path / "popqa.jsonl"
+    path.write_text(
+        json.dumps(
+            {
+                "question": "Where is the city?",
+                "answers": ["Poland"],
+                "ctxs": [
+                    {"title": "noise", "text": "Unrelated text.", "has_answer": False},
+                    {"title": "gold", "text": "The city is in Poland.", "has_answer": True},
+                ],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    class _Tokenizer:
+        def encode(self, text: str, add_special_tokens: bool = False) -> list[int]:
+            del add_special_tokens
+            return [ord(character) for character in text]
+
+        def decode(self, token_ids: Sequence[int], skip_special_tokens: bool = True) -> str:
+            del skip_special_tokens
+            return "".join(chr(token_id) for token_id in token_ids)
+
+    items = load_helmet_kilt_items(
+        path,
+        item_prefix="popqa",
+        limit=1,
+        tokenizer=_Tokenizer(),
+        min_gold_passage_index=1,
+    )
+
+    assert len(items) == 1
+    assert items[0].item_id == "popqa-0000"
+    assert items[0].answer == "Poland"
+    assert items[0].gold_chunk_ids
 
 
 def test_helmet_kilt_record_skips_empty_ctx_text() -> None:
