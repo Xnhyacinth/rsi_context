@@ -40,6 +40,29 @@
   residual that same-UID directory separation is not formal physical isolation.
 - Final merge gate passes: 577 tests, 83.58% branch coverage, full Ruff, strict
   mypy over 176 files, Bandit high-severity scan, and `git diff --check`.
+- Committed and pushed the clean diagnostic producer as `cf19dff`, then ran the
+  exact 249-call block without retries or extensions. Lexical scored 0.600 on
+  average versus 0.325 for head truncation, for a paired majority contrast of
+  +0.275; all three repetition contrasts exceeded the prior 0.1650 bound and
+  exact McNemar was significant (`p=0.00341796875`).
+- The preregistered gate nevertheless failed correctly. The paired bootstrap
+  95% interval was [0.125, 0.425], and the worst-case contrast after assigning
+  -1 to every item unstable under either arm was only +0.100. Lexical had 2/40
+  unstable items and head had 4/40; a large observed policy contrast therefore
+  does not yet establish a replay-robust optimization signal.
+- All 249 calls completed, all nine canaries were semantically correct, task
+  input usage and model alias were stable, and output usage remained unstable.
+  The repo-external ledger is mode 0600 under a 0700 directory, and its SHA-256
+  matches the public aggregate binding. No item-level ledger content was moved
+  into the repository.
+- Recorded the aggregate evidence in
+  `docs/hy3-paired-signal-diagnostic-2026-08-31.md`. Phase 13b remains
+  qualification-only with `rsi_launch_eligible=false`; no researcher, A2,
+  LongMemEval reader, or live long-horizon run is authorized by this result.
+- Independent method review reproduced the paired delta, McNemar p-value, and
+  both failed decision conditions. It also tightened the claim from policy
+  “headroom” to sensitivity between two tested baselines: improvement above H0
+  remains unestablished, and hidden provider weights remain unattested.
 
 ## 2026-08-30
 

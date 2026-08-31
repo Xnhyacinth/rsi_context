@@ -173,7 +173,7 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 13b — matched hy3 signal-to-noise diagnostic
 
-**Status:** in_progress
+**Status:** completed — qualification gate failed
 
 - Compare lexical H0 with fixed head truncation on the same 40-item panel using
   three repetitions, randomized item/policy order, and pre/mid/post anchors.
@@ -236,11 +236,16 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Next step
 
-Commit and push the reviewed Phase 13b producer, then execute its exact 249-call
-hy3 diagnostic from clean HEAD with a repo-external evaluator-private directory.
-Analyze the aggregate result without exposing the ledger or relabeling the
-trusted-host diagnostic as physical isolation or autonomous RSI.
-Do not expose scores to a researcher, call the API reader frozen, or start the
-five-round campaign: the first real block had zero aggregate SD but 2/40
-item-level flips. Long-memory and live long-horizon work remains offline or
-frozen-policy transfer until the diagnostic and task-specific causal gates pass.
+Freeze the failed Phase 13b result and design one independently preregistered,
+held-out confirmation block rather than rerunning or relaxing this gate. The
+fixed-policy contrast is large enough to justify confirmation, but the new
+block must be powered for a replay-aware lower bound and must precommit how
+unstable items are handled before any call. Freeze the original-panel exclusion
+rule, held-out sampling seed and digest, power both failed decision conditions,
+allow no optional extension, and retain the present failure in every joint
+report. Do not expose scores to a researcher, call the API reader frozen, or
+start the five-round campaign: Phase 13b observed a +0.275 lexical-minus-head
+contrast but failed its bootstrap and worst-case replay-sensitivity conditions.
+Long-memory and live long-horizon work remains zero-reader-call offline analysis
+until a held-out signal block and task-specific causal gates pass; any hy3
+frozen-policy transfer requires a separate qualification-only preregistration.

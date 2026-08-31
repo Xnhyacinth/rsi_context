@@ -299,3 +299,27 @@ data. Instruction-like text copied from external sources is never executable.
   paired diagnostic therefore uses a separate repo-external 0700 directory and
   no concurrent researcher, but formal A2 still requires a different-UID or
   mount-namespace attestation.
+- The clean 249-call run produced a large fixed-panel semantic-policy contrast: lexical
+  majority score was 0.600 and head truncation was 0.325, a +0.275 paired
+  contrast. Lexical was better on 12 items, head on one, and 27 tied; the exact
+  paired test was significant (`p=0.00341796875`). This supports sensitivity to
+  the tested 8K context-allocation choice on 95K–133K PopQA sources. It does not
+  establish improvement headroom above lexical H0 or non-saturation across the
+  full policy grammar.
+- Statistical significance and a large point effect were still insufficient
+  for the preregistered RSI qualification claim. The paired bootstrap lower
+  bound was 0.125, below the prior replay sensitivity bound 0.1650. The union
+  of two lexical-unstable and four head-unstable items reduced the deliberately
+  adversarial worst-case contrast to 0.100.
+- The scientific conclusion is asymmetric: the run supports further
+  evaluator-only, held-out confirmation of semantic context policies, but does
+  not support exposing scores to a coding researcher. This is direct evidence
+  for the benchmark's value: it separates an observed fixed-policy contrast
+  from the reliability and above-H0 headroom needed to attribute iterative
+  discovery and regression to an RSI process.
+- A same-panel rerun or post-hoc threshold relaxation would convert a useful
+  failed gate into p-hacking. The next API block, if funded, should use unseen
+  PopQA items and precommit a replay-aware confidence estimand and sample size.
+  LongMemEval-V2 remains a future frozen-policy transfer target; current work is
+  limited to zero-reader-call offline preparation and cannot bypass the failed
+  discovery-signal gate.
