@@ -140,7 +140,7 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ### Phase 13 — hy3-primary scorer-aware qualification
 
-**Status:** in_progress
+**Status:** completed — operational gate failed
 
 - Replace raw-string and usage equality as semantic launch gates with a
   scorer-bound replay contract while retaining both as drift/cost diagnostics.
