@@ -270,3 +270,32 @@ data. Instruction-like text copied from external sources is never executable.
   raw punctuation and output-token counts varied in every pre/mid/post block.
   This separates semantic anchor validity from byte/usage drift while showing
   that a trivial canary cannot certify task-level determinism.
+
+# 2026-08-31 paired hy3 diagnostic review
+
+- The 249-call interleaved schedule is correct, but the initial gate compared
+  only the effect point estimate with the prior 0.1650 Wilson upper bound. An
+  8/40 net contrast can satisfy delta 0.20 and McNemar significance while its
+  bootstrap lower bound remains far below 0.1650.
+- Replay disagreement must use the same estimand as the prior noise block:
+  mark an item unstable when its repeated scorer outcomes are not all equal.
+  Report and gate lexical and head separately; head instability can otherwise
+  manufacture the apparent contrast.
+- Majority-vote bootstrap and McNemar describe fixed-panel item heterogeneity,
+  not reader replay uncertainty. Add a conservative sensitivity contrast that
+  assigns -1 to every item unstable in either arm, and require every raw repeat
+  contrast to clear the prior noise margin.
+- Aggregate-only publication is compatible with reproducibility only if an
+  evaluator-only immutable ledger persists schedule, per-call outcomes, and
+  identities and the public result binds its SHA-256.
+- The implemented public CLI has no scientific threshold, policy, item-count,
+  repetition, or pack-budget flags. It binds the exact prior result bytes,
+  prior contract identity, hy3 request-profile hash, PopQA bytes, Qwen tokenizer
+  snapshot, preregistration, producer revision, and all loaded project sources.
+- A self-consistent contract is insufficient for preregistration: without exact
+  public identity locks, an arbitrary dataset and Budget(8) could claim the same
+  evidence tier. The fixed public path now rejects that construction.
+- A 0600 file does not isolate two processes running under the same UID. The
+  paired diagnostic therefore uses a separate repo-external 0700 directory and
+  no concurrent researcher, but formal A2 still requires a different-UID or
+  mount-namespace attestation.

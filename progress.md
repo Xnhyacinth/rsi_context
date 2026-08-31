@@ -1,5 +1,46 @@
 # Progress
 
+## 2026-08-31 paired signal diagnostic
+
+- Added an initial preregistration, behavior tests, and a matched interleaved
+  diagnostic implementation; the first focused run correctly exposed a
+  non-serializable schedule digest and one strict-mypy return issue.
+- Independent method review found that a point-estimate-above-noise rule could
+  not support the intended claim. Revised the preregistration to require the
+  bootstrap lower bound and every repetition to exceed the prior noise upper,
+  constrain instability in both policies, and use a worst-case unstable-item
+  sensitivity contrast.
+- Locked an evaluator-only immutable ledger as part of the evidence contract;
+  public results will expose its digest but no item-level data.
+- Implemented the paired runner and fixed CLI: exact 249-call accounting,
+  deterministic interleaving, immutable pre-call contract, private per-call
+  evaluator ledger, pre/mid/post canaries, conservative statistics, and fixed
+  PopQA/tokenizer/profile/prior-artifact identities.
+- Extracted the shared pinned PopQA/tokenizer inputs used by both hy3 CLIs,
+  preserving the existing replay behavior and tests instead of duplicating
+  acquisition logic.
+- Focused checks currently pass: 5 paired-runner tests, 4 paired-CLI tests,
+  8 legacy replay-CLI tests, Ruff, strict mypy, and Bandit.
+- Independent correctness and security reviews found that the first public
+  builder accepted arbitrary self-consistent experiment identities and that
+  the private ledger shared the public directory. Both were treated as
+  must-fix findings rather than documentation caveats.
+- Locked the public tier to the exact PopQA panel, hy3 profile, 8K/64 budgets,
+  token/source/prereg/prior evidence, scorer, lexical policy, and head policy.
+  Added a regression that an arbitrary 40-item public contract fails closed.
+- Moved the item-level ledger to a required repo-external, non-overlapping 0700
+  evaluator directory; public output is restricted to ignored `results/`.
+  Redacted the full endpoint to a digest and verified the ledger is mode 0600.
+  This remains trusted-host evidence, not formal UID/namespace isolation.
+- Added a prospective transport cap so the 250th call is rejected before it is
+  sent, plus schedule-position, arbitrary-public-identity, symlink/private-path,
+  endpoint-redaction, and permission tests. Focused runner/CLI checks now pass.
+- Post-fix independent correctness and security reviews report no remaining
+  must-fix for the trusted-host qualification scope. Both retain the explicit
+  residual that same-UID directory separation is not formal physical isolation.
+- Final merge gate passes: 577 tests, 83.58% branch coverage, full Ruff, strict
+  mypy over 176 files, Bandit high-severity scan, and `git diff --check`.
+
 ## 2026-08-30
 
 - Restored the repository state: clean private feature branch at `f841dd4`.

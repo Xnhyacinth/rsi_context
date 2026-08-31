@@ -171,6 +171,25 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
   establishes a larger accepted rendered prompt. A Phase 13 pass authorizes
   this evaluator-only landscape, not RSI.
 
+### Phase 13b — matched hy3 signal-to-noise diagnostic
+
+**Status:** in_progress
+
+- Compare lexical H0 with fixed head truncation on the same 40-item panel using
+  three repetitions, randomized item/policy order, and pre/mid/post anchors.
+- Bind the prior replay artifact and its 0.1650 Wilson upper sensitivity bound;
+  require the paired bootstrap lower bound and every repeat effect to exceed
+  that bound, exact McNemar p ≤ 0.05, bounded instability in both policies, and
+  a worst-case contrast that assigns -1 to every unstable item.
+- Persist the exact randomized schedule before calls and an immutable
+  repo-external evaluator-private per-call ledger after calls; publish only
+  aggregate statistics and the ledger digest. Treat directory/mode separation
+  as trusted-host evidence, not the different-UID/namespace gate required by
+  formal RSI.
+- Keep outputs aggregate-only and `rsi_launch_eligible=false`. A pass authorizes
+  only the evaluator-side causal/static landscape; a failure keeps API-reader
+  policy research blocked.
+
 ### Phase 15 — hy3 matched micro-RSI and long-horizon transfer
 
 **Status:** pending
@@ -198,22 +217,29 @@ the researcher, policy, and frozen reader/evaluator boundaries intact.
 
 ## Errors encountered
 
-| Error                                                                    | Attempt | Resolution                                                                               |
-| ------------------------------------------------------------------------ | ------- | ---------------------------------------------------------------------------------------- |
-| New HTTPS registry tests failed before implementation                    | 1       | Expected TDD red state confirmed.                                                        |
-| Official MuSiQue archive has no published checksum                       | 1       | Use a pinned mirror for qualification only; keep official-byte matching as an A2 gate.   |
-| Combined cleanup patch missed autoformatted plan lines                   | 1       | Split the patch into exact, smaller edits.                                               |
-| Combined tokenizer/statistics probe returned no captured output          | 1       | Run the tokenizer analysis as a separately polled process.                               |
-| Real MuSiQue row used integer decomposition IDs                          | 1       | Added a regression test and normalized official non-negative integer IDs to strings.     |
-| Packed v1 compiled below its declared 32,768-token target                | 1       | Added a regression test and top up after measuring compiled chunk tokens.                |
-| Reviewer found v2 causal/provenance assertions were incomplete           | 1       | Added intermediate leakage, derived digests, tokenizer attestation, and token positions. |
-| New operational-replay test helper lacked a strict return type           | 1       | Added the explicit `OperationalReplayContract` annotation before continuing.             |
-| Source identity arguments were patched into the dataset fingerprint call | 1       | Moved them to the operational replay contract after strict mypy exposed the mismatch.    |
+| Error                                                                    | Attempt | Resolution                                                                                 |
+| ------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------ |
+| New HTTPS registry tests failed before implementation                    | 1       | Expected TDD red state confirmed.                                                          |
+| Official MuSiQue archive has no published checksum                       | 1       | Use a pinned mirror for qualification only; keep official-byte matching as an A2 gate.     |
+| Combined cleanup patch missed autoformatted plan lines                   | 1       | Split the patch into exact, smaller edits.                                                 |
+| Combined tokenizer/statistics probe returned no captured output          | 1       | Run the tokenizer analysis as a separately polled process.                                 |
+| Real MuSiQue row used integer decomposition IDs                          | 1       | Added a regression test and normalized official non-negative integer IDs to strings.       |
+| Packed v1 compiled below its declared 32,768-token target                | 1       | Added a regression test and top up after measuring compiled chunk tokens.                  |
+| Reviewer found v2 causal/provenance assertions were incomplete           | 1       | Added intermediate leakage, derived digests, tokenizer attestation, and token positions.   |
+| New operational-replay test helper lacked a strict return type           | 1       | Added the explicit `OperationalReplayContract` annotation before continuing.               |
+| Source identity arguments were patched into the dataset fingerprint call | 1       | Moved them to the operational replay contract after strict mypy exposed the mismatch.      |
+| Initial paired schedule digest serialized dataclass objects directly     | 1       | Serialize the fixed call schedule as canonical dictionaries before hashing.                |
+| Initial paired test asserted that no result key contained the word item  | 1       | Replace it with explicit checks for forbidden item-level fields and predictions.           |
+| Initial signal gate compared only the effect point estimate to noise     | 1       | Require the effect LCB, all repeats, and a worst-case unstable-item contrast to clear it.  |
+| Public paired builder accepted arbitrary self-consistent experiment IDs  | 1       | Lock the complete PopQA/profile/token/source/scorer/policy/prereg identity in public tier. |
+| Private evaluator ledger shared the public artifact directory            | 1       | Require a distinct repo-external 0700 directory; formal isolation remains an open gate.    |
 
 ## Next step
 
-Pre-register a matched, randomized, interleaved H0-versus-fixed-policy
-signal-to-noise diagnostic with repeated H0 anchors and an immutable call cap.
+Commit and push the reviewed Phase 13b producer, then execute its exact 249-call
+hy3 diagnostic from clean HEAD with a repo-external evaluator-private directory.
+Analyze the aggregate result without exposing the ledger or relabeling the
+trusted-host diagnostic as physical isolation or autonomous RSI.
 Do not expose scores to a researcher, call the API reader frozen, or start the
 five-round campaign: the first real block had zero aggregate SD but 2/40
 item-level flips. Long-memory and live long-horizon work remains offline or

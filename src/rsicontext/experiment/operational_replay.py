@@ -753,6 +753,14 @@ def _anchor_summary(
     )
 
 
+def summarize_operational_anchor(
+    phase: str, canary: APICanaryResult, scorer: Scorer
+) -> OperationalAnchorSummary:
+    """Build the aggregate canary summary shared by qualification diagnostics."""
+
+    return _anchor_summary(phase, canary, scorer)
+
+
 def _wilson_upper_95(successes: int, trials: int) -> float:
     if trials <= 0 or not 0 <= successes <= trials:
         raise ValueError("Wilson interval requires 0 <= successes <= positive trials")

@@ -57,5 +57,14 @@
   of a 32K-to-8K panel. Hop depth 1 versus 2 must change the recovered gold set. Do not
   shorten the live chain back to three unique-ID links. The compositional query must not
   contain `vl-` or the token `folio`; those BM25-saturate hops=2 RANK.
+- A policy effect may be called larger than replay noise only when its uncertainty
+  lower bound, not merely its point estimate, clears the precommitted noise upper
+  bound. Both policy arms must report item-level replay instability, and unstable
+  items must enter a conservative paired sensitivity analysis.
+- A generic self-consistent contract is not a public preregistration. Public
+  qualification tiers must lock the exact dataset, compiled panel, profile,
+  budget, scorer, policy implementations, source/token axis, and preregistration
+  digest. Evaluator-private ledgers never share the public artifact tree, and
+  file modes alone never count as formal researcher isolation.
 - Ruff excludes immutable experiment results; candidate bytes are checked by PolicyAuditor
   and replay hashes rather than rewritten to satisfy repository style.
