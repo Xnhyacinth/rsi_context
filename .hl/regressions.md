@@ -73,8 +73,8 @@
 - An open-S researcher turn that resubmits the parent policy tree is invalid,
   even if the manifest says hold.
 - New autonomous open-S runs must not overwrite window-b (offset 64), the
-  128960 abort cell, explore-20260901 (offset 72), or explore-b (offset 80).
-  Live cell is offset 88. Do not inject method catalogs or mid-run strategy
+  128960 abort cell, explore-20260901 (offset 72), explore-b (offset 80), or
+  explore-c (offset 88). Do not inject method catalogs or mid-run strategy
   hints. Invalid slots must surface worker and researcher exception lines,
   not raw stderr.
 
