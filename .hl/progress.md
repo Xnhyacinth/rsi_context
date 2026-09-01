@@ -7,7 +7,9 @@
   signatures. H0 is source-order full-as-fits.
 - Offset-72 explore finished: H0 0.500, 5/5 invalid TypeError slots, 8 reader
   calls. Worker had returned only `TypeError`. Locked that artifact. Worker now
-  surfaces a one-line exception message. Next cell is offset 80.
+  surfaces a one-line exception message.
+- Offset-80 explore-b finished: H0 0.500; r0–r3 valid at 0.500; r4 process
+  exit 1; `discovery_gain=0`; 40 reader calls. Locked. No mid-run steering.
 
 ## 2026-09-01 window-envelope open-S repair
 

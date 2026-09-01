@@ -72,9 +72,8 @@
   that track with `--pack-tokens 8192`.
 - An open-S researcher turn that resubmits the parent policy tree is invalid,
   even if the manifest says hold.
-- New autonomous open-S runs use a new output directory and offset 80.
-  Do not overwrite window-b (offset 64), the 128960 abort cell, or
-  explore-20260901 (offset 72).
+- New autonomous open-S runs must not overwrite window-b (offset 64), the
+  128960 abort cell, explore-20260901 (offset 72), or explore-b (offset 80).
   Do not inject method catalogs or mid-run strategy hints into the researcher.
   Invalid policy slots must surface the worker exception message.
 

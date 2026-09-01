@@ -68,15 +68,11 @@ Completed in `results/open-s-hy3-popqa-explore-20260901/`. Offset 72, pack
 call); `discovery_gain=0`; 8 reader calls. Do not overwrite. The worker had
 hidden exception messages, so the researcher could not debug.
 
-## Block F — autonomous open-S explore-b (current)
+## Block F — autonomous open-S explore-b (locked)
 
-Frozen card: `docs/open-s-visible-scenario.md`.
+Completed in `results/open-s-hy3-popqa-explore-b-20260901/`. Offset 80, pack
+114624. H0 0.500; r0–r3 valid at 0.500; r4 researcher process exit 1;
+`discovery_gain=0`; 40 reader calls. Do not overwrite. Qualification only.
 
-H0 is source-order full-as-fits. Eight unseen items at **offset 80**. Five
-researcher rounds. The prompt states the goal, frozen library signatures,
-legal/illegal operators, and score/token feedback; it does not prescribe a
-method catalog. Invalid-slot diagnostics now include the exception message.
-Qualification only.
-
-Do not overwrite Blocks A–E. Do not claim researcher advantage without a
+Do not overwrite Blocks A–F. Do not claim researcher advantage without a
 matched control.
