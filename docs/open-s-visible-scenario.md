@@ -38,7 +38,7 @@ network, or answer the question.
 | Split | unique PopQA k1000, min gold rank 200, **offset 64** (skips locked 40-item diagnostic and the failed 8-item 8K campaign) |
 | n | 8 visible items |
 | Rounds | 5 researcher slots after H0 |
-| Pack envelope | reader window − output − 2048 template reserve (hy3: 131072 − 64 − 2048 = **128960**) |
+| Pack envelope | reader window − output − 16384 render/axis reserve (hy3: 131072 − 64 − 16384 = **114624**) |
 | Reader | `tencent-copilot-hy3-ioa`, T=0, seed 42, 64 output tokens, 600s timeout |
 | Researcher | `tencent-copilot-hy3-ioa-researcher`, T=0, seed 42, 32768 output tokens |
 | Verifier | `extractive_span_match` |
@@ -53,7 +53,7 @@ are invalid.
 
 ```bash
 uv run python scripts/autonomous_public_pilot.py \
-  --output results/open-s-hy3-popqa-window-20260901 \
+  --output results/open-s-hy3-popqa-window-20260901-b \
   --policy-track open-s \
   --initial-policy seeds/open_s_v1 \
   --reader-max-output-tokens 64

@@ -2,7 +2,8 @@
 
 - Pack-8K is a historical HELMET instrument, not the open-S evolution envelope.
   Full-as-fits long context is a legal strategy; the live cell uses the frozen
-  reader window (hy3 pack 128960). Items longer than the window still need fit.
+  reader window (hy3 pack 114624 after a 128960 overflow). Items longer than the
+  window still need fit.
 - The 8K dual-role campaign did not self-evolve: round 0 was a byte-identical
   H0 hold invited by "preserve files unless changing"; round 1 exited 1 before
   a scorable tree. Identical parent copies are now invalid; object payloads merge.

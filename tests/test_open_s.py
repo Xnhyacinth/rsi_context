@@ -308,7 +308,7 @@ def test_open_s_prompt_keeps_the_frozen_boundary() -> None:
 
 
 def test_reader_window_pack_budget_fills_the_frozen_window() -> None:
-    assert reader_window_pack_budget(max_model_len=131072, max_output_tokens=64) == 128960
+    assert reader_window_pack_budget(max_model_len=131072, max_output_tokens=64) == 114624
     assert (
         resolve_pack_budget_tokens(
             pack_tokens=None,
@@ -316,7 +316,7 @@ def test_reader_window_pack_budget_fills_the_frozen_window() -> None:
             max_model_len=131072,
             max_output_tokens=64,
         )
-        == 128960
+        == 114624
     )
     assert (
         resolve_pack_budget_tokens(

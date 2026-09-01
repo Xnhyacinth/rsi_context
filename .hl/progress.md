@@ -3,7 +3,9 @@
 ## 2026-09-01 window-envelope open-S repair
 
 - Dropped pack-8K as the open-S evolution envelope. Full-as-fits, RAG,
-  truncation, and hybrid pack share the frozen reader window (hy3: 128960).
+  truncation, and hybrid pack share the frozen reader window (hy3: 114624).
+  The first window launch failed at pack 128960 (`reader reported usage above
+  the model length` on H0 call 4); keep that artifact and relaunch.
 - Fixed failed self-evolution: identical parent trees are invalid; API
   `policy_source` objects merge onto the parent; Markdown fences are stripped;
   researcher output cap is 32768. Prompt no longer invites a hold copy.

@@ -16,7 +16,8 @@ Qwen3.6-27B). Do not pool hy3 curves with local Qwen.
 | Open-S H0 canary 2026-09-01 | 1 canary item through `seeds/open_s_v1` | 0 | none (H0 only) | 1.0 `amber` | seed+reader path; not discovery |
 | PopQA frozen landscape 2026-09-01 | 16 unseen unique k1000 (offset 40), 8K pack, 64 output | 0 | frozen: open-S H0 / head / head-tail / hand-hybrid | 0.500 / 0.3125 / 0.375 / 0.625 | landscape only; not researcher advantage |
 | Open-S dual-role visible 2026-09-01 | 8 further unseen items (offset 56), 2 rounds, **8K pack** | 1 valid, 1 invalid | r0 byte-identical H0; r1 process exit 1 | H0 0.375, peak 0.375, `discovery_gain=0` | qualification_only; no advantage claim; **do not rerun** |
-| Open-S window-envelope visible | 8 unseen items (offset 64), 5 rounds, pack = reader window | pending 2026-09-01 relaunch | seed `open_s_v1`; tree must change each turn | — | `docs/open-s-visible-scenario.md`; qualification_only |
+| Open-S window-envelope visible | 8 unseen items (offset 64), 5 rounds, pack 128960 | 0; H0 aborted | none | `ReaderProtocolError` usage above model length after 4 reader calls | keep `results/open-s-hy3-popqa-window-20260901/`; do not overwrite |
+| Open-S window-envelope visible-b | same split, pack 114624 (16384 render/axis reserve) | relaunch | seed `open_s_v1`; tree must change each turn | — | `docs/open-s-visible-scenario.md`; qualification_only |
 | LME-V2 small pack 2026-09-01 | 422 text-only, 8K last-k/lexical/random, 0 reader | 0 | frozen packers | det.294: 0.112 / 0.408 / 0.361; weak.128: 0 | answer-string presence, not official score |
 
 There is **no hy3 autonomous discovery result**. The only researcher-authored

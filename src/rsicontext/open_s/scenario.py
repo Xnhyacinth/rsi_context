@@ -13,7 +13,7 @@ OPEN_S_VISIBLE_MIN_GOLD_RANK = 200
 OPEN_S_VISIBLE_ROUNDS = 5
 OPEN_S_VISIBLE_READER_OUTPUT_TOKENS = 64
 OPEN_S_VISIBLE_READER_TIMEOUT_SECONDS = 600.0
-OPEN_S_TEMPLATE_RESERVE_TOKENS = 2048
+OPEN_S_TEMPLATE_RESERVE_TOKENS = 16384
 RESTRICTED_DEFAULT_PACK_TOKENS = 8192
 
 
@@ -26,7 +26,10 @@ def reader_window_pack_budget(
     """Pack budget that fills the frozen reader window, not a historical 8K cap.
 
     Full-as-fits, retrieve-then-pack, truncation, and reorder all share this
-    envelope. Items longer than the window still require selection.
+    envelope. Items longer than the window still require selection. The reserve
+    covers the reader system prompt, Question/Evidence wrappers, per-span ids,
+    and Qwen-axis vs reader-reported prompt_tokens slack. A 2048-token reserve
+    overflowed hy3 at pack 128960.
     """
 
     for name, value in (

@@ -12,7 +12,7 @@ roles with different profiles. It is not the paper's pinned Qwen reader.
 | Condition | Binding |
 | --------- | ------- |
 | Split | HELMET PopQA k1000 unique queries, gold rank ≥ 200; **skip the locked first 40** from the 2026-08-31 paired diagnostic |
-| Envelope | **Blocks A–C:** 8,192 policy tokens (locked). **Block D / live open-S:** reader window minus output and template reserve (hy3 pack 128960) |
+| Envelope | **Blocks A–C:** 8,192 policy tokens (locked). **Block D / live open-S:** reader window minus output and 16384 render/axis reserve (hy3 pack 114624) |
 | Reader | `tencent-copilot-hy3-ioa`, T=0, seed 42, **64** output tokens |
 | Researcher | `tencent-copilot-hy3-ioa-researcher`, T=0, seed 42; Blocks A–C used 8192 output tokens; Block D uses **32768** and parent-tree merge |
 | Verifier | `extractive_span_match` on PopQA; LongMemEval pack uses `answer_string_present` only, **not** the official scorer |
@@ -60,7 +60,7 @@ pack, not official LongMemEval accuracy. No researcher.
 Frozen card: `docs/open-s-visible-scenario.md`.
 
 Eight unseen items at **offset 64**. Five researcher rounds. Pack budget is the
-reader window (128960 on hy3), not 8K. Identical parent copies are invalid.
+reader window (114624 on hy3), not 8K. Identical parent copies are invalid.
 Full-as-fits, RAG, truncation, and reorder are all legal. Qualification only.
 
 Do not overwrite Blocks A–C. Do not claim researcher advantage without a
