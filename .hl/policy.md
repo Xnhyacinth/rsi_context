@@ -3,7 +3,7 @@
 ```yaml
 version: "1.0"
 owner: "RSIBench-Context contributors"
-updated_at: "2026-08-29"
+updated_at: "2026-09-01"
 
 objective:
   primary_goal: "Test whether general coding researchers can autonomously discover, predict, retain, and transfer a better frozen-reader context compiler than matched search under fixed feedback and resource budgets."
@@ -14,6 +14,8 @@ objective:
     - "Skipping difficulty gates to report HELMET/LongBench numbers"
     - "Claiming strict RSI or the first evolving context/memory system after Recuris"
     - "Using synthetic tasks as the sole paper headline"
+    - "Using pack-8K as the open-S evolution envelope"
+    - "Counting an identical parent-tree hold as a scored search step"
 
 complexity_model:
   dimensions:

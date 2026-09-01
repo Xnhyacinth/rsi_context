@@ -1,5 +1,17 @@
 # Durable project summary
 
+As of 2026-09-01 the live open-S cell is the reader-window PopQA scenario
+(`docs/open-s-visible-scenario.md`): offset 64, n=8, 5 rounds, pack = hy3
+window minus output/reserve, not 8K. The earlier 8K dual-role campaign
+resubmitted H0 then failed JSON and is locked. Restricted A2 launch remains
+refused. See `docs/hy3-run-ledger.md`.
+
+As of 2026-09-01 the executable harness has two tracks: restricted
+`PolicySpecV1` A2 (launch still refused) and open-S folder harness
+(`docs/open-s-harness.md`, seed `seeds/open_s_v1/`). A hy3 frozen PopQA
+landscape and a two-round open-S dual-role campaign exist; neither is
+discovery or researcher advantage. See `docs/hy3-run-ledger.md`.
+
 As of 2026-08-29, `docs/study-contract.md` is the normative project charter.
 The project is a benchmark and empirical study of bounded externalized
 self-improvement at the context-policy locus, not a strict-RSI or new memory

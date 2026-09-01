@@ -15,6 +15,11 @@ def _load_policy(policy_root: Path, entrypoint: str, policy_class: str) -> objec
     spec = importlib.util.spec_from_file_location("_rsicontext_candidate_policy", source_path)
     if spec is None or spec.loader is None:
         raise ImportError("candidate policy entrypoint has no Python loader")
+    # Isolated interpreters omit cwd from sys.path. Append the audited tree so
+    # sibling modules resolve without shadowing stdlib or rsicontext.
+    root_str = str(policy_root)
+    if root_str not in sys.path:
+        sys.path.append(root_str)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     policy_type = getattr(module, policy_class)

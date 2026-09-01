@@ -31,7 +31,7 @@ from rsicontext.policy import (
     ContextPolicy,
     DocumentChunk,
 )
-from rsicontext.security import PolicyAuditor
+from rsicontext.security import PolicyAuditor, allowed_local_imports
 
 _WORKER_ENVIRONMENT = {
     "LANG": "C.UTF-8",
@@ -102,16 +102,22 @@ class AuditedPolicyBundle:
             if len(content) > active_auditor.capabilities.max_file_bytes:
                 raise PolicyBundleError("policy bundle exceeds the audited file-size limit")
             try:
-                source = content.decode("utf-8")
+                content.decode("utf-8")
             except UnicodeDecodeError as exc:
                 raise PolicyBundleError(f"policy file is not UTF-8: {relative}") from exc
-            active_auditor.audit_source(source, filename=str(path)).require_safe()
             files.append((relative, content))
 
         if not files:
             raise PolicyBundleError("policy bundle must contain at least one Python file")
         if len(files) > active_auditor.capabilities.max_files:
             raise PolicyBundleError("policy bundle exceeds the audited file-count limit")
+        extra_imports = allowed_local_imports(relative for relative, _ in files)
+        for relative, content in files:
+            active_auditor.audit_source(
+                content.decode("utf-8"),
+                filename=str(resolved_root / relative),
+                extra_allowed_imports=extra_imports,
+            ).require_safe()
         if checked_entrypoint not in {path for path, _ in files}:
             raise PolicyBundleError(f"policy entrypoint is missing: {checked_entrypoint}")
 

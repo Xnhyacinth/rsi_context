@@ -1,5 +1,14 @@
 # Failed or rejected directions
 
+- Pooling the open-S harness track with restricted PolicySpecV1 A2, HELMET
+  transfer, or KV/system runs is rejected. Open-S is a separate leaderboard
+  whose H0 canary or skipped hy3 script is not a discovery curve.
+- Treating the historical HELMET pack-8K instrument as the open-S evolution
+  envelope is rejected. Full-as-fits, RAG, truncation, and compression/selection
+  share the frozen reader window; items longer than the window still need fit.
+- Inviting an open-S API researcher to "preserve files unless changing" is
+  rejected: that produced a byte-identical H0 hold. Identical parent trees are
+  invalid search steps.
 - Claiming that external context or memory evolution for a frozen model is new
   is rejected after Recuris. RSIBench-Context must remain a researcher benchmark
   with matched search/noise/manifest evidence; a Recuris-like memory method is a

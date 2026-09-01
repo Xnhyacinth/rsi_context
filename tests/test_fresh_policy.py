@@ -23,8 +23,10 @@ class PermissiveTestAuditor(PolicyAuditor):
         del root
         return AuditReport(("policy.py",), ())
 
-    def audit_source(self, source: str, *, filename: str = "<policy>") -> AuditReport:
-        del source
+    def audit_source(
+        self, source: str, *, filename: str = "<policy>", extra_allowed_imports: object = ()
+    ) -> AuditReport:
+        del source, extra_allowed_imports
         return AuditReport((filename,), ())
 
 

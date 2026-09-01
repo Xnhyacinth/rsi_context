@@ -7,15 +7,18 @@ import argparse
 import json
 from pathlib import Path
 
-from rsicontext.baselines.hand_hybrid import HAND_HYBRID_NAME, HAND_HYBRID_SPEC_V1
+from rsicontext.analysis.longmemeval_qualification import (
+    DETERMINISTIC_EVALUATORS,
+    WEAK_EVALUATORS,
+)
 from rsicontext.datasets.longmemeval_transfer import (
     OfflinePackComparison,
     compare_offline_pack,
-    full_trace_pack,
+    eval_function_family,
     last_k_pack,
     lexical_pack,
     random_trajectory_pack,
-    spec_v1_pack,
+    summarize_offline_pack_rates,
 )
 from rsicontext.datasets.longmemeval_v2 import load_longmemeval_v2
 from rsicontext.experiment.ledger import SpendCaps, SpendLedger
@@ -32,7 +35,6 @@ _TOKENIZER_FILES = (
         "dbfb3c20ce3d5b8370faeecd548e771c1dcc8e4fdcf636797fc24b0d0733fb02",
     ),
 )
-_POLICY_NAMES = ("last-k", "lexical", "random", HAND_HYBRID_NAME, "full-trace-unbudgeted")
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -43,10 +45,21 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--tokenizer-path", type=Path, default=_DEFAULT_TOKENIZER)
     parser.add_argument("--tier", choices=("small", "medium"), default="small")
     parser.add_argument("--question-limit", type=int, default=12)
+    parser.add_argument(
+        "--all-text-questions",
+        action="store_true",
+        help="Load every text-only question and the full haystack (zero reader).",
+    )
     parser.add_argument("--trajectories-per-question", type=int, default=2)
     parser.add_argument("--pack-tokens", type=int, default=8_192)
     parser.add_argument("--last-k", type=int, default=8)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--stratum",
+        choices=("all", "deterministic", "weak"),
+        default="all",
+        help="Which evaluator family to pack. Primary report is deterministic.",
+    )
     return parser
 
 
@@ -75,18 +88,25 @@ def main() -> int:
             max_retries=0,
         )
     )
+    question_limit = None if args.all_text_questions else args.question_limit
+    trajectories_per_question = None if args.all_text_questions else args.trajectories_per_question
     dataset = load_longmemeval_v2(
         args.root,
         source_revision=args.source_revision,
         token_counter=token_count,
         tokenizer_id=tokenizer_id,
         tier=args.tier,
-        question_limit=args.question_limit,
-        trajectories_per_question=args.trajectories_per_question,
+        question_limit=question_limit,
+        trajectories_per_question=trajectories_per_question,
     )
     budget = Budget(max_tokens=args.pack_tokens)
     comparisons: list[OfflinePackComparison] = []
     for item in dataset.evaluator_items():
+        family = eval_function_family(item.eval_function)
+        if args.stratum == "deterministic" and family not in DETERMINISTIC_EVALUATORS:
+            continue
+        if args.stratum == "weak" and family not in WEAK_EVALUATORS:
+            continue
         packs = (
             ("last-k", last_k_pack(item.policy_item.artifact, budget, k=args.last_k)),
             ("lexical", lexical_pack(item.policy_item.artifact, item.policy_item.query, budget)),
@@ -99,16 +119,6 @@ def main() -> int:
                     chunk_count=args.last_k,
                 ),
             ),
-            (
-                HAND_HYBRID_NAME,
-                spec_v1_pack(
-                    item.policy_item.artifact,
-                    item.policy_item.query,
-                    budget,
-                    HAND_HYBRID_SPEC_V1,
-                ),
-            ),
-            ("full-trace-unbudgeted", full_trace_pack(item.policy_item.artifact)),
         )
         for name, pack in packs:
             comparisons.append(
@@ -117,30 +127,41 @@ def main() -> int:
                     question_id=item.policy_item.question_id,
                     pack=pack,
                     answer=item.answer,
+                    eval_function=item.eval_function,
                 )
             )
     snapshot = ledger.snapshot()
+    rates = summarize_offline_pack_rates(
+        comparisons,
+        deterministic_evaluators=DETERMINISTIC_EVALUATORS,
+        weak_evaluators=WEAK_EVALUATORS,
+    )
     payload = {
         "official_score": False,
         "metric": "answer_string_present",
         "qualification_only": True,
+        "rsi_launch_eligible": False,
         "tier": args.tier,
         "source_revision": args.source_revision,
         "dataset_fingerprint": dataset.fingerprint,
-        "question_limit": args.question_limit,
-        "trajectories_per_question": args.trajectories_per_question,
+        "question_limit": question_limit,
+        "trajectories_per_question": trajectories_per_question,
         "pack_tokens": args.pack_tokens,
+        "stratum": args.stratum,
         "excluded_image_question_count": dataset.excluded_image_question_count,
         "loaded_trajectory_count": len(dataset.loaded_trajectory_ids),
-        "item_count": len(dataset.evaluator_items()),
+        "item_count": len({row.question_id for row in comparisons}),
+        "reader_calls": snapshot.reader_calls,
+        "rates_by_stratum": rates,
         "spend": dict(snapshot.to_ledger_pairs()),
         "comparisons": [
             {
+                "eval_function": row.eval_function,
+                "packed_chunks": row.packed_chunks,
                 "policy_name": row.policy_name,
                 "question_id": row.question_id,
-                "packed_chunks": row.packed_chunks,
-                "token_count": row.token_count,
                 "answer_string_present": row.answer_string_present,
+                "token_count": row.token_count,
             }
             for row in comparisons
         ],
@@ -149,17 +170,13 @@ def main() -> int:
     with args.output.open("x", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, sort_keys=True)
         handle.write("\n")
-    present = {
-        name: sum(row.answer_string_present for row in comparisons if row.policy_name == name)
-        for name in _POLICY_NAMES
-    }
     print(
         json.dumps(
             {
                 "official_score": False,
                 "output": str(args.output),
                 "item_count": payload["item_count"],
-                "answer_string_present_counts": present,
+                "rates_by_stratum": rates,
                 "reader_calls": snapshot.reader_calls,
                 "cost_usd": snapshot.researcher_cost_usd,
             },

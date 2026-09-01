@@ -20,6 +20,8 @@ _DETERMINISTIC_EVALUATORS = frozenset(
     }
 )
 _WEAK_EVALUATORS = frozenset({"llm_abstention_checker"})
+DETERMINISTIC_EVALUATORS = _DETERMINISTIC_EVALUATORS
+WEAK_EVALUATORS = _WEAK_EVALUATORS
 _EXPECTED_EVALUATOR_COUNTS = (
     ("llm_abstention_checker", 128),
     ("mc_choice_match", 68),

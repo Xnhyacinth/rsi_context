@@ -19,7 +19,7 @@ from typing import Protocol
 
 from rsicontext.analysis.process import CampaignProcessTrace, campaign_process_trace
 from rsicontext.artifacts import ArtifactStore, Manifest, ManifestError, load_manifest
-from rsicontext.security import PolicyAuditor, PolicySecurityError
+from rsicontext.security import PolicyAuditor, PolicySecurityError, allowed_local_imports
 
 
 class CampaignError(ValueError):
@@ -559,6 +559,9 @@ def _snapshot_and_reaudit_policy(root: Path, auditor: PolicyAuditor) -> dict[str
         raise CampaignError("candidate policy must contain at least one Python file")
     if len(files) > auditor.capabilities.max_files:
         raise CampaignError("candidate policy exceeds the audited file limit")
+    extra_imports = allowed_local_imports(
+        bundle_path.removeprefix("policy/") for bundle_path in files
+    )
     resolved_root = root.resolve(strict=True)
     for bundle_path, content in files.items():
         if len(content) > auditor.capabilities.max_file_bytes:
@@ -568,7 +571,11 @@ def _snapshot_and_reaudit_policy(root: Path, auditor: PolicyAuditor) -> dict[str
             source = content.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise CampaignError(f"candidate policy is not UTF-8: {relative}") from exc
-        auditor.audit_source(source, filename=str(resolved_root / relative)).require_safe()
+        auditor.audit_source(
+            source,
+            filename=str(resolved_root / relative),
+            extra_allowed_imports=extra_imports,
+        ).require_safe()
     return files
 
 

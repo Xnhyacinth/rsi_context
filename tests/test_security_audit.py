@@ -28,6 +28,19 @@ def select(query: str, chunks: list[str]) -> list[str]:
     report.require_safe()
 
 
+def test_audit_allows_submodules_of_allowlisted_packages() -> None:
+    source = """
+from collections.abc import Iterable
+from rsicontext.policy.open_s import pack_spans
+
+def select(chunks: Iterable[str]) -> list[str]:
+    return list(chunks) if pack_spans else []
+"""
+    report = PolicyAuditor().audit_source(source)
+    assert report.safe
+    report.require_safe()
+
+
 def test_audit_allows_re_compile_inside_functions() -> None:
     source = """
 import re

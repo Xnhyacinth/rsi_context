@@ -6,6 +6,8 @@ from .audit import (
     PolicyCapabilities,
     PolicySecurityError,
     SecurityViolation,
+    allowed_local_imports,
+    local_module_names,
 )
 from .isolation import IsolationAttestation, observe_linux_isolation
 
@@ -16,5 +18,7 @@ __all__ = [
     "PolicyCapabilities",
     "PolicySecurityError",
     "SecurityViolation",
+    "allowed_local_imports",
+    "local_module_names",
     "observe_linux_isolation",
 ]

@@ -199,6 +199,10 @@ def test_select_helmet_kilt_records_drops_clones_and_head_gold() -> None:
     )
     selected = select_helmet_kilt_records(records, limit=2, min_gold_passage_index=1)
     assert tuple(record.item_id for record in selected) == ("a1", "b1")
+    skipped = select_helmet_kilt_records(
+        records, limit=1, min_gold_passage_index=1, offset=1
+    )
+    assert tuple(record.item_id for record in skipped) == ("b1",)
 
 
 def test_load_helmet_kilt_items_compiles_selected_real_jsonl(tmp_path: Path) -> None:

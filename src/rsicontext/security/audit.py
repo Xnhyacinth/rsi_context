@@ -105,6 +105,40 @@ _WRITE_METHODS: Final = frozenset(
 _READ_METHODS: Final = frozenset({"read_bytes", "read_text"})
 
 
+def local_module_names(relative_paths: Iterable[str]) -> frozenset[str]:
+    """Map audited relative Python paths to importable local module names."""
+
+    names: set[str] = set()
+    for raw in relative_paths:
+        path = raw.replace("\\", "/")
+        if not path.endswith(".py"):
+            continue
+        parts = path[: -len(".py")].split("/")
+        if parts[-1] == "__init__":
+            parts = parts[:-1]
+        if not parts or any(not part.isidentifier() for part in parts):
+            continue
+        for index in range(len(parts)):
+            names.add(".".join(parts[: index + 1]))
+    return frozenset(names)
+
+
+def allowed_local_imports(relative_paths: Iterable[str]) -> frozenset[str]:
+    """Local modules that may be imported without shadowing forbidden stdlib names."""
+
+    return frozenset(
+        name
+        for name in local_module_names(relative_paths)
+        if name.split(".", maxsplit=1)[0] not in _FORBIDDEN_IMPORTS
+    )
+
+
+def _import_is_allowed(module: str, allowed: frozenset[str]) -> bool:
+    if module in allowed:
+        return True
+    return any(module.startswith(f"{name}.") for name in allowed)
+
+
 @dataclass(frozen=True, slots=True)
 class SecurityViolation:
     """One precise reason a policy cannot receive execution capability."""
@@ -182,7 +216,13 @@ class PolicyAuditor:
     def __init__(self, capabilities: PolicyCapabilities | None = None) -> None:
         self.capabilities = capabilities or PolicyCapabilities()
 
-    def audit_source(self, source: str, *, filename: str = "<policy>") -> AuditReport:
+    def audit_source(
+        self,
+        source: str,
+        *,
+        filename: str = "<policy>",
+        extra_allowed_imports: Iterable[str] = (),
+    ) -> AuditReport:
         """Parse and audit source text. Syntax errors become violations."""
 
         try:
@@ -201,12 +241,28 @@ class PolicyAuditor:
                 ),
             )
         visitor = _PolicyVisitor(
-            capabilities=self.capabilities,
+            capabilities=self._capabilities_with_extra(extra_allowed_imports),
             filename=filename,
             source_directory=_source_directory(filename),
         )
         visitor.visit(tree)
         return AuditReport(files=(filename,), violations=tuple(visitor.violations))
+
+    def _capabilities_with_extra(self, extra_allowed_imports: Iterable[str]) -> PolicyCapabilities:
+        extra = frozenset(extra_allowed_imports)
+        if not extra:
+            return self.capabilities
+        safe_extra = frozenset(
+            name for name in extra if name.split(".", maxsplit=1)[0] not in _FORBIDDEN_IMPORTS
+        )
+        if safe_extra <= self.capabilities.allowed_imports:
+            return self.capabilities
+        return PolicyCapabilities(
+            allowed_imports=self.capabilities.allowed_imports | safe_extra,
+            read_roots=self.capabilities.read_roots,
+            max_files=self.capabilities.max_files,
+            max_file_bytes=self.capabilities.max_file_bytes,
+        )
 
     def enforce_source(self, source: str, *, filename: str = "<policy>") -> None:
         """Require source to pass; this still does not execute the source."""
@@ -284,10 +340,20 @@ class PolicyAuditor:
                 )
             )
 
-        audited_files: list[str] = []
-        for path in files[: self.capabilities.max_files]:
-            relative = path.relative_to(resolved_root).as_posix()
-            audited_files.append(relative)
+        limited_files = files[: self.capabilities.max_files]
+        audited_files = [path.relative_to(resolved_root).as_posix() for path in limited_files]
+        for relative in audited_files:
+            for name in local_module_names((relative,)):
+                if name.split(".", maxsplit=1)[0] in _FORBIDDEN_IMPORTS:
+                    violations.append(
+                        SecurityViolation(
+                            "LOCAL_MODULE_FORBIDDEN",
+                            f"policy module would shadow a forbidden import: {name}",
+                            relative,
+                        )
+                    )
+        extra_imports = allowed_local_imports(audited_files)
+        for path, relative in zip(limited_files, audited_files, strict=True):
             try:
                 size = path.stat().st_size
             except OSError as exc:
@@ -307,7 +373,9 @@ class PolicyAuditor:
             except (OSError, UnicodeError) as exc:
                 violations.append(SecurityViolation("PATH_READ", str(exc), relative))
                 continue
-            result = self.audit_source(source, filename=str(path))
+            result = self.audit_source(
+                source, filename=str(path), extra_allowed_imports=extra_imports
+            )
             violations.extend(result.violations)
         return AuditReport(tuple(audited_files), tuple(violations))
 
@@ -495,7 +563,7 @@ class _PolicyVisitor(ast.NodeVisitor):
         root = module.split(".", maxsplit=1)[0]
         if root in _FORBIDDEN_IMPORTS:
             self._add("IMPORT_FORBIDDEN", f"import grants forbidden capability: {root}", node)
-        elif module not in self.capabilities.allowed_imports:
+        elif not _import_is_allowed(module, self.capabilities.allowed_imports):
             self._add("IMPORT_NOT_ALLOWED", f"import is not allowlisted: {module}", node)
 
     def _calls_forbidden_import(self, call_name: str) -> bool:

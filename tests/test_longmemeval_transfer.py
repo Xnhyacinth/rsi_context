@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from rsicontext.analysis.longmemeval_qualification import (
+    DETERMINISTIC_EVALUATORS,
+    WEAK_EVALUATORS,
+)
 from rsicontext.datasets.longmemeval_transfer import (
     compare_offline_pack,
     last_k_pack,
     random_trajectory_pack,
+    summarize_offline_pack_rates,
 )
 from rsicontext.policy import Artifact, Budget, DocumentChunk
 
@@ -33,6 +38,7 @@ def test_offline_longmemeval_packs_are_budgeted_and_do_not_claim_official_scores
         question_id="q1",
         pack=last,
         answer="secret-answer",
+        eval_function="norm_phrase_set_match",
     )
 
     assert last.token_count <= 12
@@ -40,3 +46,24 @@ def test_offline_longmemeval_packs_are_budgeted_and_do_not_claim_official_scores
     assert comparison.answer_string_present is True
     assert random_pack.token_count <= 12
     assert comparison.policy_name == "last-k"
+    rates = summarize_offline_pack_rates(
+        (comparison,),
+        deterministic_evaluators=DETERMINISTIC_EVALUATORS,
+        weak_evaluators=WEAK_EVALUATORS,
+    )
+    assert rates["deterministic"]["last-k"]["item_count"] == 1
+    assert rates["weak"] == {}
+    assert rates["deterministic"]["last-k"]["rate"] == 1.0
+    parameterized = compare_offline_pack(
+        policy_name="last-k",
+        question_id="q2",
+        pack=last,
+        answer="secret-answer",
+        eval_function="norm_phrase_set_match|lower=true",
+    )
+    parameterized_rates = summarize_offline_pack_rates(
+        (parameterized,),
+        deterministic_evaluators=DETERMINISTIC_EVALUATORS,
+        weak_evaluators=WEAK_EVALUATORS,
+    )
+    assert parameterized_rates["deterministic"]["last-k"]["item_count"] == 1

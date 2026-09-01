@@ -18,7 +18,8 @@ historical-best and matched search do not repair.
 
 - Researcher, editable `policy/`, and frozen reader/evaluator remain separate.
 - The primary restricted arm uses the same canonical `PolicySpecV1` grammar for
-  researchers and matched controls. Open Python is a separate invention arm.
+  researchers and matched controls. Open-S (`seeds/open_s_v1/`) is a separate
+  folder-harness invention arm, not a substitute A2 cell.
 - Gate and sealed outcomes never generate or select a candidate.
 - Semantic context policy and KV/cache/scheduler optimization are separate
   tracks and leaderboards.
@@ -30,6 +31,10 @@ historical-best and matched search do not repair.
 
 ## Current state
 
+- Open-S harness seed (`seeds/open_s_v1/`, `docs/open-s-harness.md`) is
+  executable as an isolated folder track. The live visible cell is frozen in
+  `docs/open-s-visible-scenario.md` (reader-window pack, offset 64). It is not a
+  substitute for the two qualified A2 profiles or physical isolation.
 - Normative study contract and A2 preregistration exist; no formal A2 result has
   been run.
 - A2 allocation is frozen at 2 researchers × 2 profiles × 2 seeds × 5 slots,

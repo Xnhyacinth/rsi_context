@@ -8,10 +8,11 @@ import json
 import math
 import shutil
 import sys
+import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any, Final, cast
 
 from rsicontext.artifacts import Manifest, ManifestError
@@ -22,10 +23,13 @@ from rsicontext.security import PolicyAuditor, PolicySecurityError
 
 API_RESEARCHER_SYSTEM_PROMPT: Final = (
     "You are the context-policy researcher, not the question-answering reader. "
-    "Return exactly one JSON object with schema_version=1, policy_source containing the full "
-    "Python source for policy/policy.py, and manifest containing the complete researcher "
-    "manifest. Do not use Markdown fences, commentary, tool calls, or additional fields. "
-    "Do not answer any benchmark question. Generalize only from the visible research feedback."
+    "Return exactly one JSON object with schema_version=1, policy_source, and manifest. "
+    "policy_source may be a UTF-8 string that replaces policy/policy.py, or an object "
+    "mapping changed relative policy/*.py paths to complete source. Object payloads merge "
+    "onto the parent tree; omitted files stay as the parent. manifest must be the complete "
+    "researcher manifest. Do not use commentary, tool calls, or additional fields. Markdown "
+    "fences wrapping the JSON object are stripped if present. Do not answer any benchmark "
+    "question. Generalize only from the visible research feedback."
 )
 _RESPONSE_FIELDS: Final = {"manifest", "policy_source", "schema_version"}
 _MAX_POLICY_SOURCE_BYTES: Final = 256 * 1024
@@ -37,17 +41,26 @@ class APIResearcherError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class APIResearcherArtifact:
-    """One fully parsed policy and researcher manifest returned by the API."""
+    """One fully parsed policy tree and researcher manifest returned by the API."""
 
-    policy_source: str
+    files: tuple[tuple[str, str], ...]
     manifest: Manifest
+    merge_parent: bool = False
+
+    @property
+    def policy_source(self) -> str:
+        """Single-file source used by restricted submissions."""
+
+        if len(self.files) == 1 and self.files[0][0] == "policy.py":
+            return self.files[0][1]
+        raise APIResearcherError("multi-file policy_source has no single-file view")
 
     @classmethod
     def from_response(cls, response: str) -> APIResearcherArtifact:
-        """Parse one strict JSON response without accepting Markdown or coercions."""
+        """Parse one JSON object. Markdown fences wrapping the object are stripped."""
         try:
             raw: object = json.loads(
-                response,
+                _json_payload_text(response),
                 object_pairs_hook=_unique_object,
                 parse_constant=_reject_constant,
             )
@@ -59,11 +72,7 @@ class APIResearcherArtifact:
             raise APIResearcherError("API researcher response fields do not match the protocol")
         if raw.get("schema_version") != 1:
             raise APIResearcherError("API researcher schema_version must be 1")
-        source = raw.get("policy_source")
-        if not isinstance(source, str) or not source.strip() or "\x00" in source:
-            raise APIResearcherError("policy_source must be non-empty UTF-8 text")
-        if len(source.encode()) > _MAX_POLICY_SOURCE_BYTES:
-            raise APIResearcherError("policy_source exceeds the byte limit")
+        files, merge_parent = _parse_policy_source(raw.get("policy_source"))
         manifest_raw = raw.get("manifest")
         if not isinstance(manifest_raw, dict):
             raise APIResearcherError("manifest must be an object")
@@ -71,7 +80,7 @@ class APIResearcherArtifact:
             manifest = Manifest.from_dict(cast(dict[str, object], manifest_raw))
         except ManifestError as error:
             raise APIResearcherError("API researcher manifest is invalid") from error
-        return cls(policy_source=source, manifest=manifest)
+        return cls(files=files, manifest=manifest, merge_parent=merge_parent)
 
     def write_workspace(self, workspace: Path) -> None:
         """Validate completely, then replace only policy and manifest submission paths."""
@@ -86,13 +95,25 @@ class APIResearcherArtifact:
         for entry in policy_directory.rglob("*"):
             if entry.is_symlink() or (entry.is_file() and entry.suffix != ".py"):
                 raise APIResearcherError("existing policy tree contains an unsafe entry")
-        try:
-            PolicyAuditor().enforce_source(
-                self.policy_source,
-                filename=str(policy_directory.resolve() / "policy.py"),
-            )
-        except PolicySecurityError as error:
-            raise APIResearcherError("policy audit rejected the API researcher artifact") from error
+        parent_files = _existing_policy_files(policy_directory)
+        merged = dict(parent_files) if self.merge_parent else {}
+        merged.update(dict(self.files))
+        if "policy.py" not in merged:
+            raise APIResearcherError("policy_source object must include policy.py after merge")
+        if self.merge_parent and merged == parent_files:
+            raise APIResearcherError("policy_source did not change the parent policy tree")
+        with tempfile.TemporaryDirectory(prefix="rsicontext-api-policy-") as raw_directory:
+            staged = Path(raw_directory)
+            for relative, source in merged.items():
+                destination = staged / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(source, encoding="utf-8")
+            try:
+                PolicyAuditor().audit_tree(staged).require_safe()
+            except PolicySecurityError as error:
+                raise APIResearcherError(
+                    "policy audit rejected the API researcher artifact"
+                ) from error
 
         manifest_payload = (
             json.dumps(
@@ -105,9 +126,75 @@ class APIResearcherArtifact:
         )
         shutil.rmtree(policy_directory)
         policy_directory.mkdir()
-        (policy_directory / "policy.py").write_text(self.policy_source, encoding="utf-8")
+        for relative, source in merged.items():
+            destination = policy_directory / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(source, encoding="utf-8")
         with manifest_path.open("x", encoding="utf-8") as handle:
             handle.write(manifest_payload)
+
+
+def _json_payload_text(response: str) -> str:
+    text = response.strip()
+    if not text.startswith("```"):
+        return text
+    lines = text.splitlines()
+    if not lines or not lines[0].lstrip().startswith("```"):
+        return text
+    body = lines[1:]
+    if body and body[-1].strip() == "```":
+        body = body[:-1]
+    return "\n".join(body).strip()
+
+
+def _existing_policy_files(policy_directory: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for entry in sorted(policy_directory.rglob("*.py")):
+        if not entry.is_file():
+            continue
+        relative = entry.relative_to(policy_directory).as_posix()
+        files[relative] = entry.read_text(encoding="utf-8")
+    return files
+
+
+def _parse_policy_source(source: object) -> tuple[tuple[tuple[str, str], ...], bool]:
+    if isinstance(source, str):
+        _require_policy_text(source)
+        return ((("policy.py", source),), False)
+    if not isinstance(source, dict) or not source:
+        raise APIResearcherError("policy_source must be a non-empty string or object")
+    files: dict[str, str] = {}
+    total = 0
+    for raw_path, text in source.items():
+        if not isinstance(raw_path, str) or not isinstance(text, str):
+            raise APIResearcherError("policy_source object keys and values must be strings")
+        _require_policy_text(text)
+        relative = _safe_policy_relative_path(raw_path)
+        if relative in files:
+            raise APIResearcherError(f"policy_source contains a duplicate path: {relative}")
+        files[relative] = text
+        total += len(text.encode())
+    if total > _MAX_POLICY_SOURCE_BYTES:
+        raise APIResearcherError("policy_source exceeds the byte limit")
+    return (tuple(sorted(files.items())), True)
+
+
+def _require_policy_text(source: str) -> None:
+    if not source.strip() or "\x00" in source:
+        raise APIResearcherError("policy_source must be non-empty UTF-8 text")
+    if len(source.encode()) > _MAX_POLICY_SOURCE_BYTES:
+        raise APIResearcherError("policy_source exceeds the byte limit")
+
+
+def _safe_policy_relative_path(raw_path: str) -> str:
+    path = PurePosixPath(raw_path)
+    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+        raise APIResearcherError(f"policy path must be safe and relative: {raw_path!r}")
+    if path.parts[0] == "policy":
+        path = PurePosixPath(*path.parts[1:])
+    if not path.parts or path.suffix != ".py":
+        raise APIResearcherError(f"policy path must be a relative .py file: {raw_path!r}")
+    return path.as_posix()
 
 
 @dataclass(frozen=True, slots=True)

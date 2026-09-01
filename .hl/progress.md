@@ -1,5 +1,52 @@
 # Progress
 
+## 2026-09-01 window-envelope open-S repair
+
+- Dropped pack-8K as the open-S evolution envelope. Full-as-fits, RAG,
+  truncation, and hybrid pack share the frozen reader window (hy3: 128960).
+- Fixed failed self-evolution: identical parent trees are invalid; API
+  `policy_source` objects merge onto the parent; Markdown fences are stripped;
+  researcher output cap is 32768. Prompt no longer invites a hold copy.
+- Frozen the live task in `docs/open-s-visible-scenario.md` (PopQA unique,
+  min-rank 200, offset 64, 8 items, 5 rounds). Historical 8K landscape and the
+  failed offset-56 campaign stay locked.
+
+## 2026-09-01 hy3 visible open-S analysis
+
+- Reviewed fairness/determinism in `docs/hy3-visible-open-s-preregistration.md`.
+  Skipped the locked 40-item diagnostic panel. Verifier is `extractive_span_match`.
+  hy3 reader and researcher stay on separate API profiles.
+- Frozen landscape (`results/hy3-popqa-frozen-open-s-20260901/`): 16 unseen
+  PopQA k1000 items, 64 interleaved reader calls. Scores: open-S H0 0.500,
+  head 0.3125, head-tail 0.375, hand-hybrid 0.625. Gold recall 0.4375 / 0 / 0 /
+  0.4375. Not official HELMET; `rsi_launch_eligible=false`.
+- Dual-role campaign (`results/open-s-hy3-popqa-visible-20260901/`): 8 further
+  items, 2 rounds. H0 0.375; r0 resubmitted identical seed (hold); r1 process
+  exit 1, no reader calls. `discovery_gain=0`. Do not claim researcher advantage.
+- LongMemEval-V2 small pack (`results/lme-v2-small-pack-20260901/`, 0 reader
+  calls): 422 text items. Deterministic 294 answer-string rates last-k/lexical/
+  random = 0.112 / 0.408 / 0.361. Weak 128 all 0.0. Not official LongMemEval.
+
+## 2026-09-01 open-S harness seed
+
+- Locked a separate open-S track (`open-s-harness-v1`): each trajectory copies a
+  byte-identical `seeds/open_s_v1/` tree into an isolated workspace. Restricted
+  `policy/seed.py` A2 is unchanged and remains a different leaderboard.
+- Auditor now allows sibling modules present in the same tree and submodules of
+  allowlisted packages (`rsicontext.policy.open_s`, `collections.abc`). The
+  fresh worker appends the audited tree to `sys.path` without stdlib shadowing.
+- Frozen operators: retrieve, map_shards, merge_ranked, route_skill,
+  record_working_set, pack_spans. H0 wires them with identity sharding.
+- Local tests cover digest isolation, H0 fresh-process scoring, campaign
+  snapshot, and a hy3 script skip path. No 2×2×2×5 launch.
+- hy3-ioa H0 canary (`results/open-s-h0-hy3-20260901/summary.json`): prediction
+  `amber`, score 1.0, 67 input / 2 output tokens, `qualification_only`,
+  `rsi_launch_eligible=false`. This is not researcher discovery.
+- Cleaned regenerable caches and moved superseded hy3 researcher v1–v3 plus
+  MuSiQue offline v1–v3 into `artifacts/_superseded/`. Locked cells stayed put.
+- Wired `policy_track="open-s"` into the autonomous prompt and allowed API
+  researchers to return a multi-file `policy_source` object.
+
 ## 2026-08-29 unified local/API reader preparation
 
 - Audited the existing zero-dependency OpenAI-compatible reader, strict API

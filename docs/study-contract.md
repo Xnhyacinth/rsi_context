@@ -56,6 +56,7 @@ at different intervention loci:
 | [PostTrainBench](https://arxiv.org/abs/2603.08640) | full post-training pipeline                                     | 10 hours on one H100 per run; held-out evaluation                                            | isolates one information-interface locus instead of granting control over training and infrastructure                  |
 | [RSIBench-Data](https://arxiv.org/abs/2607.25886)  | training data and whitelisted config                            | shared training/evaluation, nominal 16 hours and $500 per run                                | removes checkpoint-training variance and tests context-policy discovery and retention                                  |
 | [Recuris](https://arxiv.org/abs/2608.24876)        | experiential/working memory, invocation, checkers               | fixed model and outer improver; held-out admission gate                                      | compares multiple general researchers against matched search and measures replay noise, manifests, and sealed transfer |
+| Scientist's Last Exam (protocol cousin)            | scientific `solution.py` under a hidden domain verifier         | frozen executable oracle; open-loop saturation admission; score/validity-only next-round feedback | same isolation grammar at a different locus: long-context compiler `H` plus frozen reader, not a scientific simulator |
 | RSIBench-Context                                   | `H`: select, expand, allocate, order, compress, verify, abstain | fixed reader/evaluator, candidate slots, per-turn timeout, target-call budget, isolated gate | the benchmark and discovery-reliability analysis are the contribution                                                  |
 
 Recuris closes the broad claim that external memory-control evolution for
@@ -71,7 +72,7 @@ measured noise floor?
 | Surface            | Contract                                                                                                                                            |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | researcher `R`     | model snapshot/alias, scaffold version, reasoning effort, prompt, tools, network mode, turn timeout, and start state are frozen within a trajectory |
-| policy `H`         | only top-level `policy/*.py`; restricted primary submissions select a canonical `PolicySpecV1`; a separate open-program arm may invent operators    |
+| policy `H`         | only top-level `policy/*.py`; restricted primary submissions select a canonical `PolicySpecV1`; the open-S harness track (`docs/open-s-harness.md`) starts from a byte-identical `seeds/open_s_v1/` folder and may invent operators, still under one target-reader call |
 | submission         | audited policy plus `manifest.json`; duplicate, invalid, timed-out, or missing submissions consume a slot                                           |
 | reader `M0`        | weights/revision, tokenizer, chat template, thinking mode, prompt builder, decode, output cap, serving profile, and one-call contract are frozen    |
 | evaluator `E`      | splits, labels, official metric, policy interpreter, promotion rule, causal instruments, and statistical analysis are frozen                        |

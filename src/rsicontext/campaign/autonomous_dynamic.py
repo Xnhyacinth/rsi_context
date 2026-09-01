@@ -53,6 +53,7 @@ from rsicontext.experiment.rsi_run import (
     contract_file_sha256,
     policy_tree_sha256,
 )
+from rsicontext.open_s import open_s_researcher_prompt, reject_unchanged_open_s_tree
 from rsicontext.policy import Budget, ContextPack
 from rsicontext.researcher import (
     ClaudeCommandBuilder,
@@ -76,6 +77,7 @@ if TYPE_CHECKING:
 
 ResearcherKind = Literal["codex", "claude", "api"]
 ArtifactDelivery = Literal["workspace", "api-json"]
+PolicyTrack = Literal["restricted", "open-s"]
 _MAX_RESEARCHER_PROMPT_BYTES = 2_000_000
 
 
@@ -312,6 +314,7 @@ class DynamicResearcherCallback:
     api_profiles_path: Path | None = None
     api_profile_id: str | None = None
     max_prompt_bytes: int = _MAX_RESEARCHER_PROMPT_BYTES
+    policy_track: PolicyTrack = "restricted"
     post_turn_integrity_check: Callable[[], bool] | None = None
     evaluation_observations: list[DynamicEvaluationObservation] = field(default_factory=list)
     prompts: list[ResearcherPromptRecord] = field(default_factory=list, init=False)
@@ -329,6 +332,7 @@ class DynamicResearcherCallback:
             self.visible_feedback,
             prior,
             artifact_delivery="api-json" if self.researcher_kind == "api" else "workspace",
+            policy_track=self.policy_track,
         )
         if len(prompt.encode()) > self.max_prompt_bytes:
             raise ResearcherTurnError("researcher prompt exceeds the frozen byte budget")
@@ -364,6 +368,7 @@ class DynamicResearcherCallback:
             ).build(researcher_request)
         else:
             raise ValueError(f"unsupported researcher kind: {self.researcher_kind}")
+        parent_policy_sha256 = policy_tree_sha256(request.policy_directory)
         process_started = time.perf_counter()
         try:
             result = run_researcher_process(
@@ -394,6 +399,11 @@ class DynamicResearcherCallback:
             raise
         self.results.append(result)
         try:
+            if self.policy_track == "open-s":
+                try:
+                    reject_unchanged_open_s_tree(parent_policy_sha256, request.policy_directory)
+                except ValueError as error:
+                    raise ResearcherTurnError(str(error)) from error
             _reject_visible_hardcoding(request.policy_directory, self.visible_feedback)
         finally:
             if self.post_turn_integrity_check is not None and not self.post_turn_integrity_check():
@@ -617,6 +627,7 @@ def run_autonomous_dynamic_pilot(
     token_axis_identity: Mapping[str, object] | None = None,
     max_researcher_prompt_bytes: int = _MAX_RESEARCHER_PROMPT_BYTES,
     require_attested_identities: bool = False,
+    policy_track: PolicyTrack = "restricted",
 ) -> AutonomousDynamicPilotResult:
     """Run a visible qualification with an actual researcher CLI process."""
 
@@ -761,6 +772,7 @@ def run_autonomous_dynamic_pilot(
             api_profiles_path=effective_api_profiles_path,
             api_profile_id=researcher_api_profile_id,
             max_prompt_bytes=max_researcher_prompt_bytes,
+            policy_track=policy_track,
             post_turn_integrity_check=integrity_check,
             evaluation_observations=evaluator.observations,
         )
@@ -869,7 +881,10 @@ def _build_research_prompt(
     prior: DynamicEvaluationObservation | None,
     *,
     artifact_delivery: ArtifactDelivery = "workspace",
+    policy_track: PolicyTrack = "restricted",
 ) -> str:
+    if policy_track not in {"restricted", "open-s"}:
+        raise ValueError(f"unsupported policy track: {policy_track}")
     item_ids = tuple(item.item_id for item in feedback)
     if item_ids != request.prediction_item_ids:
         raise ValueError("research prompt item order does not match the campaign contract")
@@ -907,12 +922,24 @@ def _build_research_prompt(
         }
         if not parent_policy:
             raise ValueError("API researcher parent policy is empty")
+        if policy_track == "open-s":
+            source_instruction = (
+                "Do not modify the workspace or call tools. Return exactly one JSON artifact with "
+                "schema_version=1, policy_source as an object of changed relative policy/*.py "
+                "paths (omitted files stay as the parent), and manifest containing the complete "
+                "manifest object. The exact parent policy tree is included below. You must change "
+                "at least one policy file; identical parent copies are invalid.\n"
+            )
+        else:
+            source_instruction = (
+                "Do not modify the workspace or call tools. Return exactly one JSON artifact with "
+                "schema_version=1, policy_source containing the complete policy/policy.py source, "
+                "and manifest containing the complete manifest object. The exact parent policy is "
+                "included below; preserve it unless your stated hypothesis requires a change.\n"
+            )
         delivery = (
-            "Do not modify the workspace or call tools. Return exactly one JSON artifact with "
-            "schema_version=1, policy_source containing the complete policy/policy.py source, "
-            "and manifest containing the complete manifest object. The exact parent policy is "
-            "included below; preserve it unless your stated hypothesis requires a change.\n"
-            "PARENT_POLICY_BEGIN\n"
+            source_instruction
+            + "PARENT_POLICY_BEGIN\n"
             + json.dumps(parent_policy, ensure_ascii=False, indent=2, sort_keys=True)
             + "\nPARENT_POLICY_END\n"
         )
@@ -922,10 +949,17 @@ def _build_research_prompt(
         )
     else:
         raise ValueError(f"unsupported artifact delivery: {artifact_delivery}")
+    track_prefix = open_s_researcher_prompt() + "\n" if policy_track == "open-s" else ""
+    frozen_line = (
+        "The reader, decoding, metric, pack envelope, and item labels are frozen.\n"
+        if policy_track == "open-s"
+        else "The reader, decoding, metric, 8192-token budget, and item labels are frozen.\n"
+    )
     return (
-        "You are the context-policy researcher, not the question-answering reader.\n"
-        "The reader, decoding, metric, 8192-token budget, and item labels are frozen.\n"
-        "You choose the next hypothesis for compiler H: select, order, cover, abstain, "
+        track_prefix
+        + "You are the context-policy researcher, not the question-answering reader.\n"
+        + frozen_line
+        + "You choose the next hypothesis for compiler H: select, order, cover, abstain, "
         "and format of packed evidence. You do not choose extra reader calls; the evaluator "
         "returns one score per candidate. Put the hypothesis in mechanisms[0].description. "
         "The next round starts from your last attempt even if it regressed; historical-best "
@@ -940,8 +974,9 @@ def _build_research_prompt(
         "ContextPack(spans=tuple(selected_chunks), ordering=tuple(chunk.chunk_id for chunk in "
         "selected_chunks), token_count=sum(chunk.token_count for chunk in selected_chunks)).\n"
         "The policy must pass a fail-closed AST audit. Do not use from __future__ imports. "
-        "Allowed imports are collections, dataclasses, functools, heapq, itertools, json, "
-        "math, operator, re, statistics, string, typing, and rsicontext.policy. "
+        "Allowed imports are the PolicyAuditor allowlist (collections, dataclasses, functools, "
+        "heapq, itertools, json, math, operator, pathlib, re, statistics, string, typing, "
+        "rsicontext.policy and its submodules) plus sibling .py modules in the same policy tree. "
         "Keep module/class constants to immutable literals or tuples; construct regexes, "
         "sets, counters, and other containers inside functions. Builtin compile, eval, "
         "exec, and getattr are forbidden; re.compile and re.findall inside functions are "

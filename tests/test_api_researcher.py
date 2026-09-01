@@ -101,7 +101,7 @@ def test_researcher_profile_is_distinct_from_reader_but_uses_same_alias() -> Non
     assert researcher.model == reader.model == "hy3-ioa"
     assert researcher.endpoint_env == reader.endpoint_env
     assert researcher.api_key_env == reader.api_key_env
-    assert researcher.max_output_tokens == 8192
+    assert researcher.max_output_tokens == 32768
     assert researcher.profile_hash != reader.profile_hash
     assert len(api_researcher_system_prompt_hash()) == 64
     assert "question-answering reader" in API_RESEARCHER_SYSTEM_PROMPT
@@ -125,10 +125,102 @@ def test_api_artifact_parser_and_writer_replace_only_policy_and_manifest(tmp_pat
     assert sorted(path.name for path in workspace.iterdir()) == ["manifest.json", "policy"]
 
 
+def test_api_artifact_writer_accepts_a_multi_file_policy_tree(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    policy = workspace / "policy"
+    policy.mkdir(parents=True)
+    (policy / "seed.py").write_text("VALUE = 0\n", encoding="utf-8")
+    payload = json.dumps(
+        {
+            "schema_version": 1,
+            "policy_source": {
+                "policy.py": (
+                    "from retrieval import rank\n"
+                    "from rsicontext.policy import ContextPack\n\n"
+                    "class Policy:\n"
+                    "    def assemble(self, artifact, query, budget):\n"
+                    "        del query, budget\n"
+                    "        spans = rank(artifact.chunks)\n"
+                    "        return ContextPack(spans=spans, ordering=(spans[0].chunk_id,), "
+                    "token_count=spans[0].token_count)\n"
+                ),
+                "retrieval.py": (
+                    "def rank(chunks):\n"
+                    "    return chunks[:1]\n"
+                ),
+            },
+            "manifest": _manifest(),
+        }
+    )
+
+    APIResearcherArtifact.from_response(payload).write_workspace(workspace)
+
+    assert sorted(path.name for path in policy.iterdir()) == [
+        "policy.py",
+        "retrieval.py",
+        "seed.py",
+    ]
+    assert "from retrieval import rank" in (policy / "policy.py").read_text(encoding="utf-8")
+    assert (policy / "seed.py").read_text(encoding="utf-8") == "VALUE = 0\n"
+
+
+def test_api_artifact_parser_strips_markdown_fences(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    policy = workspace / "policy"
+    policy.mkdir(parents=True)
+    (policy / "seed.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
+
+    APIResearcherArtifact.from_response(f"```json\n{_artifact_response()}\n```").write_workspace(
+        workspace
+    )
+
+    assert "LexicalPolicy" in (policy / "policy.py").read_text(encoding="utf-8")
+
+
+def test_api_artifact_object_payload_merges_changed_files_only(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    policy = workspace / "policy"
+    policy.mkdir(parents=True)
+    (policy / "policy.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
+    (policy / "retrieval.py").write_text("RANKED = False\n", encoding="utf-8")
+    payload = json.dumps(
+        {
+            "schema_version": 1,
+            "policy_source": {"retrieval.py": "RANKED = True\n"},
+            "manifest": _manifest(),
+        }
+    )
+
+    APIResearcherArtifact.from_response(payload).write_workspace(workspace)
+
+    assert (policy / "policy.py").read_text(encoding="utf-8") == "class Policy:\n    pass\n"
+    assert (policy / "retrieval.py").read_text(encoding="utf-8") == "RANKED = True\n"
+
+
+def test_api_artifact_object_payload_rejects_identical_parent_tree(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    policy = workspace / "policy"
+    policy.mkdir(parents=True)
+    (policy / "policy.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
+    payload = json.dumps(
+        {
+            "schema_version": 1,
+            "policy_source": {"policy.py": "class Policy:\n    pass\n"},
+            "manifest": _manifest(),
+        }
+    )
+
+    with pytest.raises(APIResearcherError, match="did not change the parent policy tree"):
+        APIResearcherArtifact.from_response(payload).write_workspace(workspace)
+
+    assert (policy / "policy.py").read_text(encoding="utf-8") == "class Policy:\n    pass\n"
+    assert not (workspace / "manifest.json").exists()
+
+
 @pytest.mark.parametrize(
     ("response", "message"),
     [
-        ("```json\n{}\n```", "valid JSON"),
+        ("```json\n{}\n```", "fields"),
         (json.dumps({"schema_version": 1}), "fields"),
         (
             _artifact_response(policy_source="import os\nclass Policy:\n    pass\n"),
@@ -183,7 +275,7 @@ def test_api_researcher_turn_freezes_request_and_records_identity(tmp_path: Path
     assert result.elapsed_seconds == pytest.approx(0.5)
     assert requests[0]["temperature"] == 0.0
     assert requests[0]["seed"] == 42
-    assert requests[0]["max_tokens"] == 8192
+    assert requests[0]["max_tokens"] == 32768
     messages = cast(list[dict[str, object]], requests[0]["messages"])
     assert messages[0]["content"] == API_RESEARCHER_SYSTEM_PROMPT
     assert messages[1]["content"] == "visible research prompt"

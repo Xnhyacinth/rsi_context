@@ -68,3 +68,10 @@
   file modes alone never count as formal researcher isolation.
 - Ruff excludes immutable experiment results; candidate bytes are checked by PolicyAuditor
   and replay hashes rather than rewritten to satisfy repository style.
+- Open-S visible evolution uses the reader-window pack envelope. Do not relaunch
+  that track with `--pack-tokens 8192`.
+- An open-S researcher turn that resubmits the parent policy tree is invalid,
+  even if the manifest says hold.
+- Locked 8K landscape / offset-56 campaign / LME pack artifacts must not be
+  overwritten. New window-envelope runs use a new output directory and offset 64.
+

@@ -1,5 +1,27 @@
 # Findings
 
+- Pack-8K is a historical HELMET instrument, not the open-S evolution envelope.
+  Full-as-fits long context is a legal strategy; the live cell uses the frozen
+  reader window (hy3 pack 128960). Items longer than the window still need fit.
+- The 8K dual-role campaign did not self-evolve: round 0 was a byte-identical
+  H0 hold invited by "preserve files unless changing"; round 1 exited 1 before
+  a scorable tree. Identical parent copies are now invalid; object payloads merge.
+- On 16 unseen PopQA k1000 items, frozen open-S H0 (query overlap) scored 0.500
+  versus head 0.3125 and head-tail 0.375; the handwritten BM25+2hop hybrid scored
+  0.625 with the same 0.4375 gold-chunk recall as H0. Overlap retrieve is not
+  BM25. Head truncation packed zero gold chunks. This is a one-pass hy3 landscape,
+  not researcher advantage.
+- LongMemEval-V2 small 8K packs, zero reader: on the 294 deterministic items,
+  answer-string presence was last-k 0.112, lexical 0.408, random 0.361. All 128
+  weak-judge items were 0. This is coverage of the answer string, not official
+  accuracy, and not a researcher loop.
+
+- Open-S is harness evolution of a folder strategy system S under a frozen
+  reader, not a new Recuris-style method claim. Borrow archive/clone isolation
+  and rewritable retrieve/route/memory files; do not leak gate scores, uncounted
+  evals, extra reader calls, or internet tools. Report it separately from
+  PolicySpecV1 A2. An open folder is not researcher advantage until it beats
+  matched sampling and sequential refinement (2607.12227).
 - Recuris removes any defensible novelty claim around first external
   context/memory evolution or first frozen-model long-horizon improvement. The
   remaining D&B gap is a multi-researcher, matched-search, replay-calibrated,

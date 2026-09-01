@@ -147,6 +147,7 @@ def select_helmet_kilt_records(
     limit: int,
     unique_queries: bool = True,
     min_gold_passage_index: int = 0,
+    offset: int = 0,
 ) -> tuple[HelmetRagRecord, ...]:
     """Drop HELMET depth clones and prefix-planted gold rows.
 
@@ -163,8 +164,11 @@ def select_helmet_kilt_records(
         or min_gold_passage_index < 0
     ):
         raise ValueError("min_gold_passage_index must be a non-negative integer")
+    if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+        raise ValueError("offset must be a non-negative integer")
     selected: list[HelmetRagRecord] = []
     seen: set[str] = set()
+    needed = offset + limit
     for record in records:
         if unique_queries and record.query in seen:
             continue
@@ -174,11 +178,11 @@ def select_helmet_kilt_records(
         if unique_queries:
             seen.add(record.query)
         selected.append(record)
-        if len(selected) >= limit:
+        if len(selected) >= needed:
             break
-    if len(selected) < limit:
+    if len(selected) < needed:
         raise ValueError("not enough unique HELMET KILT records after gold-rank filtering")
-    return tuple(selected)
+    return tuple(selected[offset:])
 
 
 def load_helmet_kilt_items(
@@ -189,6 +193,7 @@ def load_helmet_kilt_items(
     tokenizer: EncodedWindowTokenizer,
     unique_queries: bool = True,
     min_gold_passage_index: int = 0,
+    offset: int = 0,
     tokens_per_chunk: int = 512,
 ) -> tuple[EvaluationItem, ...]:
     """Load, select, and compile one pinned HELMET KILT JSONL cell."""
@@ -212,6 +217,7 @@ def load_helmet_kilt_items(
         limit=limit,
         unique_queries=unique_queries,
         min_gold_passage_index=min_gold_passage_index,
+        offset=offset,
     )
 
     def token_count(text: str) -> int:

@@ -27,6 +27,16 @@ from rsicontext.datasets.helmet_rag import (
 )
 from rsicontext.eval import EvaluationItem, extractive_span_match
 from rsicontext.experiment import build_profile_reader, load_api_profiles, resolve_api_endpoint
+from rsicontext.open_s import (
+    OPEN_S_VISIBLE_CELL_ID,
+    OPEN_S_VISIBLE_ITEM_OFFSET,
+    OPEN_S_VISIBLE_MAX_ITEMS,
+    OPEN_S_VISIBLE_MIN_GOLD_RANK,
+    OPEN_S_VISIBLE_READER_OUTPUT_TOKENS,
+    OPEN_S_VISIBLE_READER_TIMEOUT_SECONDS,
+    OPEN_S_VISIBLE_ROUNDS,
+    resolve_pack_budget_tokens,
+)
 from rsicontext.policy import Budget
 from rsicontext.registry import load_registry, load_serving_profiles
 from rsicontext.registry.tokenizer import verify_tokenizer_snapshot
@@ -69,11 +79,11 @@ _TOKENIZER_CLASS = "transformers.models.qwen2.tokenization_qwen2.Qwen2Tokenizer"
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--cell", choices=tuple(_CELLS), default="helmet-rag-popqa-k1000-to-8k")
-    parser.add_argument("--max-items", type=int, default=8)
+    parser.add_argument("--cell", choices=tuple(_CELLS), default=OPEN_S_VISIBLE_CELL_ID)
+    parser.add_argument("--max-items", type=int, default=None)
     parser.add_argument("--unique-queries", action="store_true", default=True)
     parser.add_argument("--no-unique-queries", action="store_false", dest="unique_queries")
-    parser.add_argument("--min-gold-rank", type=int, default=200)
+    parser.add_argument("--min-gold-rank", type=int, default=None)
     parser.add_argument("--tokenizer-path", type=Path, default=Path("models/qwen3.6-27b"))
     parser.add_argument("--profile", default="tencent-copilot-hy3-ioa")
     parser.add_argument("--profiles", type=Path, default=Path("configs/api_profiles.json"))
@@ -85,6 +95,14 @@ def _parser() -> argparse.ArgumentParser:
         default=Path("configs/serving_profiles.json"),
     )
     parser.add_argument("--initial-policy", type=Path, default=Path("policy"))
+    parser.add_argument(
+        "--policy-track",
+        choices=("restricted", "open-s"),
+        default="restricted",
+    )
+    parser.add_argument("--item-offset", type=int, default=None)
+    parser.add_argument("--reader-max-output-tokens", type=int)
+    parser.add_argument("--reader-timeout-seconds", type=float)
     parser.add_argument("--researcher", choices=("api", "codex", "claude"), default="api")
     parser.add_argument("--researcher-executable")
     parser.add_argument("--researcher-model")
@@ -94,9 +112,9 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--researcher-env", action="append", default=[])
     parser.add_argument("--max-budget-usd", type=float)
-    parser.add_argument("--rounds", type=int, default=5)
+    parser.add_argument("--rounds", type=int, default=None)
     parser.add_argument("--researcher-timeout-seconds", type=float, default=1800.0)
-    parser.add_argument("--pack-tokens", type=int, default=8192)
+    parser.add_argument("--pack-tokens", type=int, default=None)
     return parser
 
 
@@ -130,6 +148,7 @@ def _load_items(
     tokenizer: EncodedWindowTokenizer,
     unique_queries: bool,
     min_gold_rank: int,
+    offset: int = 0,
 ) -> tuple[EvaluationItem, ...]:
     source, prefix = _CELLS[cell_id]
     return load_helmet_kilt_items(
@@ -139,6 +158,7 @@ def _load_items(
         tokenizer=tokenizer,
         unique_queries=unique_queries,
         min_gold_passage_index=min_gold_rank,
+        offset=offset,
     )
 
 
@@ -188,31 +208,67 @@ def main() -> int:
     )
     if not executable:
         raise RuntimeError(f"researcher executable is unavailable: {args.researcher}")
+    open_s = args.policy_track == "open-s"
+    max_items = (
+        args.max_items
+        if args.max_items is not None
+        else (OPEN_S_VISIBLE_MAX_ITEMS if open_s else 8)
+    )
+    item_offset = (
+        args.item_offset
+        if args.item_offset is not None
+        else (OPEN_S_VISIBLE_ITEM_OFFSET if open_s else 0)
+    )
+    min_gold_rank = (
+        args.min_gold_rank
+        if args.min_gold_rank is not None
+        else OPEN_S_VISIBLE_MIN_GOLD_RANK
+    )
+    rounds = (
+        args.rounds if args.rounds is not None else (OPEN_S_VISIBLE_ROUNDS if open_s else 5)
+    )
+    output_limit = args.reader_max_output_tokens
+    if output_limit is None:
+        output_limit = (
+            OPEN_S_VISIBLE_READER_OUTPUT_TOKENS if open_s else dynamic_reader_output_limit(profile)
+        )
+    pack_tokens = resolve_pack_budget_tokens(
+        pack_tokens=args.pack_tokens,
+        policy_track=args.policy_track,
+        max_model_len=profile.evaluation_max_model_len,
+        max_output_tokens=output_limit,
+    )
+    reader_timeout = args.reader_timeout_seconds
+    if reader_timeout is None:
+        reader_timeout = OPEN_S_VISIBLE_READER_TIMEOUT_SECONDS if open_s else 180.0
     tokenizer_snapshot = verify_tokenizer_snapshot(args.tokenizer_path, _TOKENIZER_FILES)
     tokenizer_id = f"{_TOKENIZER_REVISION}#tokenizer-files-sha256:{tokenizer_snapshot}"
     tokenizer = _load_tokenizer(args.tokenizer_path)
     items = _load_items(
         cell_id=args.cell,
-        limit=args.max_items,
+        limit=max_items,
         tokenizer=tokenizer,
         unique_queries=args.unique_queries,
-        min_gold_rank=args.min_gold_rank,
+        min_gold_rank=min_gold_rank,
+        offset=item_offset,
     )
     if verify_tokenizer_snapshot(args.tokenizer_path, _TOKENIZER_FILES) != tokenizer_snapshot:
         raise RuntimeError("canonical tokenizer snapshot changed during item compilation")
     fingerprint = public_visible_items_fingerprint(
-        cell_id=f"{args.cell}-unique{int(args.unique_queries)}-minrank{args.min_gold_rank}",
+        cell_id=(
+            f"{args.cell}-unique{int(args.unique_queries)}-minrank{min_gold_rank}"
+            f"-offset{item_offset}-track{args.policy_track}-pack{pack_tokens}"
+        ),
         items=items,
-        pack_budget_tokens=args.pack_tokens,
+        pack_budget_tokens=pack_tokens,
         scorer_name="extractive_span_match",
         token_axis_id=tokenizer_id,
     )
-    output_limit = dynamic_reader_output_limit(profile)
     reader = build_profile_reader(
         profile,
         endpoint,
         max_tokens=output_limit,
-        timeout_seconds=180.0,
+        timeout_seconds=reader_timeout,
     )
     result = run_autonomous_dynamic_pilot(
         initial_policy_directory=args.initial_policy,
@@ -231,8 +287,8 @@ def main() -> int:
         visible_items=items,
         dataset_fingerprint=fingerprint,
         scorer=extractive_span_match,
-        rounds=args.rounds,
-        budget=Budget(args.pack_tokens),
+        rounds=rounds,
+        budget=Budget(pack_tokens),
         process_limits=ProcessLimits(timeout_seconds=args.researcher_timeout_seconds),
         reader_identity=DynamicReaderIdentity.from_profile(
             profile,
@@ -245,6 +301,7 @@ def main() -> int:
             "label": "qwen-canonical-token-axis",
             "tokenizer_id": tokenizer_id,
         },
+        policy_track=args.policy_track,
     )
     print(
         json.dumps(

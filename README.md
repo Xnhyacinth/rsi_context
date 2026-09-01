@@ -231,9 +231,13 @@ evaluator.
 
 ## Researcher boundary
 
-The initial editable artifact is `policy/seed.py`. A researcher may change only
-Python files in a staged policy directory and must submit a manifest matching
-`schemas/manifest.schema.json`. `PolicyAuditor` is a fail-closed static gate,
+The initial editable artifact for restricted A2 is `policy/seed.py`. The open-S
+harness track starts each trajectory from a byte-identical `seeds/open_s_v1/`
+copy; see `docs/open-s-harness.md` and the frozen visible card
+`docs/open-s-visible-scenario.md`. Open-S pack budget is the frozen reader
+window, not 8K. It is a separate leaderboard. A researcher
+may change only Python files in a staged policy directory and must submit a
+manifest matching `schemas/manifest.schema.json`. `PolicyAuditor` is a fail-closed static gate,
 not a proof that arbitrary Python is safe to execute. It is a precheck before
 the isolated evaluator required by formal gate/sealed runs. Host-level namespace
 observations do not prove that the scored candidate worker cannot read hidden

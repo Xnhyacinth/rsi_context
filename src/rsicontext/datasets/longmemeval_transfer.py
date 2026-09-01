@@ -24,6 +24,7 @@ class OfflinePackComparison:
     packed_chunks: int
     token_count: int
     answer_string_present: bool
+    eval_function: str | None = None
 
 
 def last_k_pack(artifact: Artifact, budget: Budget, *, k: int) -> ContextPack:
@@ -74,6 +75,7 @@ def compare_offline_pack(
     question_id: str,
     pack: ContextPack,
     answer: str,
+    eval_function: str | None = None,
 ) -> OfflinePackComparison:
     return OfflinePackComparison(
         policy_name=policy_name,
@@ -81,7 +83,54 @@ def compare_offline_pack(
         packed_chunks=len(pack.spans),
         token_count=pack.token_count,
         answer_string_present=answer_string_present(pack, answer),
+        eval_function=eval_function,
     )
+
+
+def eval_function_family(eval_function: str) -> str:
+    """Return the official evaluator name, dropping LongMemEval parameter suffixes."""
+
+    if not isinstance(eval_function, str) or not eval_function.strip():
+        raise ValueError("eval_function must be a non-empty string")
+    return eval_function.split("|", 1)[0]
+
+
+def summarize_offline_pack_rates(
+    rows: Sequence[OfflinePackComparison],
+    *,
+    deterministic_evaluators: frozenset[str],
+    weak_evaluators: frozenset[str],
+) -> dict[str, dict[str, dict[str, float | int]]]:
+    """Aggregate answer-string presence by policy and evaluator stratum."""
+
+    grouped: dict[str, dict[str, list[OfflinePackComparison]]] = {
+        "deterministic": {},
+        "weak": {},
+        "all": {},
+    }
+    for row in rows:
+        family = eval_function_family(row.eval_function or "")
+        if family in deterministic_evaluators:
+            stratum = "deterministic"
+        elif family in weak_evaluators:
+            stratum = "weak"
+        else:
+            raise ValueError(f"unknown LongMemEval eval_function: {row.eval_function!r}")
+        grouped[stratum].setdefault(row.policy_name, []).append(row)
+        grouped["all"].setdefault(row.policy_name, []).append(row)
+
+    def _rate(policy_rows: Sequence[OfflinePackComparison]) -> dict[str, float | int]:
+        present = sum(row.answer_string_present for row in policy_rows)
+        return {
+            "answer_string_present_count": present,
+            "item_count": len(policy_rows),
+            "rate": present / len(policy_rows) if policy_rows else 0.0,
+        }
+
+    return {
+        stratum: {name: _rate(policy_rows) for name, policy_rows in policies.items()}
+        for stratum, policies in grouped.items()
+    }
 
 
 def _fit(chunks: Sequence[DocumentChunk], budget: Budget) -> tuple[DocumentChunk, ...]:
