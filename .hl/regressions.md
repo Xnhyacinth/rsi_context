@@ -72,6 +72,7 @@
   that track with `--pack-tokens 8192`.
 - An open-S researcher turn that resubmits the parent policy tree is invalid,
   even if the manifest says hold.
-- New mode-search open-S runs use a new output directory and offset 72.
+- New autonomous open-S runs use a new output directory and offset 72.
   Do not overwrite window-b (offset 64) or the 128960 abort cell.
+  Do not inject method catalogs or mid-run strategy hints into the researcher.
 

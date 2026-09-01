@@ -315,6 +315,7 @@ class DynamicResearcherCallback:
     api_profile_id: str | None = None
     max_prompt_bytes: int = _MAX_RESEARCHER_PROMPT_BYTES
     policy_track: PolicyTrack = "restricted"
+    candidate_slots: int | None = None
     post_turn_integrity_check: Callable[[], bool] | None = None
     evaluation_observations: list[DynamicEvaluationObservation] = field(default_factory=list)
     prompts: list[ResearcherPromptRecord] = field(default_factory=list, init=False)
@@ -333,6 +334,7 @@ class DynamicResearcherCallback:
             prior,
             artifact_delivery="api-json" if self.researcher_kind == "api" else "workspace",
             policy_track=self.policy_track,
+            candidate_slots=self.candidate_slots,
         )
         if len(prompt.encode()) > self.max_prompt_bytes:
             raise ResearcherTurnError("researcher prompt exceeds the frozen byte budget")
@@ -773,6 +775,7 @@ def run_autonomous_dynamic_pilot(
             api_profile_id=researcher_api_profile_id,
             max_prompt_bytes=max_researcher_prompt_bytes,
             policy_track=policy_track,
+            candidate_slots=rounds,
             post_turn_integrity_check=integrity_check,
             evaluation_observations=evaluator.observations,
         )
@@ -882,6 +885,7 @@ def _build_research_prompt(
     *,
     artifact_delivery: ArtifactDelivery = "workspace",
     policy_track: PolicyTrack = "restricted",
+    candidate_slots: int | None = None,
 ) -> str:
     if policy_track not in {"restricted", "open-s"}:
         raise ValueError(f"unsupported policy track: {policy_track}")
@@ -969,9 +973,17 @@ def _build_research_prompt(
             "read artifact.chunks; each DocumentChunk has chunk_id, document_id, start, end, text, "
             "token_count, and role attributes; read budget.max_tokens. "
             "You must return a ContextPack, not a string or dictionary. "
-            "You MAY import TruncationPolicy, LexicalPolicy, "
-            "pack_spans, retrieve_by_query, map_shards, merge_ranked, and sibling modules. "
-            "Do not default to LexicalPolicy. H0 is source-order full-as-fits.\n"
+            "Legal imports include TruncationPolicy, LexicalPolicy, pack_spans, "
+            "retrieve_by_query, map_shards, merge_ranked, sibling modules, or local "
+            "reimplementations. Choose any legal composition; H0 is only the source-order "
+            "baseline.\n"
+        )
+        hypothesis = (
+            "Choose any legal one-call compiler H. Analyze visible scores and reader token "
+            "cost yourself; do not ask for a strategy. The evaluator returns one score per "
+            "candidate. Put the hypothesis in mechanisms[0].description. The next round "
+            "starts from your last attempt even if it regressed; historical-best keeps the "
+            "peak.\n"
         )
     else:
         implement = (
@@ -984,15 +996,36 @@ def _build_research_prompt(
             "Prefer composing the public policy dataclasses or "
             "existing TruncationPolicy and LexicalPolicy implementations from rsicontext.policy.\n"
         )
+        hypothesis = (
+            "You choose the next hypothesis for compiler H: select, order, cover, abstain, "
+            "and format of packed evidence. You do not choose extra reader calls; the evaluator "
+            "returns one score per candidate. Put the hypothesis in mechanisms[0].description. "
+            "The next round starts from your last attempt even if it regressed; historical-best "
+            "keeps the peak.\n"
+        )
+    slot_line = f"Round: {request.round_index}\n"
+    if candidate_slots is not None:
+        if (
+            not isinstance(candidate_slots, int)
+            or isinstance(candidate_slots, bool)
+            or candidate_slots < 1
+        ):
+            raise ValueError("candidate_slots must be a positive integer when set")
+        remaining = candidate_slots - request.round_index - 1
+        if remaining < 0:
+            raise ValueError("round_index is outside the candidate slot budget")
+        slot_line = (
+            f"Round: {request.round_index}\n"
+            f"Candidate slots: {request.round_index + 1} of {candidate_slots} "
+            f"(remaining after this turn: {remaining})\n"
+        )
     return (
         track_prefix
         + "You are the context-policy researcher, not the question-answering reader.\n"
         + frozen_line
-        + "You choose the next hypothesis for compiler H: select, order, cover, abstain, "
-        "and format of packed evidence. You do not choose extra reader calls; the evaluator "
-        "returns one score per candidate. Put the hypothesis in mechanisms[0].description. "
-        "The next round starts from your last attempt even if it regressed; historical-best "
-        "keeps the peak.\n" + delivery + implement
+        + hypothesis
+        + delivery
+        + implement
         + "There is no rsicontext.policy.Policy symbol. A direct pack has the form "
         "ContextPack(spans=tuple(selected_chunks), ordering=tuple(chunk.chunk_id for chunk in "
         "selected_chunks), token_count=sum(chunk.token_count for chunk in selected_chunks)).\n"
@@ -1009,8 +1042,8 @@ def _build_research_prompt(
         "Do not put item ids, chunk ids, queries, reference answers, or per-item lookup tables in "
         "policy code. The policy must generalize from query and chunk content.\n"
         "The evidence below is from the visible split only. No gate or sealed item is exposed.\n"
-        f"Round: {request.round_index}\n"
-        f"Exact parent_artifact_id: {request.parent_artifact_id}\n"
+        + slot_line
+        + f"Exact parent_artifact_id: {request.parent_artifact_id}\n"
         f"Previous aggregate score: {request.previous_score}\n"
         f"Historical-best aggregate score: {request.incumbent_score}\n"
         + prior_cost

@@ -9,6 +9,10 @@
 - Inviting an open-S API researcher to "preserve files unless changing" is
   rejected: that produced a byte-identical H0 hold. Identical parent trees are
   invalid search steps.
+- Prescribing an open-S method catalog (full/truncate/rag/parallel/...) is
+  rejected: it steered local search into named families. The environment states
+  the goal, legal/illegal operators, and score/token feedback; the researcher
+  chooses the hypothesis.
 - Claiming that external context or memory evolution for a frozen model is new
   is rejected after Recuris. RSIBench-Context must remain a researcher benchmark
   with matched search/noise/manifest evidence; a Recuris-like memory method is a

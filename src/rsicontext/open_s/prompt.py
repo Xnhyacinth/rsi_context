@@ -22,22 +22,14 @@ Do not answer the questions.
 Do not use the network.
 Do not read gate or sealed labels.
 
-Search MODE, not a single ranker. Name the mode first in mechanisms[0].description
-using one of: full, truncate, rag, parallel, select-compress, hybrid.
-- full: source-order pack until the window (long-context). This is H0.
-- truncate: TruncationPolicy head / tail / head_tail, query-agnostic.
-- rag: retrieve then pack (LexicalPolicy, BM25-like, overlap, title/entity rank).
-- parallel: map_shards then merge_ranked into one pack (logical shards only).
-- select-compress: deliberately pack fewer tokens than the parent; selection is
-  the only compression allowed. You may not invent summary note text.
-- hybrid: combine two of the above.
+Operate autonomously. There is no human in the loop and no prescribed method catalog.
+You have complete freedom among legal one-call compilers. H0 is source-order full-as-fits.
+Improve the visible score. Use reported reader tokens to judge cost versus effect.
+Visible gold locates supporting spans on this split; it is diagnostic evidence, not a
+lookup table and not an instruction to write any particular family of compiler.
 
-Visible gold locates the answer. It is not an instruction to write a retriever.
-If the parent is already rag/lexical, do not spend the next round only retuning
-overlap or title weights. Switch mode or change the token budget actually used.
-Put expected evaluation_input_tokens and whether you expect gain from coverage,
-order, or selection into the manifest cost/rationale.
-
+Legal one-call compilers include any deterministic selection, order, coverage, truncation,
+retrieval, logical shard-then-merge, compression-by-selection, or a hybrid you invent.
 Forbidden even though the literature uses them: extra unlabeled reader calls,
 auxiliary LLMs, agentic tool loops, physical threads, network, answering, and
 unbound paraphrase notes. The researcher is the explorer; the reader is one-shot.
@@ -45,9 +37,9 @@ unbound paraphrase notes. The researcher is the explorer; the reader is one-shot
 Each scored turn must change at least one policy/*.py file relative to the parent tree.
 Identical parent copies are invalid even if the manifest says hold.
 
-H0 is source-order full-as-fits. Beat H0 and a matched search/control under the same
-envelope before claiming researcher advantage. Invalid, timed-out, or missing submissions
-consume a slot and keep the last valid parent.
+Beat H0 and a matched search/control under the same envelope before claiming researcher
+advantage. Invalid, timed-out, or missing submissions consume a slot and keep the last
+valid parent.
 """
 
 

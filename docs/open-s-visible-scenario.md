@@ -19,8 +19,9 @@ not 8K**.
 Long-document evidence routing for a frozen long-context reader. The researcher
 edits an isolated folder strategy system \(S\) (`policy/*.py`) so one frozen
 reader call answers better. H0 is source-order full-as-fits. The researcher
-should switch packing MODE (full, truncate, rag, parallel, select-compress,
-hybrid) and compare token cost to visible score, not retune one ranker.
+has complete freedom among legal one-call compilers. Visible scores and
+reader token counts are feedback, not a prescribed method catalog.
+Do not retune the loop after seeing intermediate hypotheses.
 
 Policy code may not invent unbound summary text, call the reader, use the
 network, extra reader/LLM loops, or answer the question.
@@ -49,7 +50,7 @@ are invalid.
 
 ```bash
 uv run python scripts/autonomous_public_pilot.py \
-  --output results/open-s-hy3-popqa-modes-20260901 \
+  --output results/open-s-hy3-popqa-explore-20260901 \
   --policy-track open-s \
   --initial-policy seeds/open_s_v1 \
   --reader-max-output-tokens 64

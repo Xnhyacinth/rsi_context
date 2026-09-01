@@ -318,9 +318,12 @@ def test_open_s_prompt_keeps_the_frozen_boundary() -> None:
     assert "full-as-fits" in prompt
     assert "not an 8K cap" in prompt
     assert "Identical parent copies are invalid" in prompt
-    assert "Search MODE" in prompt
-    assert "select-compress" in prompt
-    assert "do not spend the next round only retuning" in prompt
+    assert "Operate autonomously" in prompt
+    assert "no prescribed method catalog" in prompt
+    assert "complete freedom" in prompt
+    assert "Search MODE" not in prompt
+    assert "do not spend the next round only retuning" not in prompt
+    assert "Prefer composing" not in prompt
 
 
 def test_reader_window_pack_budget_fills_the_frozen_window() -> None:
@@ -394,21 +397,28 @@ def test_open_s_campaign_prompt_prefixes_the_harness_contract(tmp_path: Path) ->
         None,
         artifact_delivery="workspace",
         policy_track="open-s",
+        candidate_slots=5,
     )
     assert OPEN_S_TRACK_ID in prompt
     assert "pack envelope" in prompt
     assert "sibling .py modules" in prompt
     assert "8192-token budget" not in prompt
+    assert "Operate autonomously" in prompt
+    assert "Candidate slots: 1 of 5 (remaining after this turn: 4)" in prompt
+    assert "do not ask for a strategy" in prompt
     api_prompt = _build_research_prompt(
         request,
         feedback,
         None,
         artifact_delivery="api-json",
         policy_track="open-s",
+        candidate_slots=5,
     )
     assert "must change" in api_prompt
-    assert "Do not default to LexicalPolicy" in api_prompt
+    assert "Choose any legal composition" in api_prompt
+    assert "Do not default to LexicalPolicy" not in api_prompt
     assert "LexicalPolicy implementations from rsicontext.policy" not in api_prompt
+    assert "Prefer composing" not in api_prompt
 
 
 def test_hy3_h0_script_skips_without_credentials(

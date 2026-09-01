@@ -61,14 +61,14 @@ Completed in `results/open-s-hy3-popqa-window-20260901-b/`. Offset 64, pack
 114624, 5 valid lexical/title rounds, H0 0.375, `discovery_gain=0`. Do not
 overwrite.
 
-## Block E — mode-search open-S (current)
+## Block E — autonomous open-S explore (current)
 
 Frozen card: `docs/open-s-visible-scenario.md`.
 
 H0 is source-order full-as-fits. Eight unseen items at **offset 72**. Five
-researcher rounds. Prompt requires a packing MODE (full / truncate / rag /
-parallel / select-compress / hybrid) and token-cost vs score. Do not retune
-lexical overlap for consecutive rounds. Qualification only.
+researcher rounds. The prompt states the goal, legal/illegal operators, and
+score/token feedback; it does not prescribe a method catalog. Qualification
+only.
 
 Do not overwrite Blocks A–D. Do not claim researcher advantage without a
 matched control.

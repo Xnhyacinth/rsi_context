@@ -56,8 +56,8 @@ Canonical seed: `seeds/open_s_v1/`.
 
 H0 composition: **source-order full-as-fits** (`pack_spans` on `artifact.chunks`).
 Retrieve, route, shard, and memory helpers remain in sibling files for the
-researcher to wire. A lexical retune of overlap ranking is one mode among
-full, truncate, rag, parallel, and select-compress, not the default search.
+researcher to wire. The prompt names the legal operator surface and the
+integrity boundary; it does not prescribe which compiler family to try.
 
 ## Operator budget
 
