@@ -1,10 +1,10 @@
 # Durable project summary
 
-As of 2026-09-01 the live open-S cell is the reader-window PopQA scenario
-(`docs/open-s-visible-scenario.md`): offset 64, n=8, 5 rounds, pack = hy3
-window minus output/reserve, not 8K. The earlier 8K dual-role campaign
-resubmitted H0 then failed JSON and is locked. Restricted A2 launch remains
-refused. See `docs/hy3-run-ledger.md`.
+As of 2026-09-01 the live open-S cell finished: window-envelope PopQA
+offset 64, n=8, 5 valid rounds, pack 114624. H0 0.375, peak 0.375,
+`discovery_gain=0`. The researcher did change `policy.py` every turn
+(lexical/title ranking); none beat H0. Qualification only. See
+`docs/hy3-run-ledger.md` and `results/open-s-hy3-popqa-window-20260901-b/`.
 
 As of 2026-09-01 the executable harness has two tracks: restricted
 `PolicySpecV1` A2 (launch still refused) and open-S folder harness

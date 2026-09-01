@@ -6,6 +6,9 @@
   truncation, and hybrid pack share the frozen reader window (hy3: 114624).
   The first window launch failed at pack 128960 (`reader reported usage above
   the model length` on H0 call 4); keep that artifact and relaunch.
+- Window-b campaign completed: 5/5 valid rounds, each changed `policy.py`.
+  H0 0.375; r0–r1 0.375; r2 0.25; r3–r4 0.375; `discovery_gain=0`. 48 reader
+  calls. Qualification only; not researcher advantage.
 - Fixed failed self-evolution: identical parent trees are invalid; API
   `policy_source` objects merge onto the parent; Markdown fences are stripped;
   researcher output cap is 32768. Prompt no longer invites a hold copy.

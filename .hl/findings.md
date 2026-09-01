@@ -4,6 +4,10 @@
   Full-as-fits long context is a legal strategy; the live cell uses the frozen
   reader window (hy3 pack 114624 after a 128960 overflow). Items longer than the
   window still need fit.
+- Window-b dual-role open-S (offset 64, n=8, 5 rounds, pack 114624) searched:
+  every turn changed `policy.py` (lexical overlap, then title/entity boosts).
+  Visible score stayed at H0 0.375 except r2 0.25. `discovery_gain=0`. Loop
+  now executes; it did not beat H0. Not researcher advantage.
 - The 8K dual-role campaign did not self-evolve: round 0 was a byte-identical
   H0 hold invited by "preserve files unless changing"; round 1 exited 1 before
   a scorable tree. Identical parent copies are now invalid; object payloads merge.
