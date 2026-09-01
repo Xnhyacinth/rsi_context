@@ -1,5 +1,7 @@
 # Findings
 
+- Offset-88 explore-c: r0 invalid manifest (diagnostic now visible); r1–r4
+  valid at 0.500, tying source-order H0. `discovery_gain=0`. Do not overwrite.
 - Offset-80 explore-b: four valid compilers tied source-order H0 at 0.500;
   round 4 exited 1. `discovery_gain=0`. Qualification only. Do not overwrite.
 - Offset-72 autonomous explore (source-order H0) scored 0.500 on 8 items, then

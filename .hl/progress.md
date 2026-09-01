@@ -10,6 +10,10 @@
   surfaces a one-line exception message.
 - Offset-80 explore-b finished: H0 0.500; r0–r3 valid at 0.500; r4 process
   exit 1; `discovery_gain=0`; 40 reader calls. Locked. No mid-run steering.
+- Researcher process failures now keep a one-line exception diagnostic (not
+  raw stderr). API JSON may include trailing commentary.
+- Offset-88 explore-c finished: H0 0.500; r0 invalid manifest with a visible
+  `APIResearcherError`; r1–r4 valid at 0.500; `discovery_gain=0`. Locked.
 
 ## 2026-09-01 window-envelope open-S repair
 

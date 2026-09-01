@@ -74,11 +74,12 @@ Completed in `results/open-s-hy3-popqa-explore-b-20260901/`. Offset 80, pack
 114624. H0 0.500; r0–r3 valid at 0.500; r4 researcher process exit 1;
 `discovery_gain=0`; 40 reader calls. Do not overwrite. Qualification only.
 
-## Block G — autonomous open-S explore-c (current)
+## Block G — autonomous open-S explore-c (locked)
 
-Frozen card: `docs/open-s-visible-scenario.md`. Offset **88**. Five rounds.
-Researcher process failures now return a one-line exception diagnostic; JSON
-artifacts may have trailing commentary. Qualification only.
+Completed in `results/open-s-hy3-popqa-explore-c-20260901/`. Offset 88, pack
+114624. H0 0.500; r0 invalid manifest (`APIResearcherError`); r1–r4 valid at
+0.500; `discovery_gain=0`; 40 reader calls. Do not overwrite. Qualification
+only.
 
-Do not overwrite Blocks A–F. Do not claim researcher advantage without a
+Do not overwrite Blocks A–G. Do not claim researcher advantage without a
 matched control.

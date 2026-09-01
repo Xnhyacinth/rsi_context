@@ -20,13 +20,13 @@ Qwen3.6-27B). Do not pool hy3 curves with local Qwen.
 | Open-S window-envelope visible-b | 8 unseen items (offset 64), 5 rounds, pack 114624 | **5 valid** | each round rewrote `policy/policy.py` (lexical/title/entity rank) | H0 **0.375**, scores 0.375/0.375/**0.25**/0.375/0.375, `discovery_gain=0` | qualification_only; no advantage; 48 reader calls, 5.68M input tokens |
 | Open-S autonomous explore | 8 unseen items (offset 72), 5 rounds, pack 114624 | **0 valid** | each round rewrote `policy.py`; all TypeError on `retrieve_by_query(..., top_k=)` | H0 **0.500**, round scores recorded 0/0/0/0/0, `discovery_gain=0` | qualification_only; 8 reader calls (H0 only); keep `results/open-s-hy3-popqa-explore-20260901/`; do not overwrite |
 | Open-S autonomous explore-b | 8 unseen items (offset 80), 5 rounds, pack 114624 | **4 valid**, r4 process exit 1 | r0–r3 rewrote `policy.py`; r4 missing | H0 **0.500**, scores 0.5/0.5/0.5/0.5/invalid, `discovery_gain=0` | qualification_only; 40 reader calls, 4.66M input tokens; keep `results/open-s-hy3-popqa-explore-b-20260901/`; do not overwrite |
+| Open-S autonomous explore-c | 8 unseen items (offset 88), 5 rounds, pack 114624 | **4 valid**; r0 invalid manifest | r1–r4 rewrote `policy.py` | H0 **0.500**, scores invalid/0.5/0.5/0.5/0.5, `discovery_gain=0` | qualification_only; 40 reader calls, 4.67M input tokens; r0 diagnostic `APIResearcherError: API researcher manifest is invalid`; keep `results/open-s-hy3-popqa-explore-c-20260901/`; do not overwrite |
 | LME-V2 small pack 2026-09-01 | 422 text-only, 8K last-k/lexical/random, 0 reader | 0 | frozen packers | det.294: 0.112 / 0.408 / 0.361; weak.128: 0 | answer-string presence, not official score |
 
 There is **no hy3 autonomous discovery result**. Window-b searched lexical
-rankers at H0 0.375. Explore offset 72 was five invalid TypeErrors. Explore-b
-offset 80 had four valid compilers tying source-order H0 at 0.500, then a
-process-exit slot. Dual-role v4 remains the first scored researcher rewrite
-on homemade items, also with `discovery_gain=0`.
+rankers at H0 0.375. Explore-c offset 88 had one invalid manifest then four
+valid compilers tying source-order H0 at 0.500. Dual-role v4 remains the first
+scored researcher rewrite on homemade items, also with `discovery_gain=0`.
 
 ## Dual-role v4 in one paragraph
 
