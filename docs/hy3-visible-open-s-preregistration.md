@@ -61,14 +61,22 @@ Completed in `results/open-s-hy3-popqa-window-20260901-b/`. Offset 64, pack
 114624, 5 valid lexical/title rounds, H0 0.375, `discovery_gain=0`. Do not
 overwrite.
 
-## Block E — autonomous open-S explore (current)
+## Block E — autonomous open-S explore (locked)
+
+Completed in `results/open-s-hy3-popqa-explore-20260901/`. Offset 72, pack
+114624. H0 0.500; five invalid TypeError slots (wrong `retrieve_by_query`
+call); `discovery_gain=0`; 8 reader calls. Do not overwrite. The worker had
+hidden exception messages, so the researcher could not debug.
+
+## Block F — autonomous open-S explore-b (current)
 
 Frozen card: `docs/open-s-visible-scenario.md`.
 
-H0 is source-order full-as-fits. Eight unseen items at **offset 72**. Five
-researcher rounds. The prompt states the goal, legal/illegal operators, and
-score/token feedback; it does not prescribe a method catalog. Qualification
-only.
+H0 is source-order full-as-fits. Eight unseen items at **offset 80**. Five
+researcher rounds. The prompt states the goal, frozen library signatures,
+legal/illegal operators, and score/token feedback; it does not prescribe a
+method catalog. Invalid-slot diagnostics now include the exception message.
+Qualification only.
 
-Do not overwrite Blocks A–D. Do not claim researcher advantage without a
+Do not overwrite Blocks A–E. Do not claim researcher advantage without a
 matched control.

@@ -973,10 +973,11 @@ def _build_research_prompt(
             "read artifact.chunks; each DocumentChunk has chunk_id, document_id, start, end, text, "
             "token_count, and role attributes; read budget.max_tokens. "
             "You must return a ContextPack, not a string or dictionary. "
-            "Legal imports include TruncationPolicy, LexicalPolicy, pack_spans, "
-            "retrieve_by_query, map_shards, merge_ranked, sibling modules, or local "
-            "reimplementations. Choose any legal composition; H0 is only the source-order "
-            "baseline.\n"
+            "Frozen library signatures: retrieve_by_query(chunks, query); "
+            "pack_spans(chunks, artifact, budget); map_shards(chunks, shard_count=2); "
+            "merge_ranked(ranked_shards). TruncationPolicy and LexicalPolicy also expose "
+            "assemble(artifact, query, budget). Sibling modules or local reimplementations "
+            "are legal. Choose any composition; H0 is only the source-order baseline.\n"
         )
         hypothesis = (
             "Choose any legal one-call compiler H. Analyze visible scores and reader token "

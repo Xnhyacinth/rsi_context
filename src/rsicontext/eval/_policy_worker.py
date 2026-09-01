@@ -9,6 +9,19 @@ from pathlib import Path
 from rsicontext.eval.fresh_policy import _decode_request, _encode_context
 from rsicontext.policy import ContextPack
 
+_MAX_FAILURE_MESSAGE_CHARS = 400
+
+
+def _worker_failure_line(exc: BaseException) -> str:
+    """One-line diagnostic for the researcher. Do not dump a traceback."""
+
+    message = " ".join(str(exc).split())
+    if len(message) > _MAX_FAILURE_MESSAGE_CHARS:
+        message = message[:_MAX_FAILURE_MESSAGE_CHARS]
+    if message:
+        return f"policy worker failed: {type(exc).__name__}: {message}\n"
+    return f"policy worker failed: {type(exc).__name__}\n"
+
 
 def _load_policy(policy_root: Path, entrypoint: str, policy_class: str) -> object:
     source_path = policy_root / entrypoint
@@ -43,7 +56,7 @@ def main(arguments: list[str] | None = None) -> int:
             raise TypeError("candidate Policy.assemble must return ContextPack")
         sys.stdout.buffer.write(_encode_context(context))
     except BaseException as exc:  # Fail closed even for candidate-raised SystemExit.
-        sys.stderr.write(f"policy worker failed: {type(exc).__name__}\n")
+        sys.stderr.write(_worker_failure_line(exc))
         return 2
     return 0
 

@@ -234,6 +234,20 @@ def test_loader_error_and_nonzero_exit_fail_closed(tmp_path: Path) -> None:
         factory().assemble(_artifact(), "query", Budget(1))
 
 
+def test_worker_surfaces_exception_message_to_the_researcher(tmp_path: Path) -> None:
+    factory = _factory(
+        tmp_path,
+        """
+class Policy:
+    def assemble(self, artifact, query, budget):
+        raise TypeError("retrieve_by_query() got an unexpected keyword argument 'top_k'")
+""",
+    )
+
+    with pytest.raises(PolicyProcessError, match="unexpected keyword argument 'top_k'"):
+        factory().assemble(_artifact(), "query", Budget(1))
+
+
 def test_fresh_worker_uses_minimal_environment_and_safe_cwd(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

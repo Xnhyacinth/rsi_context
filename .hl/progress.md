@@ -1,5 +1,14 @@
 # Progress
 
+## 2026-09-01 autonomous open-S explore
+
+- De-prescribed the method catalog. Prompt now states goal, legal/illegal
+  operators, score/token feedback, remaining slots, and frozen library
+  signatures. H0 is source-order full-as-fits.
+- Offset-72 explore finished: H0 0.500, 5/5 invalid TypeError slots, 8 reader
+  calls. Worker had returned only `TypeError`. Locked that artifact. Worker now
+  surfaces a one-line exception message. Next cell is offset 80.
+
 ## 2026-09-01 window-envelope open-S repair
 
 - Dropped pack-8K as the open-S evolution envelope. Full-as-fits, RAG,

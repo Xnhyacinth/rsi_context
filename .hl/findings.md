@@ -1,5 +1,11 @@
 # Findings
 
+- Offset-72 autonomous explore (source-order H0) scored 0.500 on 8 items, then
+  five invalid TypeError slots from a guessed `retrieve_by_query(query, chunks,
+  top_k=)` signature. The worker hid the message. That is a broken feedback
+  loop, not a scored search. Do not overwrite that artifact.
+- Prescribing packing-mode catalogs steered search; so did Prefer LexicalPolicy.
+  PostTrainBench/MGM lesson: goal + integrity + diagnostics, not a method menu.
 - Pack-8K is a historical HELMET instrument, not the open-S evolution envelope.
   Full-as-fits long context is a legal strategy; the live cell uses the frozen
   reader window (hy3 pack 114624 after a 128960 overflow). Items longer than the

@@ -415,7 +415,8 @@ def test_open_s_campaign_prompt_prefixes_the_harness_contract(tmp_path: Path) ->
         candidate_slots=5,
     )
     assert "must change" in api_prompt
-    assert "Choose any legal composition" in api_prompt
+    assert "Choose any composition" in api_prompt
+    assert "retrieve_by_query(chunks, query)" in api_prompt
     assert "Do not default to LexicalPolicy" not in api_prompt
     assert "LexicalPolicy implementations from rsicontext.policy" not in api_prompt
     assert "Prefer composing" not in api_prompt
