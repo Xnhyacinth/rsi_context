@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import sys
 import urllib.request
@@ -164,6 +165,19 @@ def test_api_artifact_writer_accepts_a_multi_file_policy_tree(tmp_path: Path) ->
     assert (policy / "seed.py").read_text(encoding="utf-8") == "VALUE = 0\n"
 
 
+def test_api_artifact_parser_accepts_trailing_commentary(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    policy = workspace / "policy"
+    policy.mkdir(parents=True)
+    (policy / "seed.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
+
+    APIResearcherArtifact.from_response(
+        "Here is the artifact:\n" + _artifact_response() + "\nThanks."
+    ).write_workspace(workspace)
+
+    assert "LexicalPolicy" in (policy / "policy.py").read_text(encoding="utf-8")
+
+
 def test_api_artifact_parser_strips_markdown_fences(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     policy = workspace / "policy"
@@ -301,3 +315,38 @@ def test_api_researcher_command_is_inert_and_prompt_stays_on_stdin(tmp_path: Pat
     )
     assert "visible prompt" not in spec.argv
     assert spec.stdin == "visible prompt"
+
+
+def test_api_researcher_main_prints_a_one_line_diagnostic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.setenv("COPILOT_API_KEY", "secret")
+    monkeypatch.setenv("COPILOT_BASE_URL", "https://copilot.tencent.com/v2")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rsicontext.researcher.api",
+            "--profiles",
+            str(ROOT / "configs" / "api_profiles.json"),
+            "--profile-id",
+            PROFILE_ID,
+            "--workspace",
+            str(workspace),
+        ],
+    )
+    monkeypatch.setattr(sys, "stdin", io.StringIO("visible research prompt"))
+
+    def boom(**kwargs: object) -> None:
+        del kwargs
+        raise APIResearcherError("API researcher response is not valid JSON")
+
+    monkeypatch.setattr("rsicontext.researcher.api.run_api_researcher_turn", boom)
+    from rsicontext.researcher.api import main
+
+    assert main() == 1
+    captured = capsys.readouterr()
+    assert captured.err == "APIResearcherError: API researcher response is not valid JSON\n"
+    assert "secret" not in captured.err

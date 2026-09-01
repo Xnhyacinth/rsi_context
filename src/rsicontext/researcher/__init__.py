@@ -11,6 +11,7 @@ from .process import (
     ProcessLimits,
     ResearcherProcessError,
     ResearcherProcessResult,
+    researcher_failure_diagnostic,
     run_researcher_process,
 )
 from .streams import (
@@ -35,5 +36,6 @@ __all__ = [
     "TokenUsage",
     "normalize_claude_stream_json",
     "normalize_codex_jsonl",
+    "researcher_failure_diagnostic",
     "run_researcher_process",
 ]

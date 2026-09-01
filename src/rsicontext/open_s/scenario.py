@@ -7,7 +7,7 @@ from pathlib import Path
 from rsicontext.experiment.rsi_run import policy_tree_sha256
 
 OPEN_S_VISIBLE_CELL_ID = "helmet-rag-popqa-k1000-to-8k"
-OPEN_S_VISIBLE_ITEM_OFFSET = 80
+OPEN_S_VISIBLE_ITEM_OFFSET = 88
 OPEN_S_VISIBLE_MAX_ITEMS = 8
 OPEN_S_VISIBLE_MIN_GOLD_RANK = 200
 OPEN_S_VISIBLE_ROUNDS = 5

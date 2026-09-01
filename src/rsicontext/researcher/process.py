@@ -40,6 +40,39 @@ class ResearcherProcessError(RuntimeError):
         self.stderr = stderr
 
 
+_MAX_FAILURE_DIAGNOSTIC_CHARS = 400
+_FAILURE_DIAGNOSTIC_LINE = re.compile(r"(?:Error|Exception|Timeout): ")
+
+
+def researcher_failure_diagnostic(
+    message: str,
+    stderr: bytes,
+    *,
+    max_chars: int = _MAX_FAILURE_DIAGNOSTIC_CHARS,
+) -> str:
+    """Return a one-line exception diagnostic without dumping raw stderr secrets."""
+
+    if not isinstance(message, str) or not message.strip():
+        raise ValueError("failure message must be a non-empty string")
+    if not isinstance(stderr, bytes):
+        raise TypeError("stderr must be bytes")
+    if not isinstance(max_chars, int) or isinstance(max_chars, bool) or max_chars < 1:
+        raise ValueError("max_chars must be a positive integer")
+    chosen = message.strip()
+    text = stderr.decode("utf-8", errors="replace")
+    for raw_line in reversed(text.splitlines()):
+        line = raw_line.strip()
+        if line.startswith("policy worker failed:") or _FAILURE_DIAGNOSTIC_LINE.search(line):
+            if line.startswith("During handling"):
+                continue
+            chosen = line
+            break
+    chosen = " ".join(chosen.split())
+    if len(chosen) > max_chars:
+        chosen = chosen[:max_chars]
+    return chosen
+
+
 @dataclass(frozen=True, slots=True)
 class ProcessLimits:
     """Wall-clock and captured-output limits for one researcher process."""

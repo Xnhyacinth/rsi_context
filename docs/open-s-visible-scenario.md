@@ -32,7 +32,7 @@ network, extra reader/LLM loops, or answer the question.
 | ----- | ----- |
 | Track | `open-s-harness-v1` |
 | Seed | `seeds/open_s_v1/` (H0 = source-order full-as-fits) |
-| Split | unique PopQA k1000, min gold rank 200, **offset 80** (skips locked 40-item diagnostic, 8K campaign, window-b, and explore-20260901) |
+| Split | unique PopQA k1000, min gold rank 200, **offset 88** (skips locked 40-item diagnostic, 8K, window-b, explore, and explore-b) |
 | n | 8 visible items |
 | Rounds | 5 researcher slots after H0 |
 | Pack envelope | reader window − output − 16384 render/axis reserve (hy3: 131072 − 64 − 16384 = **114624**) |
@@ -50,7 +50,7 @@ are invalid.
 
 ```bash
 uv run python scripts/autonomous_public_pilot.py \
-  --output results/open-s-hy3-popqa-explore-b-20260901 \
+  --output results/open-s-hy3-popqa-explore-c-20260901 \
   --policy-track open-s \
   --initial-policy seeds/open_s_v1 \
   --reader-max-output-tokens 64

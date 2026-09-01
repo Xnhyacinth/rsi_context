@@ -172,6 +172,23 @@ def _failing_codex(tmp_path: Path, *, mutate_executable: bool = False) -> Path:
     return executable
 
 
+def _json_failing_codex(tmp_path: Path) -> Path:
+    executable = tmp_path / "json-failing-codex"
+    executable.write_text(
+        (
+            "#!/usr/bin/python3\n"
+            "import sys\n"
+            "print('Traceback (most recent call last):', file=sys.stderr)\n"
+            "print('APIResearcherError: API researcher response is not valid JSON', "
+            "file=sys.stderr)\n"
+            "raise SystemExit(1)\n"
+        ),
+        encoding="utf-8",
+    )
+    executable.chmod(0o700)
+    return executable
+
+
 def _sleeping_codex(tmp_path: Path) -> Path:
     executable = tmp_path / "sleeping-codex"
     executable.write_text(
@@ -517,7 +534,34 @@ def test_process_failure_consumes_slot_without_raw_output(tmp_path: Path) -> Non
     assert stored["process_failures"][0]["round_index"] == 0
     assert stored["researcher_traces"][0]["process"] is None
     assert stored["researcher_traces"][0]["failure"]["stderr_bytes"] > 0
+    assert stored["process_failures"][0]["diagnostic"] == (
+        "researcher process exited with status 7"
+    )
     assert "FAILURE-SECRET" not in json.dumps(stored)
+
+
+def test_process_failure_exposes_exception_line_to_the_next_prompt(tmp_path: Path) -> None:
+    output = tmp_path / "json-failed-process"
+    reader = GoldEvidenceReader(seed="json-process-failure", items_per_profile=1)
+
+    result = run_autonomous_dynamic_pilot(
+        initial_policy_directory=_seed_policy(tmp_path),
+        output_directory=output,
+        reader=reader,
+        researcher_executable=str(_json_failing_codex(tmp_path)),
+        dataset_seed="json-process-failure",
+        items_per_profile=1,
+        rounds=1,
+        process_limits=ProcessLimits(timeout_seconds=2),
+    )
+
+    reason = result.campaign.rounds[0].invalid_reason or ""
+    assert "APIResearcherError: API researcher response is not valid JSON" in reason
+    assert result.process_failures[0].diagnostic == (
+        "APIResearcherError: API researcher response is not valid JSON"
+    )
+    stored = json.loads((output / "pilot_summary.json").read_text(encoding="utf-8"))
+    assert stored["process_failures"][0]["diagnostic"].startswith("APIResearcherError")
 
 
 def test_researcher_timeout_consumes_slot_without_reader_call(tmp_path: Path) -> None:

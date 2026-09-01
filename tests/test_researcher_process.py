@@ -8,6 +8,7 @@ from rsicontext.researcher import (
     CommandSpec,
     ProcessLimits,
     ResearcherProcessError,
+    researcher_failure_diagnostic,
     run_researcher_process,
 )
 
@@ -296,3 +297,24 @@ def test_process_rejects_runtime_injection_environment_names(
             limits=ProcessLimits(timeout_seconds=1),
             environment_allowlist=(name,),
         )
+
+
+def test_failure_diagnostic_keeps_exception_line_and_drops_raw_stderr() -> None:
+    traceback = (
+        "Traceback (most recent call last):\n"
+        '  File "api.py", line 1, in main\n'
+        "    raise APIResearcherError('API researcher response is not valid JSON')\n"
+        "APIResearcherError: API researcher response is not valid JSON\n"
+    )
+
+    assert researcher_failure_diagnostic(
+        "researcher process exited with status 1",
+        traceback.encode(),
+    ) == "APIResearcherError: API researcher response is not valid JSON"
+    assert (
+        researcher_failure_diagnostic(
+            "researcher process exited with status 7",
+            b"FAILURE-SECRET\n",
+        )
+        == "researcher process exited with status 7"
+    )

@@ -64,6 +64,7 @@ from rsicontext.researcher import (
     ResearcherProcessResult,
     ResearcherRequest,
     TokenUsage,
+    researcher_failure_diagnostic,
     run_researcher_process,
 )
 from rsicontext.researcher.api import (
@@ -211,6 +212,7 @@ class ResearcherProcessFailure:
     elapsed_seconds: float
     stdout_bytes: int | None = None
     stderr_bytes: int | None = None
+    diagnostic: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {**asdict(self), "usage": None}
@@ -382,6 +384,7 @@ class DynamicResearcherCallback:
             error = str(exc).encode()
             stdout = getattr(exc, "stdout", b"") or b""
             stderr = getattr(exc, "stderr", b"") or b""
+            diagnostic = researcher_failure_diagnostic(str(exc), stderr)
             self.process_failures.append(
                 ResearcherProcessFailure(
                     round_index=request.round_index,
@@ -392,12 +395,13 @@ class DynamicResearcherCallback:
                     elapsed_seconds=_elapsed(time.perf_counter() - process_started),
                     stdout_bytes=len(stdout) or None,
                     stderr_bytes=len(stderr) or None,
+                    diagnostic=diagnostic,
                 )
             )
             if self.post_turn_integrity_check is not None and not self.post_turn_integrity_check():
                 raise RuntimeError("locked run inputs changed during researcher execution") from exc
             if isinstance(exc, ResearcherProcessError):
-                raise ResearcherTurnError(str(exc)) from exc
+                raise ResearcherTurnError(diagnostic) from exc
             raise
         self.results.append(result)
         try:

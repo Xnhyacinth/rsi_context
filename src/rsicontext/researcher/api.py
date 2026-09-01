@@ -57,13 +57,9 @@ class APIResearcherArtifact:
 
     @classmethod
     def from_response(cls, response: str) -> APIResearcherArtifact:
-        """Parse one JSON object. Markdown fences wrapping the object are stripped."""
+        """Parse one JSON object. Markdown fences and trailing commentary are ignored."""
         try:
-            raw: object = json.loads(
-                _json_payload_text(response),
-                object_pairs_hook=_unique_object,
-                parse_constant=_reject_constant,
-            )
+            raw = _decode_researcher_object(_json_payload_text(response))
         except (json.JSONDecodeError, UnicodeError, ValueError) as error:
             raise APIResearcherError("API researcher response is not valid JSON") from error
         if not isinstance(raw, dict) or any(not isinstance(key, str) for key in raw):
@@ -145,6 +141,15 @@ def _json_payload_text(response: str) -> str:
     if body and body[-1].strip() == "```":
         body = body[:-1]
     return "\n".join(body).strip()
+
+
+def _decode_researcher_object(text: str) -> object:
+    start = text.find("{")
+    if start < 0:
+        raise json.JSONDecodeError("Expecting object", text, 0)
+    decoder = json.JSONDecoder(object_pairs_hook=_unique_object, parse_constant=_reject_constant)
+    raw, _end = decoder.raw_decode(text[start:])
+    return raw
 
 
 def _existing_policy_files(policy_directory: Path) -> dict[str, str]:
@@ -339,51 +344,55 @@ def _parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     """Run one worker turn and emit the existing Codex-compatible JSONL envelope."""
-    args = _parser().parse_args()
-    profile = load_api_profiles(args.profiles).get(args.profile_id)
-    endpoint = resolve_api_endpoint(profile)
-    if endpoint.api_key is None:
-        raise APIResearcherError("API researcher profile requires a credential")
-    prompt = sys.stdin.read()
-    result = run_api_researcher_turn(
-        profile=profile,
-        endpoint=endpoint.endpoint,
-        api_key=endpoint.api_key,
-        prompt=prompt,
-        workspace=args.workspace,
-        timeout_seconds=args.timeout_seconds,
-    )
-    print(json.dumps({"type": "thread.started", "thread_id": result.response_id}))
-    print(
-        json.dumps(
-            {
-                "type": "item.completed",
-                "item": {
-                    "type": "agent_message",
-                    "text": json.dumps(
-                        {
-                            "profile_hash": result.profile_hash,
-                            "response_model": result.response_model,
-                            "system_prompt_sha256": result.system_prompt_sha256,
-                        },
-                        separators=(",", ":"),
-                        sort_keys=True,
-                    ),
-                },
-            }
+    try:
+        args = _parser().parse_args()
+        profile = load_api_profiles(args.profiles).get(args.profile_id)
+        endpoint = resolve_api_endpoint(profile)
+        if endpoint.api_key is None:
+            raise APIResearcherError("API researcher profile requires a credential")
+        prompt = sys.stdin.read()
+        result = run_api_researcher_turn(
+            profile=profile,
+            endpoint=endpoint.endpoint,
+            api_key=endpoint.api_key,
+            prompt=prompt,
+            workspace=args.workspace,
+            timeout_seconds=args.timeout_seconds,
         )
-    )
-    print(
-        json.dumps(
-            {
-                "type": "turn.completed",
-                "usage": {
-                    "input_tokens": result.input_tokens,
-                    "output_tokens": result.output_tokens,
-                },
-            }
+        print(json.dumps({"type": "thread.started", "thread_id": result.response_id}))
+        print(
+            json.dumps(
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "type": "agent_message",
+                        "text": json.dumps(
+                            {
+                                "profile_hash": result.profile_hash,
+                                "response_model": result.response_model,
+                                "system_prompt_sha256": result.system_prompt_sha256,
+                            },
+                            separators=(",", ":"),
+                            sort_keys=True,
+                        ),
+                    },
+                }
+            )
         )
-    )
+        print(
+            json.dumps(
+                {
+                    "type": "turn.completed",
+                    "usage": {
+                        "input_tokens": result.input_tokens,
+                        "output_tokens": result.output_tokens,
+                    },
+                }
+            )
+        )
+    except Exception as exc:
+        sys.stderr.write(f"{type(exc).__name__}: {exc}\n")
+        return 1
     return 0
 
 
