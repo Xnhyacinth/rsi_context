@@ -13,6 +13,8 @@ Superseded intermediates were moved, not overwritten.
 | `results/hy3-popqa-replay-e23f845-20260831/` | Lexical replay 0.600 ×5 | Discovery |
 | `results/hy3-popqa-frozen-open-s-20260901/` | 16-item frozen open-S/head/hybrid landscape | Researcher advantage / official HELMET |
 | `docs/open-s-visible-scenario.md` | Frozen live open-S PopQA window cell | 8K HELMET instrument / A2 |
+| `results/open-s-hy3-popqa-window-20260901/` | First window launch; H0 aborted at pack 128960 | Discovery |
+| `results/open-s-hy3-popqa-window-20260901-b/` | Window-b dual-role, 5 valid rounds, discovery_gain=0 | Researcher advantage |
 | `results/open-s-hy3-popqa-visible-20260901/` | Dual-role open-S 8K campaign, discovery_gain=0 | Researcher advantage |
 | `results/lme-v2-small-pack-20260901/` | Zero-reader last-k/lexical/random pack rates | Official LongMemEval / researcher |
 | `artifacts/hy3_api_researcher_qualification_v4_20260829/` | Valid hy3 researcher slot; H0=H1=0 | Advantage |
