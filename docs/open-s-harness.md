@@ -54,10 +54,10 @@ Canonical seed: `seeds/open_s_v1/`.
   workspace/`policy/` tree and re-hashed. Mutating one isolate cannot change
   the committed seed.
 
-H0 composition: query retrieve, identity shard/merge (so the operators are
-wired), optional head fallback, in-item working-set record, then pack. The
-researcher may change shard count, routing, provenance notes, or invent new
-local modules.
+H0 composition: **source-order full-as-fits** (`pack_spans` on `artifact.chunks`).
+Retrieve, route, shard, and memory helpers remain in sibling files for the
+researcher to wire. A lexical retune of overlap ranking is one mode among
+full, truncate, rag, parallel, and select-compress, not the default search.
 
 ## Operator budget
 
@@ -78,11 +78,13 @@ limits, and leaking gate/sealed labels.
 The frozen library is a convenience. A researcher may reimplement every operator
 locally; the auditor still applies.
 
-The **open-S pack envelope is the frozen reader window** minus output and a 2048
-token template reserve, not a historical 8K HELMET instrument. Full-as-fits is
-one legal strategy alongside retrieve/RAG, truncation, and reorder. Items longer
-than the window still require selection. Policy-authored unbound summaries are
-forbidden.
+The **open-S pack envelope is the frozen reader window** minus output and a 16384
+token render/axis reserve, not a historical 8K HELMET instrument. Full-as-fits is
+H0. Retrieve/RAG, truncation, logical parallel merge, and smaller select-compress
+packs are researcher hypotheses. Items longer than the window still require
+selection. Policy-authored unbound summaries are forbidden. Extra reader calls
+and auxiliary LLMs stay forbidden: the explorer is the researcher, not an
+agentic reader loop.
 
 ## Isolation and audit
 

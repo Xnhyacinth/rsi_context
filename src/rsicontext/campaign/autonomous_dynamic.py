@@ -904,6 +904,12 @@ def _build_research_prompt(
             }
             for item_id in item_ids
         ]
+    prior_cost = ""
+    if prior is not None:
+        prior_cost = (
+            f"Previous reader input tokens: {prior.reader_input_tokens}\n"
+            f"Previous reader output tokens: {prior.reader_output_tokens}\n"
+        )
     if artifact_delivery == "workspace":
         delivery = (
             "Work only inside this workspace. Modify only policy/*.py and create "
@@ -955,6 +961,29 @@ def _build_research_prompt(
         if policy_track == "open-s"
         else "The reader, decoding, metric, 8192-token budget, and item labels are frozen.\n"
     )
+    if policy_track == "open-s":
+        implement = (
+            "Implement policy/policy.py with public class Policy and "
+            "assemble(artifact, query, budget).\n"
+            "The runtime passes rsicontext.policy.Artifact and Budget objects, not dictionaries: "
+            "read artifact.chunks; each DocumentChunk has chunk_id, document_id, start, end, text, "
+            "token_count, and role attributes; read budget.max_tokens. "
+            "You must return a ContextPack, not a string or dictionary. "
+            "You MAY import TruncationPolicy, LexicalPolicy, "
+            "pack_spans, retrieve_by_query, map_shards, merge_ranked, and sibling modules. "
+            "Do not default to LexicalPolicy. H0 is source-order full-as-fits.\n"
+        )
+    else:
+        implement = (
+            "Implement policy/policy.py with public class Policy and "
+            "assemble(artifact, query, budget).\n"
+            "The runtime passes rsicontext.policy.Artifact and Budget objects, not dictionaries: "
+            "read artifact.chunks; each DocumentChunk has chunk_id, document_id, start, end, text, "
+            "token_count, and role attributes; read budget.max_tokens. "
+            "You must return a ContextPack, not a string or dictionary. "
+            "Prefer composing the public policy dataclasses or "
+            "existing TruncationPolicy and LexicalPolicy implementations from rsicontext.policy.\n"
+        )
     return (
         track_prefix
         + "You are the context-policy researcher, not the question-answering reader.\n"
@@ -963,14 +992,8 @@ def _build_research_prompt(
         "and format of packed evidence. You do not choose extra reader calls; the evaluator "
         "returns one score per candidate. Put the hypothesis in mechanisms[0].description. "
         "The next round starts from your last attempt even if it regressed; historical-best "
-        "keeps the peak.\n" + delivery + "Implement policy/policy.py with public class Policy and "
-        "assemble(artifact, query, budget).\n"
-        "The runtime passes rsicontext.policy.Artifact and Budget objects, not dictionaries: "
-        "read artifact.chunks; each DocumentChunk has chunk_id, document_id, start, end, text, "
-        "token_count, and role attributes; read budget.max_tokens. You must return a ContextPack, "
-        "not a string or dictionary. Prefer composing the public policy dataclasses or existing "
-        "TruncationPolicy and LexicalPolicy implementations from rsicontext.policy.\n"
-        "There is no rsicontext.policy.Policy symbol. A direct pack has the form "
+        "keeps the peak.\n" + delivery + implement
+        + "There is no rsicontext.policy.Policy symbol. A direct pack has the form "
         "ContextPack(spans=tuple(selected_chunks), ordering=tuple(chunk.chunk_id for chunk in "
         "selected_chunks), token_count=sum(chunk.token_count for chunk in selected_chunks)).\n"
         "The policy must pass a fail-closed AST audit. Do not use from __future__ imports. "
@@ -990,7 +1013,8 @@ def _build_research_prompt(
         f"Exact parent_artifact_id: {request.parent_artifact_id}\n"
         f"Previous aggregate score: {request.previous_score}\n"
         f"Historical-best aggregate score: {request.incumbent_score}\n"
-        "LAST_INVALID_SUBMISSION_BEGIN\n"
+        + prior_cost
+        + "LAST_INVALID_SUBMISSION_BEGIN\n"
         + json.dumps(request.last_invalid_reason, ensure_ascii=False)
         + "\nLAST_INVALID_SUBMISSION_END\n"
         "VISIBLE_FEEDBACK_BEGIN\n"

@@ -55,13 +55,20 @@ Primary table: deterministic evaluator stratum (294). Weak LLM-abstention
 stratum (128) reported separately. Metric is answer-string presence in the
 pack, not official LongMemEval accuracy. No researcher.
 
-## Block D — window-envelope dual-role open-S (current)
+## Block D — window-envelope dual-role open-S (locked)
+
+Completed in `results/open-s-hy3-popqa-window-20260901-b/`. Offset 64, pack
+114624, 5 valid lexical/title rounds, H0 0.375, `discovery_gain=0`. Do not
+overwrite.
+
+## Block E — mode-search open-S (current)
 
 Frozen card: `docs/open-s-visible-scenario.md`.
 
-Eight unseen items at **offset 64**. Five researcher rounds. Pack budget is the
-reader window (114624 on hy3), not 8K. Identical parent copies are invalid.
-Full-as-fits, RAG, truncation, and reorder are all legal. Qualification only.
+H0 is source-order full-as-fits. Eight unseen items at **offset 72**. Five
+researcher rounds. Prompt requires a packing MODE (full / truncate / rag /
+parallel / select-compress / hybrid) and token-cost vs score. Do not retune
+lexical overlap for consecutive rounds. Qualification only.
 
-Do not overwrite Blocks A–C. Do not claim researcher advantage without a
+Do not overwrite Blocks A–D. Do not claim researcher advantage without a
 matched control.

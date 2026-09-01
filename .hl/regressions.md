@@ -72,6 +72,6 @@
   that track with `--pack-tokens 8192`.
 - An open-S researcher turn that resubmits the parent policy tree is invalid,
   even if the manifest says hold.
-- Locked 8K landscape / offset-56 campaign / LME pack artifacts must not be
-  overwritten. New window-envelope runs use a new output directory and offset 64.
+- New mode-search open-S runs use a new output directory and offset 72.
+  Do not overwrite window-b (offset 64) or the 128960 abort cell.
 

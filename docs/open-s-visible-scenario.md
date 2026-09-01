@@ -18,24 +18,20 @@ not 8K**.
 
 Long-document evidence routing for a frozen long-context reader. The researcher
 edits an isolated folder strategy system \(S\) (`policy/*.py`) so one frozen
-reader call answers better. Legal strategies share the same envelope:
-
-- long-context full-as-fits (source order up to the window)
-- retrieve / RAG selection
-- truncation
-- reorder / hybrid rank-then-pack
-- in-item working memory
+reader call answers better. H0 is source-order full-as-fits. The researcher
+should switch packing MODE (full, truncate, rag, parallel, select-compress,
+hybrid) and compare token cost to visible score, not retune one ranker.
 
 Policy code may not invent unbound summary text, call the reader, use the
-network, or answer the question.
+network, extra reader/LLM loops, or answer the question.
 
 ## Bindings
 
 | Field | Value |
 | ----- | ----- |
 | Track | `open-s-harness-v1` |
-| Seed | `seeds/open_s_v1/` (byte-identical H0) |
-| Split | unique PopQA k1000, min gold rank 200, **offset 64** (skips locked 40-item diagnostic and the failed 8-item 8K campaign) |
+| Seed | `seeds/open_s_v1/` (H0 = source-order full-as-fits) |
+| Split | unique PopQA k1000, min gold rank 200, **offset 72** (skips locked 40-item diagnostic, 8K campaign, and window-b) |
 | n | 8 visible items |
 | Rounds | 5 researcher slots after H0 |
 | Pack envelope | reader window − output − 16384 render/axis reserve (hy3: 131072 − 64 − 16384 = **114624**) |
@@ -53,7 +49,7 @@ are invalid.
 
 ```bash
 uv run python scripts/autonomous_public_pilot.py \
-  --output results/open-s-hy3-popqa-window-20260901-b \
+  --output results/open-s-hy3-popqa-modes-20260901 \
   --policy-track open-s \
   --initial-policy seeds/open_s_v1 \
   --reader-max-output-tokens 64

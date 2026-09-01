@@ -204,18 +204,31 @@ def test_open_s_operators_are_deterministic_and_budget_safe() -> None:
     assert record_working_set("q", ranked)[0] == "q"
 
 
-def test_seed_h0_packs_query_evidence_in_a_fresh_process() -> None:
+def test_seed_h0_packs_source_order_when_the_window_fits() -> None:
     bundle = AuditedPolicyBundle.from_directory(SEED, entrypoint="seed.py")
     factory = FreshProcessPolicyFactory(bundle, timeout_seconds=5.0)
     result = evaluate(
         factory,
         (_item(),),
         ToyFrozenReader(),
-        Budget(max_tokens=8),
+        Budget(max_tokens=20),
         exact_match,
     )
     assert result.score == 1.0
     assert result.predictions == ("two",)
+
+
+def test_seed_h0_keeps_prefix_under_a_tight_budget() -> None:
+    bundle = AuditedPolicyBundle.from_directory(SEED, entrypoint="seed.py")
+    factory = FreshProcessPolicyFactory(bundle, timeout_seconds=5.0)
+    result = evaluate(
+        factory,
+        (_item(),),
+        ToyFrozenReader(),
+        Budget(max_tokens=3),
+        exact_match,
+    )
+    assert result.score == 0.0
 
 
 def test_isolated_seed_survives_campaign_snapshot_and_fresh_eval(tmp_path: Path) -> None:
@@ -270,7 +283,7 @@ def test_isolated_seed_survives_campaign_snapshot_and_fresh_eval(tmp_path: Path)
             FreshProcessPolicyFactory(bundle, timeout_seconds=5.0),
             (item,),
             ToyFrozenReader(),
-            Budget(max_tokens=8),
+            Budget(max_tokens=20),
             exact_match,
         )
         return RoundEvaluation(
@@ -305,6 +318,9 @@ def test_open_s_prompt_keeps_the_frozen_boundary() -> None:
     assert "full-as-fits" in prompt
     assert "not an 8K cap" in prompt
     assert "Identical parent copies are invalid" in prompt
+    assert "Search MODE" in prompt
+    assert "select-compress" in prompt
+    assert "do not spend the next round only retuning" in prompt
 
 
 def test_reader_window_pack_budget_fills_the_frozen_window() -> None:
@@ -383,13 +399,16 @@ def test_open_s_campaign_prompt_prefixes_the_harness_contract(tmp_path: Path) ->
     assert "pack envelope" in prompt
     assert "sibling .py modules" in prompt
     assert "8192-token budget" not in prompt
-    assert "must change" in _build_research_prompt(
+    api_prompt = _build_research_prompt(
         request,
         feedback,
         None,
         artifact_delivery="api-json",
         policy_track="open-s",
     )
+    assert "must change" in api_prompt
+    assert "Do not default to LexicalPolicy" in api_prompt
+    assert "LexicalPolicy implementations from rsicontext.policy" not in api_prompt
 
 
 def test_hy3_h0_script_skips_without_credentials(
