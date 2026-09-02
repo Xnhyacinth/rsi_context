@@ -81,5 +81,22 @@ Completed in `results/open-s-hy3-popqa-explore-c-20260901/`. Offset 88, pack
 0.500; `discovery_gain=0`; 40 reader calls. Do not overwrite. Qualification
 only.
 
-Do not overwrite Blocks A–G. Do not claim researcher advantage without a
+## Block H — autonomous open-S fresh after harness fix (locked)
+
+Completed in `results/open-s-hy3-popqa-fresh-20260901/`. Offset 96, pack
+114624. H0 0.500; r0 invalid manifest (`APIResearcherError`); r1–r3 valid at
+0.625; r4 valid at 0.500; `discovery_gain=0.125`; 40 reader calls. Do not
+overwrite. Qualification only. Do not pool with Qwen/A2/KV or claim
+researcher advantage without a matched control.
+
+## Block I — selection-blind 8K admission (locked)
+
+Completed in `results/open-s-hy3-popqa-blind-8k-20260901/`. Offset 104, pack
+8192, `selection-blind` + `next-from-seed`, score-cost feedback. H0 0.375;
+r0/r1/r2/r4 valid at 0.750; r3 invalid `promotion.decision`; 
+`discovery_gain=0.375`; 40 reader calls. Open-loop sampling, not iteration.
+Do not overwrite. A matched `normal` arm on this split is required before
+claiming that feedback accumulates. Qualification only.
+
+Do not overwrite Blocks A–I. Do not claim researcher advantage without a
 matched control.

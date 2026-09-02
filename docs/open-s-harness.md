@@ -118,14 +118,16 @@ agentic reader loop.
 | API researcher multi-file `policy_source` object | done |
 | H0 hy3 canary (1 item, 0 rounds) | done; not discovery |
 | Open-S researcher campaign on PopQA | 8K dual-role 2026-09-01 failed (identical H0 + JSON exit); window-envelope cell is `docs/open-s-visible-scenario.md` |
-| Matched sampling / sequential control | missing; required before advantage |
-| Reader-window pack envelope for open-S | done for visible launches; not the A2 elastic allocator |
+| Frozen lineage / search-mode / feedback schema | done; defaults preserve last-valid + gold; `selection-blind` is the open-loop control |
+| Pack envelope choice (`reader-window` or `selection-binding`) | done for visible launches; bind one envelope per cell |
+| Matched sampling / sequential control | `selection-blind` is the sampling arm; Random-5/Sequential-5 on PolicySpecV1 still missing |
 | Formal isolation / A2 factorial | still refused |
 
 Launch an open-S visible pilot with `policy_track="open-s"` and
 `initial_policy_directory=seeds/open_s_v1`. Defaults bind the frozen window
-scenario in `docs/open-s-visible-scenario.md`. Do not pool with restricted A2.
-Do not pass `--pack-tokens 8192` on this track.
+scenario in `docs/open-s-visible-scenario.md`. Use
+`--pack-envelope selection-binding` when selection must bind. Do not pool with
+restricted A2. Do not mix envelopes or loop fields inside a locked cell.
 
 ## Micro trial
 

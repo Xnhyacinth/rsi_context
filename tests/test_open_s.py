@@ -321,6 +321,7 @@ def test_open_s_prompt_keeps_the_frozen_boundary() -> None:
     assert "Operate autonomously" in prompt
     assert "no prescribed method catalog" in prompt
     assert "complete freedom" in prompt
+    assert "The benchmark owns lineage" in prompt
     assert "Search MODE" not in prompt
     assert "do not spend the next round only retuning" not in prompt
     assert "Prefer composing" not in prompt
@@ -343,6 +344,16 @@ def test_reader_window_pack_budget_fills_the_frozen_window() -> None:
             policy_track="restricted",
             max_model_len=131072,
             max_output_tokens=64,
+        )
+        == 8192
+    )
+    assert (
+        resolve_pack_budget_tokens(
+            pack_tokens=None,
+            policy_track="open-s",
+            max_model_len=131072,
+            max_output_tokens=64,
+            pack_envelope="selection-binding",
         )
         == 8192
     )
@@ -415,11 +426,77 @@ def test_open_s_campaign_prompt_prefixes_the_harness_contract(tmp_path: Path) ->
         candidate_slots=5,
     )
     assert "must change" in api_prompt
-    assert "Choose any composition" in api_prompt
-    assert "retrieve_by_query(chunks, query)" in api_prompt
-    assert "Do not default to LexicalPolicy" not in api_prompt
+    assert "not a method catalog" in api_prompt
+    assert "retrieve_by_query(chunks, query)" not in api_prompt
+    assert "Frozen library signatures" not in api_prompt
+    assert "next-from-last-valid-attempt" in api_prompt
     assert "LexicalPolicy implementations from rsicontext.policy" not in api_prompt
     assert "Prefer composing" not in api_prompt
+
+
+def test_score_only_prompt_seals_gold_and_prior_outcomes_when_blind(tmp_path: Path) -> None:
+    from rsicontext.campaign.autonomous_dynamic import (
+        DynamicEvaluationObservation,
+        VisibleItemFeedback,
+        _build_research_prompt,
+    )
+    from rsicontext.campaign.loop import (
+        FEEDBACK_SCORE_ONLY,
+        LINEAGE_FROM_SEED,
+        SEARCH_SELECTION_BLIND,
+    )
+
+    policy_directory = tmp_path / "policy"
+    policy_directory.mkdir()
+    (policy_directory / "policy.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
+    feedback = (
+        VisibleItemFeedback(
+            item_id="visible-0",
+            query="Which code is present?",
+            reference_answer="amber",
+            baseline_score=0.0,
+            baseline_prediction="INSUFFICIENT",
+            gold_evidence=(),
+        ),
+    )
+    request = ResearchRoundRequest(
+        round_index=1,
+        workspace=tmp_path,
+        policy_directory=policy_directory,
+        manifest_path=tmp_path / "manifest.json",
+        parent_artifact_id="a" * 64,
+        incumbent_artifact_id="a" * 64,
+        previous_score=0.5,
+        incumbent_score=0.5,
+        prediction_item_ids=(feedback[0].item_id,),
+        last_invalid_reason=None,
+    )
+    prior = DynamicEvaluationObservation(
+        round_index=0,
+        score=0.625,
+        item_scores=(("visible-0", 0.625),),
+        predictions=(("visible-0", "amber"),),
+        reader_calls=1,
+        reader_input_tokens=10,
+        reader_output_tokens=2,
+        wall_seconds=0.1,
+    )
+    prompt = _build_research_prompt(
+        request,
+        feedback,
+        prior,
+        artifact_delivery="api-json",
+        policy_track="open-s",
+        candidate_slots=5,
+        feedback_schema=FEEDBACK_SCORE_ONLY,
+        search_mode=SEARCH_SELECTION_BLIND,
+        lineage_rule=LINEAGE_FROM_SEED,
+    )
+    assert "reference_answer" not in prompt
+    assert "Which code is present?" not in prompt
+    assert "selection-blind" in prompt
+    assert '"score": 0.625' not in prompt
+    assert "Previous reader input tokens" not in prompt
 
 
 def test_hy3_h0_script_skips_without_credentials(

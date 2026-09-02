@@ -130,20 +130,19 @@ separately, while every matched arm retains the same maximum opportunity count.
 
 ## Current executable status
 
-`elastic_envelope.py` now implements the evaluator-owned envelope, split-wide
-integer allocator, complete rendered-batch preflight, and frozen chat-render
-token counter. It deliberately separates policy-authored length preference
-from evaluator-owned item identity and overhead. The A2 controller refuses the
-legacy fixed-budget schema before any reader call.
+The visible campaign loop now freezes three SLE-style operators in the run
+contract: `lineage_rule` (`next-from-last-valid-attempt` or `next-from-seed`),
+`search_mode` (`normal` or `selection-blind`), and `feedback_schema` (gold,
+score-cost, or score-only). Selection-blind keeps the seed parent and withholds
+later scores from the prompt; historical-best is still recorded offline. Open-S
+launches may choose `reader-window` or `selection-binding` (8192) pack envelopes
+without changing the frozen reader. These are qualification instruments, not
+matched-control researcher advantage.
 
-The two-stage candidate worker, elastic `PolicySpec` grammar, schema-v2 A2
-plan, matched elastic controls, independently pre-registered unseen hy3 signal
-confirmation, and formal researcher/evaluator isolation remain launch gates.
-Consequently the existing fixed-8K autonomous scripts are qualification
-instruments, not the executable elastic A2 loop.
+`elastic_envelope.py` implements the evaluator-owned envelope for the separate
+A2 path. Formal isolation and the elastic A2 factorial remain launch gates.
 
-The next API-reader experiment is not another run on the observed PopQA panel.
-The existing hy3 block found a meaningful lexical-versus-head point contrast
-but failed its pre-registered uncertainty and unstable-item sensitivity gates.
-Before any hy3 researcher receives scores, an unseen fixed-policy confirmation
-must be committed and pass without changing the original failure record.
+Locked hy3 PopQA cells are not overwritten. A new cell must bind loop fields
+before the first reader call. `selection-blind` plus a binding envelope is the
+admission control for claiming iteration; do not treat a single normal overlap
+rewrite on a full window as discovery.

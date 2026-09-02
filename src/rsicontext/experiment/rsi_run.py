@@ -11,6 +11,13 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from rsicontext.campaign.loop import (
+    FEEDBACK_VISIBLE_GOLD,
+    LINEAGE_LAST_VALID,
+    SEARCH_NORMAL,
+    LoopContractError,
+    validate_loop_contract,
+)
 from rsicontext.policy import Budget
 from rsicontext.researcher import ProcessLimits
 
@@ -182,9 +189,10 @@ class BoundedRSIRunContract:
     max_total_bytes: int
     valid_candidate_reader_calls_per_item: int = 1
     invalid_submission_reader_calls: int = 0
-    lineage_rule: str = "next-from-last-valid-attempt"
+    lineage_rule: str = LINEAGE_LAST_VALID
     selection_rule: str = "visible-strict-historical-best"
-    feedback_schema: str = "visible-gold-plus-prior-outcome-v1"
+    feedback_schema: str = FEEDBACK_VISIBLE_GOLD
+    search_mode: str = SEARCH_NORMAL
     matched_primary_estimand: bool = False
     formal_process_isolation: bool = False
     qualification_only: bool = True
@@ -287,6 +295,14 @@ class BoundedRSIRunContract:
             raise ValueError("this contract is restricted to visible qualification")
         if self.schema_version != 2:
             raise ValueError("unsupported bounded RSI run contract schema")
+        try:
+            validate_loop_contract(
+                lineage_rule=self.lineage_rule,
+                search_mode=self.search_mode,
+                feedback_schema=self.feedback_schema,
+            )
+        except LoopContractError as exc:
+            raise ValueError(str(exc)) from exc
 
     def to_dict(self) -> dict[str, object]:
         payload = asdict(self)
@@ -333,6 +349,9 @@ def build_bounded_rsi_run_contract(
     budget: Budget,
     max_prompt_bytes: int,
     process_limits: ProcessLimits,
+    lineage_rule: str = LINEAGE_LAST_VALID,
+    feedback_schema: str = FEEDBACK_VISIBLE_GOLD,
+    search_mode: str = SEARCH_NORMAL,
 ) -> BoundedRSIRunContract:
     """Freeze one visible trajectory's allocations before its first model call."""
 
@@ -383,6 +402,9 @@ def build_bounded_rsi_run_contract(
         max_stdout_bytes=process_limits.max_stdout_bytes,
         max_stderr_bytes=process_limits.max_stderr_bytes,
         max_total_bytes=process_limits.max_total_bytes,
+        lineage_rule=lineage_rule,
+        feedback_schema=feedback_schema,
+        search_mode=search_mode,
     )
 
 

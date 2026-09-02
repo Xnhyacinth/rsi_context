@@ -19,6 +19,15 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Self
 
+from rsicontext.campaign.loop import (
+    FEEDBACK_VISIBLE_GOLD,
+    LINEAGE_LAST_VALID,
+    SEARCH_NORMAL,
+    include_prior_candidate_outcomes,
+    loop_scope_text,
+    search_visible_item_dict,
+    validate_loop_contract,
+)
 from rsicontext.campaign.researcher import (
     CampaignConfig,
     CandidateEvaluationError,
@@ -318,6 +327,9 @@ class DynamicResearcherCallback:
     max_prompt_bytes: int = _MAX_RESEARCHER_PROMPT_BYTES
     policy_track: PolicyTrack = "restricted"
     candidate_slots: int | None = None
+    feedback_schema: str = FEEDBACK_VISIBLE_GOLD
+    search_mode: str = SEARCH_NORMAL
+    lineage_rule: str = LINEAGE_LAST_VALID
     post_turn_integrity_check: Callable[[], bool] | None = None
     evaluation_observations: list[DynamicEvaluationObservation] = field(default_factory=list)
     prompts: list[ResearcherPromptRecord] = field(default_factory=list, init=False)
@@ -327,9 +339,9 @@ class DynamicResearcherCallback:
     def __call__(self, request: ResearchRoundRequest) -> None:
         if self.post_turn_integrity_check is not None and not self.post_turn_integrity_check():
             raise RuntimeError("locked run inputs changed before researcher execution")
-        prior = self.evaluation_observations[-1] if self.evaluation_observations else None
-        if prior is not None and prior.round_index != request.round_index - 1:
-            raise ValueError("prior visible outcomes do not match the requested parent round")
+        prior = None
+        if include_prior_candidate_outcomes(self.search_mode) and self.evaluation_observations:
+            prior = self.evaluation_observations[-1]
         prompt = _build_research_prompt(
             request,
             self.visible_feedback,
@@ -337,6 +349,9 @@ class DynamicResearcherCallback:
             artifact_delivery="api-json" if self.researcher_kind == "api" else "workspace",
             policy_track=self.policy_track,
             candidate_slots=self.candidate_slots,
+            feedback_schema=self.feedback_schema,
+            search_mode=self.search_mode,
+            lineage_rule=self.lineage_rule,
         )
         if len(prompt.encode()) > self.max_prompt_bytes:
             raise ResearcherTurnError("researcher prompt exceeds the frozen byte budget")
@@ -634,6 +649,9 @@ def run_autonomous_dynamic_pilot(
     max_researcher_prompt_bytes: int = _MAX_RESEARCHER_PROMPT_BYTES,
     require_attested_identities: bool = False,
     policy_track: PolicyTrack = "restricted",
+    lineage_rule: str = LINEAGE_LAST_VALID,
+    feedback_schema: str = FEEDBACK_VISIBLE_GOLD,
+    search_mode: str = SEARCH_NORMAL,
 ) -> AutonomousDynamicPilotResult:
     """Run a visible qualification with an actual researcher CLI process."""
 
@@ -717,6 +735,9 @@ def run_autonomous_dynamic_pilot(
         budget=actual_budget,
         max_prompt_bytes=max_researcher_prompt_bytes,
         process_limits=actual_process_limits,
+        lineage_rule=lineage_rule,
+        feedback_schema=feedback_schema,
+        search_mode=search_mode,
     )
     run_contract_path = output / "run_contract.json"
     _write_new_json(
@@ -780,6 +801,9 @@ def run_autonomous_dynamic_pilot(
             max_prompt_bytes=max_researcher_prompt_bytes,
             policy_track=policy_track,
             candidate_slots=rounds,
+            feedback_schema=feedback_schema,
+            search_mode=search_mode,
+            lineage_rule=lineage_rule,
             post_turn_integrity_check=integrity_check,
             evaluation_observations=evaluator.observations,
         )
@@ -792,6 +816,9 @@ def run_autonomous_dynamic_pilot(
             config=CampaignConfig(
                 rounds=rounds,
                 prediction_item_ids=tuple(item.item_id for item in items),
+                lineage_rule=lineage_rule,
+                search_mode=search_mode,
+                feedback_schema=feedback_schema,
             ),
         )
         if not integrity_check():
@@ -890,16 +917,26 @@ def _build_research_prompt(
     artifact_delivery: ArtifactDelivery = "workspace",
     policy_track: PolicyTrack = "restricted",
     candidate_slots: int | None = None,
+    feedback_schema: str = FEEDBACK_VISIBLE_GOLD,
+    search_mode: str = SEARCH_NORMAL,
+    lineage_rule: str = LINEAGE_LAST_VALID,
 ) -> str:
     if policy_track not in {"restricted", "open-s"}:
         raise ValueError(f"unsupported policy track: {policy_track}")
+    validate_loop_contract(
+        lineage_rule=lineage_rule,
+        search_mode=search_mode,
+        feedback_schema=feedback_schema,
+    )
     item_ids = tuple(item.item_id for item in feedback)
     if item_ids != request.prediction_item_ids:
         raise ValueError("research prompt item order does not match the campaign contract")
     manifest = _manifest_template(request, item_ids)
-    feedback_payload = [item.to_dict() for item in feedback]
+    feedback_payload = [
+        search_visible_item_dict(item.to_dict(), feedback_schema) for item in feedback
+    ]
     prior_payload: list[dict[str, object]] = []
-    if prior is not None:
+    if include_prior_candidate_outcomes(search_mode) and prior is not None:
         prior_scores = dict(prior.item_scores)
         prior_predictions = dict(prior.predictions)
         if set(prior_scores) != set(item_ids) or set(prior_predictions) != set(item_ids):
@@ -913,7 +950,7 @@ def _build_research_prompt(
             for item_id in item_ids
         ]
     prior_cost = ""
-    if prior is not None:
+    if include_prior_candidate_outcomes(search_mode) and prior is not None:
         prior_cost = (
             f"Previous reader input tokens: {prior.reader_input_tokens}\n"
             f"Previous reader output tokens: {prior.reader_output_tokens}\n"
@@ -977,11 +1014,10 @@ def _build_research_prompt(
             "read artifact.chunks; each DocumentChunk has chunk_id, document_id, start, end, text, "
             "token_count, and role attributes; read budget.max_tokens. "
             "You must return a ContextPack, not a string or dictionary. "
-            "Frozen library signatures: retrieve_by_query(chunks, query); "
-            "pack_spans(chunks, artifact, budget); map_shards(chunks, shard_count=2); "
-            "merge_ranked(ranked_shards). TruncationPolicy and LexicalPolicy also expose "
-            "assemble(artifact, query, budget). Sibling modules or local reimplementations "
-            "are legal. Choose any composition; H0 is only the source-order baseline.\n"
+            "Parent-tree modules and rsicontext.policy.open_s may contain helpers. Read their "
+            "source or reimplement; they are optional and not a method catalog. "
+            "TruncationPolicy and LexicalPolicy also expose assemble(artifact, query, budget). "
+            "Choose any legal one-call compiler; H0 is only the source-order baseline.\n"
         )
         hypothesis = (
             "Choose any legal one-call compiler H. Analyze visible scores and reader token "
@@ -1031,6 +1067,12 @@ def _build_research_prompt(
         + hypothesis
         + delivery
         + implement
+        + loop_scope_text(
+            lineage_rule=lineage_rule,
+            search_mode=search_mode,
+            feedback_schema=feedback_schema,
+        )
+        + "\n"
         + "There is no rsicontext.policy.Policy symbol. A direct pack has the form "
         "ContextPack(spans=tuple(selected_chunks), ordering=tuple(chunk.chunk_id for chunk in "
         "selected_chunks), token_count=sum(chunk.token_count for chunk in selected_chunks)).\n"

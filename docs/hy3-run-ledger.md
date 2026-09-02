@@ -21,12 +21,22 @@ Qwen3.6-27B). Do not pool hy3 curves with local Qwen.
 | Open-S autonomous explore | 8 unseen items (offset 72), 5 rounds, pack 114624 | **0 valid** | each round rewrote `policy.py`; all TypeError on `retrieve_by_query(..., top_k=)` | H0 **0.500**, round scores recorded 0/0/0/0/0, `discovery_gain=0` | qualification_only; 8 reader calls (H0 only); keep `results/open-s-hy3-popqa-explore-20260901/`; do not overwrite |
 | Open-S autonomous explore-b | 8 unseen items (offset 80), 5 rounds, pack 114624 | **4 valid**, r4 process exit 1 | r0–r3 rewrote `policy.py`; r4 missing | H0 **0.500**, scores 0.5/0.5/0.5/0.5/invalid, `discovery_gain=0` | qualification_only; 40 reader calls, 4.66M input tokens; keep `results/open-s-hy3-popqa-explore-b-20260901/`; do not overwrite |
 | Open-S autonomous explore-c | 8 unseen items (offset 88), 5 rounds, pack 114624 | **4 valid**; r0 invalid manifest | r1–r4 rewrote `policy.py` | H0 **0.500**, scores invalid/0.5/0.5/0.5/0.5, `discovery_gain=0` | qualification_only; 40 reader calls, 4.67M input tokens; r0 diagnostic `APIResearcherError: API researcher manifest is invalid`; keep `results/open-s-hy3-popqa-explore-c-20260901/`; do not overwrite |
+| Open-S autonomous fresh (post-fix) | 8 unseen items (offset 96), 5 rounds, pack 114624 | **4 valid**; r0 invalid manifest | r1 retrieval-ranked; r2 hybrid rank+source-order fill; r3 shard merge; r4 density reorder | H0 **0.500**, scores invalid/0.625/0.625/0.625/0.5, `discovery_gain=0.125` | qualification_only; 40 reader calls, 4.65M input tokens; keep `results/open-s-hy3-popqa-fresh-20260901/`; do not overwrite; **not** a researcher-advantage claim |
+| Open-S selection-blind 8K | 8 unseen items (offset 104), 5 rounds, pack **8192**, `selection-blind` | **4 valid**; r3 invalid promotion.decision | 4 independent from-seed overlap compilers | H0 **0.375**, scores 0.75/0.75/0.75/invalid/0.75, `discovery_gain=0.375` | qualification_only; 40 reader calls, 0.34M input tokens; parents all seed; no gold in prompt; keep `results/open-s-hy3-popqa-blind-8k-20260901/`; do not overwrite; **not** an iteration claim |
 | LME-V2 small pack 2026-09-01 | 422 text-only, 8K last-k/lexical/random, 0 reader | 0 | frozen packers | det.294: 0.112 / 0.408 / 0.361; weak.128: 0 | answer-string presence, not official score |
 
-There is **no hy3 autonomous discovery result**. Window-b searched lexical
-rankers at H0 0.375. Explore-c offset 88 had one invalid manifest then four
-valid compilers tying source-order H0 at 0.500. Dual-role v4 remains the first
-scored researcher rewrite on homemade items, also with `discovery_gain=0`.
+The selection-blind 8K cell is an **open-loop sampling** record: four independent
+seed restarts all reached 0.75 by query-overlap ranking. That saturates this
+8-item panel for sampling. A matched `normal` arm on offset 104 is required
+before claiming that score feedback adds anything. Window-envelope offset 96
+remains a separate, looser envelope.
+
+Explore-c (offset 88) recovered after one invalid manifest and tied
+source-order H0 at 0.500. The post-fix fresh cell (offset 96) is the first
+hy3 open-S panel with `discovery_gain>0` (peak 0.625 vs H0 0.500). That is a
+qualification-only 8-item visible score, not a matched-control researcher
+advantage. Dual-role v4 remains the first scored researcher rewrite on
+homemade items (`discovery_gain=0`).
 
 ## Dual-role v4 in one paragraph
 

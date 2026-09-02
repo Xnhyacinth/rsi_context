@@ -21,6 +21,15 @@ from rsicontext.campaign.autonomous_dynamic import (
     public_visible_items_fingerprint,
     run_autonomous_dynamic_pilot,
 )
+from rsicontext.campaign.loop import (
+    FEEDBACK_SCORE_COST,
+    FEEDBACK_SCORE_ONLY,
+    FEEDBACK_VISIBLE_GOLD,
+    LINEAGE_FROM_SEED,
+    LINEAGE_LAST_VALID,
+    SEARCH_NORMAL,
+    SEARCH_SELECTION_BLIND,
+)
 from rsicontext.datasets.helmet_rag import (
     EncodedWindowTokenizer,
     load_helmet_kilt_items,
@@ -29,12 +38,17 @@ from rsicontext.eval import EvaluationItem, extractive_span_match
 from rsicontext.experiment import build_profile_reader, load_api_profiles, resolve_api_endpoint
 from rsicontext.open_s import (
     OPEN_S_VISIBLE_CELL_ID,
+    OPEN_S_VISIBLE_FEEDBACK_SCHEMA,
     OPEN_S_VISIBLE_ITEM_OFFSET,
     OPEN_S_VISIBLE_MAX_ITEMS,
     OPEN_S_VISIBLE_MIN_GOLD_RANK,
+    OPEN_S_VISIBLE_PACK_ENVELOPE,
     OPEN_S_VISIBLE_READER_OUTPUT_TOKENS,
     OPEN_S_VISIBLE_READER_TIMEOUT_SECONDS,
     OPEN_S_VISIBLE_ROUNDS,
+    OPEN_S_VISIBLE_SEARCH_MODE,
+    PACK_ENVELOPE_READER_WINDOW,
+    PACK_ENVELOPE_SELECTION_BINDING,
     resolve_pack_budget_tokens,
 )
 from rsicontext.policy import Budget
@@ -115,6 +129,30 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--rounds", type=int, default=None)
     parser.add_argument("--researcher-timeout-seconds", type=float, default=1800.0)
     parser.add_argument("--pack-tokens", type=int, default=None)
+    parser.add_argument(
+        "--pack-envelope",
+        choices=(PACK_ENVELOPE_READER_WINDOW, PACK_ENVELOPE_SELECTION_BINDING),
+        default=None,
+        help="Frozen pack envelope: selection-binding=8192, reader-window fills the model.",
+    )
+    parser.add_argument(
+        "--lineage-rule",
+        choices=(LINEAGE_LAST_VALID, LINEAGE_FROM_SEED),
+        default=None,
+        help="Research parent after a valid slot. selection-blind requires next-from-seed.",
+    )
+    parser.add_argument(
+        "--search-mode",
+        choices=(SEARCH_NORMAL, SEARCH_SELECTION_BLIND),
+        default=None,
+        help="normal returns scores to the next prompt; selection-blind withholds them.",
+    )
+    parser.add_argument(
+        "--feedback-schema",
+        choices=(FEEDBACK_VISIBLE_GOLD, FEEDBACK_SCORE_COST, FEEDBACK_SCORE_ONLY),
+        default=None,
+        help="Search-visible metrics. Gold spans are optional, not the default required by SLE.",
+    )
     return parser
 
 
@@ -220,24 +258,42 @@ def main() -> int:
         else (OPEN_S_VISIBLE_ITEM_OFFSET if open_s else 0)
     )
     min_gold_rank = (
-        args.min_gold_rank
-        if args.min_gold_rank is not None
-        else OPEN_S_VISIBLE_MIN_GOLD_RANK
+        args.min_gold_rank if args.min_gold_rank is not None else OPEN_S_VISIBLE_MIN_GOLD_RANK
     )
-    rounds = (
-        args.rounds if args.rounds is not None else (OPEN_S_VISIBLE_ROUNDS if open_s else 5)
-    )
+    rounds = args.rounds if args.rounds is not None else (OPEN_S_VISIBLE_ROUNDS if open_s else 5)
     output_limit = args.reader_max_output_tokens
     if output_limit is None:
         output_limit = (
             OPEN_S_VISIBLE_READER_OUTPUT_TOKENS if open_s else dynamic_reader_output_limit(profile)
         )
+    pack_envelope = args.pack_envelope
+    if pack_envelope is None and open_s:
+        pack_envelope = OPEN_S_VISIBLE_PACK_ENVELOPE
     pack_tokens = resolve_pack_budget_tokens(
         pack_tokens=args.pack_tokens,
         policy_track=args.policy_track,
         max_model_len=profile.evaluation_max_model_len,
         max_output_tokens=output_limit,
+        pack_envelope=pack_envelope,
     )
+    if args.search_mode is not None:
+        search_mode = args.search_mode
+    elif open_s:
+        search_mode = OPEN_S_VISIBLE_SEARCH_MODE
+    else:
+        search_mode = SEARCH_NORMAL
+    if args.lineage_rule is None:
+        lineage_rule = (
+            LINEAGE_FROM_SEED if search_mode == SEARCH_SELECTION_BLIND else LINEAGE_LAST_VALID
+        )
+    else:
+        lineage_rule = args.lineage_rule
+    if args.feedback_schema is not None:
+        feedback_schema = args.feedback_schema
+    elif open_s:
+        feedback_schema = OPEN_S_VISIBLE_FEEDBACK_SCHEMA
+    else:
+        feedback_schema = FEEDBACK_VISIBLE_GOLD
     reader_timeout = args.reader_timeout_seconds
     if reader_timeout is None:
         reader_timeout = OPEN_S_VISIBLE_READER_TIMEOUT_SECONDS if open_s else 180.0
@@ -258,6 +314,7 @@ def main() -> int:
         cell_id=(
             f"{args.cell}-unique{int(args.unique_queries)}-minrank{min_gold_rank}"
             f"-offset{item_offset}-track{args.policy_track}-pack{pack_tokens}"
+            f"-lineage{lineage_rule}-search{search_mode}-feedback{feedback_schema}"
         ),
         items=items,
         pack_budget_tokens=pack_tokens,
@@ -302,6 +359,9 @@ def main() -> int:
             "tokenizer_id": tokenizer_id,
         },
         policy_track=args.policy_track,
+        lineage_rule=lineage_rule,
+        search_mode=search_mode,
+        feedback_schema=feedback_schema,
     )
     print(
         json.dumps(

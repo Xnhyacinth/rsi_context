@@ -206,6 +206,65 @@ def test_seed_evaluation_is_the_initial_historical_best(tmp_path: Path) -> None:
     assert process_from_campaign_directory(tmp_path / "campaign") == result.process
 
 
+def test_from_seed_lineage_restarts_every_valid_round(tmp_path: Path) -> None:
+    from rsicontext.campaign.loop import LINEAGE_FROM_SEED
+
+    researcher = FakeResearcher()
+    result = run_researcher_campaign(
+        initial_policy_directory=_seed_policy(tmp_path),
+        output_directory=tmp_path / "campaign",
+        researcher=researcher,
+        evaluator=ToyIsolatedEvaluator(),
+        config=CampaignConfig(
+            rounds=3,
+            prediction_item_ids=("visible-1",),
+            lineage_rule=LINEAGE_FROM_SEED,
+        ),
+    )
+
+    assert researcher.starting_modes == ["seed", "seed", "seed"]
+    assert {round_.parent_artifact_id for round_ in result.rounds} == {result.seed_artifact_id}
+
+
+def test_selection_blind_withholds_peak_from_later_prompts(tmp_path: Path) -> None:
+    from rsicontext.campaign.loop import LINEAGE_FROM_SEED, SEARCH_SELECTION_BLIND
+
+    seen: list[tuple[float | None, float | None, str]] = []
+
+    def researcher(request: ResearchRoundRequest) -> None:
+        seen.append((request.previous_score, request.incumbent_score, request.parent_artifact_id))
+        source_path = request.policy_directory / "policy.py"
+        source_path.write_text(
+            f'MODE = "{FakeResearcher.modes[request.round_index]}"\n',
+            encoding="utf-8",
+        )
+        _manifest(request)
+
+    seed_evaluation = RoundEvaluation(0.5, (("visible-1", 0.5),), 7, 1, 0.1)
+    result = run_researcher_campaign(
+        initial_policy_directory=_seed_policy(tmp_path),
+        initial_evaluation=seed_evaluation,
+        output_directory=tmp_path / "campaign",
+        researcher=researcher,
+        evaluator=ToyIsolatedEvaluator(),
+        config=CampaignConfig(
+            rounds=2,
+            prediction_item_ids=("visible-1",),
+            lineage_rule=LINEAGE_FROM_SEED,
+            search_mode=SEARCH_SELECTION_BLIND,
+        ),
+    )
+
+    assert seen[0][0] == 0.5
+    assert seen[1][0] == 0.5
+    assert seen[1][1] == 0.5
+    assert seen[0][2] == result.seed_artifact_id
+    assert seen[1][2] == result.seed_artifact_id
+    assert result.selected_round == 1
+    assert result.process is not None
+    assert result.process.peak_score == pytest.approx(1.0)
+
+
 def test_invalid_audit_consumes_a_round_without_reader_or_promotion(
     tmp_path: Path,
 ) -> None:

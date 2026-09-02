@@ -75,7 +75,7 @@ class APIResearcherArtifact:
         try:
             manifest = Manifest.from_dict(cast(dict[str, object], manifest_raw))
         except ManifestError as error:
-            raise APIResearcherError("API researcher manifest is invalid") from error
+            raise APIResearcherError(f"API researcher manifest is invalid: {error}") from error
         return cls(files=files, manifest=manifest, merge_parent=merge_parent)
 
     def write_workspace(self, workspace: Path) -> None:

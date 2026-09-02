@@ -70,6 +70,7 @@ def test_run_contract_binds_every_allocation_before_execution(tmp_path: Path) ->
     assert contract.invalid_submission_reader_calls == 0
     assert contract.valid_candidate_reader_calls_per_item == 1
     assert contract.lineage_rule == "next-from-last-valid-attempt"
+    assert contract.search_mode == "normal"
     assert contract.selection_rule == "visible-strict-historical-best"
     assert contract.matched_primary_estimand is False
     serialized = contract.to_dict()

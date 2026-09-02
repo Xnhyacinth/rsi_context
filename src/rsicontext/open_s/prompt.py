@@ -25,8 +25,9 @@ Do not read gate or sealed labels.
 Operate autonomously. There is no human in the loop and no prescribed method catalog.
 You have complete freedom among legal one-call compilers. H0 is source-order full-as-fits.
 Improve the visible score. Use reported reader tokens to judge cost versus effect.
-Visible gold locates supporting spans on this split; it is diagnostic evidence, not a
-lookup table and not an instruction to write any particular family of compiler.
+Visible gold, when present, locates supporting spans on this split; it is diagnostic
+evidence, not a lookup table and not an instruction to write any particular compiler.
+The benchmark owns lineage, search mode, and feedback bandwidth. You cannot change them.
 
 Legal one-call compilers include any deterministic selection, order, coverage, truncation,
 retrieval, logical shard-then-merge, compression-by-selection, or a hybrid you invent.

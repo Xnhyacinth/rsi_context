@@ -19,6 +19,16 @@ from typing import Protocol
 
 from rsicontext.analysis.process import CampaignProcessTrace, campaign_process_trace
 from rsicontext.artifacts import ArtifactStore, Manifest, ManifestError, load_manifest
+from rsicontext.campaign.loop import (
+    FEEDBACK_VISIBLE_GOLD,
+    LINEAGE_LAST_VALID,
+    SEARCH_NORMAL,
+    SEARCH_SELECTION_BLIND,
+    LoopContractError,
+    next_research_parent_id,
+    prompt_score_view,
+    validate_loop_contract,
+)
 from rsicontext.security import PolicyAuditor, PolicySecurityError, allowed_local_imports
 
 
@@ -41,6 +51,9 @@ class CampaignConfig:
     prediction_item_ids: tuple[str, ...]
     rounds: int = 5
     promotion_margin: float = 0.0
+    lineage_rule: str = LINEAGE_LAST_VALID
+    search_mode: str = SEARCH_NORMAL
+    feedback_schema: str = FEEDBACK_VISIBLE_GOLD
 
     def __post_init__(self) -> None:
         if not isinstance(self.rounds, int) or isinstance(self.rounds, bool) or self.rounds < 1:
@@ -61,6 +74,14 @@ class CampaignConfig:
             or self.promotion_margin < 0
         ):
             raise CampaignError("promotion_margin must be finite and non-negative")
+        try:
+            validate_loop_contract(
+                lineage_rule=self.lineage_rule,
+                search_mode=self.search_mode,
+                feedback_schema=self.feedback_schema,
+            )
+        except LoopContractError as exc:
+            raise CampaignError(str(exc)) from exc
 
 
 @dataclass(frozen=True, slots=True)
@@ -183,11 +204,11 @@ def run_researcher_campaign(
 ) -> ResearchCampaignResult:
     """Run an audited callback loop and preserve every candidate and decision.
 
-    Historical-best promotion is benchmark-controlled, while the next research
-    round starts from the previous attempt. This preserves regressions in the
-    trajectory without losing the selected peak. A researcher turn that fails
-    before a scorable H exists is recorded as invalid, keeps the last valid
-    parent, and does not call the frozen reader.
+    Historical-best promotion is benchmark-controlled. The next research parent
+    follows the frozen lineage rule (last valid attempt, or seed). Selection-blind
+    withholds later scores from the researcher prompt. A researcher turn that
+    fails before a scorable H exists is recorded as invalid, keeps the last
+    research parent, and does not call the frozen reader.
     """
 
     if not callable(researcher) or not callable(evaluator):
@@ -230,15 +251,26 @@ def run_researcher_campaign(
         workspace = output / "workspaces" / f"round-{round_index:02d}"
         policy_directory = _materialize_clean_workspace(store, parent_artifact_id, workspace)
         manifest_path = workspace / "manifest.json"
+        prompt_previous, prompt_incumbent = prompt_score_view(
+            search_mode=config.search_mode,
+            h0_score=h0_score,
+            previous_score=previous_score,
+            incumbent_score=incumbent_score,
+        )
+        prompt_incumbent_id = (
+            seed_record.artifact_id
+            if config.search_mode == SEARCH_SELECTION_BLIND
+            else incumbent_artifact_id
+        )
         request = ResearchRoundRequest(
             round_index=round_index,
             workspace=workspace,
             policy_directory=policy_directory,
             manifest_path=manifest_path,
             parent_artifact_id=parent_artifact_id,
-            incumbent_artifact_id=incumbent_artifact_id,
-            previous_score=previous_score,
-            incumbent_score=incumbent_score,
+            incumbent_artifact_id=prompt_incumbent_id,
+            previous_score=prompt_previous,
+            incumbent_score=prompt_incumbent,
             prediction_item_ids=config.prediction_item_ids,
             last_invalid_reason=last_invalid_reason,
         )
@@ -418,7 +450,11 @@ def run_researcher_campaign(
                 researcher_recommendation=manifest.promotion.decision,
             )
         )
-        parent_artifact_id = candidate_record.artifact_id
+        parent_artifact_id = next_research_parent_id(
+            seed_artifact_id=seed_record.artifact_id,
+            last_attempt_artifact_id=candidate_record.artifact_id,
+            lineage_rule=config.lineage_rule,
+        )
         previous_score = evaluation.score
 
     valid_rounds = tuple(round_ for round_ in rounds if round_.valid)

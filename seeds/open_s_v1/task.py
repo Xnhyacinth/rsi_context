@@ -12,5 +12,6 @@ TASK = (
 CONSTRAINTS = (
     "Python files only under policy/. One target-model call per item. Each "
     "scored turn must change the policy tree. Invalid submissions consume a "
-    "slot. Beat H0 and a matched control before claiming researcher advantage."
+    "slot. The benchmark owns lineage, search mode, and feedback bandwidth. "
+    "Beat H0 and a matched control before claiming researcher advantage."
 )

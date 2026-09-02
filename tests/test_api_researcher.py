@@ -145,10 +145,7 @@ def test_api_artifact_writer_accepts_a_multi_file_policy_tree(tmp_path: Path) ->
                     "        return ContextPack(spans=spans, ordering=(spans[0].chunk_id,), "
                     "token_count=spans[0].token_count)\n"
                 ),
-                "retrieval.py": (
-                    "def rank(chunks):\n"
-                    "    return chunks[:1]\n"
-                ),
+                "retrieval.py": ("def rank(chunks):\n    return chunks[:1]\n"),
             },
             "manifest": _manifest(),
         }
@@ -229,6 +226,23 @@ def test_api_artifact_object_payload_rejects_identical_parent_tree(tmp_path: Pat
 
     assert (policy / "policy.py").read_text(encoding="utf-8") == "class Policy:\n    pass\n"
     assert not (workspace / "manifest.json").exists()
+
+
+def test_invalid_manifest_includes_the_underlying_reason() -> None:
+    manifest = _manifest()
+    predictions = list(manifest["predictions"])
+    first = dict(predictions[0])
+    first["probabilities"] = {"improve": 0.9, "unchanged": 0.4, "regress": 0.1}
+    manifest["predictions"] = [first]
+    payload = json.dumps(
+        {
+            "schema_version": 1,
+            "policy_source": "class Policy:\n    pass\n",
+            "manifest": manifest,
+        }
+    )
+    with pytest.raises(APIResearcherError, match="must sum to exactly one"):
+        APIResearcherArtifact.from_response(payload)
 
 
 @pytest.mark.parametrize(
