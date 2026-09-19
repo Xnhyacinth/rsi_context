@@ -158,6 +158,16 @@ class APIResearcherImprover:
             raise APIResearcherError("researcher response must contain one choice")
         message = choices[0].get("message")
         content = message.get("content") if isinstance(message, dict) else None
+        finish_reason = choices[0].get("finish_reason")
+        if not isinstance(content, str) or not content.strip():
+            # Reasoning researchers can emit the final output only inside the
+            # reasoning channel: fall back to its tail (the last JSON object
+            # the model formed before finishing).
+            reasoning = message.get("reasoning") or message.get("reasoning_content")
+            if isinstance(reasoning, str) and "{" in reasoning:
+                tail = reasoning[reasoning.rfind('{"changes"') :].strip()
+                if tail.startswith("{") and "}" in tail:
+                    content = tail[: tail.rfind("}") + 1]
         if not isinstance(content, str) or not content.strip():
             raise APIResearcherError("researcher response content is empty")
         usage = raw.get("usage") if isinstance(raw, dict) else None
@@ -167,10 +177,17 @@ class APIResearcherImprover:
         out_tokens = usage.get("completion_tokens")
         if not isinstance(in_tokens, int) or not isinstance(out_tokens, int):
             raise APIResearcherError("researcher usage must carry prompt/completion tokens")
+        if finish_reason == "length":
+            raise APIResearcherError("researcher reply was truncated by the output-token budget")
         return content, in_tokens, out_tokens
 
     def _parse_changes(self, content: str) -> dict[str, str]:
         text = content.strip()
+        # Strip markdown code fences the reasoning researcher tends to add.
+        if text.startswith("```"):
+            first_newline = text.find("\n")
+            if first_newline != -1 and text.rstrip().endswith("```"):
+                text = text[first_newline + 1 : text.rstrip().rfind("```")].strip()
         start = text.find("{")
         end = text.rfind("}")
         if start == -1 or end == -1 or end <= start:

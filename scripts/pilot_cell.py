@@ -51,7 +51,7 @@ def _reader_call(query: str, pack: str) -> tuple[str, int, int]:
             {"role": "system", "content": READER_SYSTEM},
             {"role": "user", "content": pack},
         ],
-        "max_tokens": 1024,
+        "max_tokens": 2048,
         "temperature": 0.0,
         "seed": 42,
         "stream": False,
@@ -98,15 +98,50 @@ def _act_verify_actions(stage, answer: str, provenance: tuple[str, ...]) -> tupl
 
 
 def _normalize_answer(raw: str) -> str:
-    """Extract the answer phrase from the reader's reply (first quoted or plain token)."""
+    """Extract the answer phrase from the reader's reply.
 
-    text = raw.strip().strip(".").strip()
+    Handles the reasoning-reader reply shapes observed on the T2 canary:
+    quoted phrases, 'The answer is X' / 'Based on ... is X' narration
+    wrappers, leading blank lines, and trailing punctuation. Falls back to
+    the first non-empty line, then to the first phrase segment.
+    """
+
+    text = raw.strip()
+    if not text:
+        return ""
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    text = lines[0] if lines else ""
+    # Quoted phrase wins.
     for quote in ('"', "'", "`"):
         if text.startswith(quote):
             end = text.find(quote, 1)
-            if end > 0:
-                return text[1:end]
-    return text.split("\n")[0].strip()
+            if end > 1:
+                return text[1:end].strip().strip(".").strip()
+    # 'X' or **X** emphasis wrappers.
+    if text.startswith("**") and text.endswith("**") and len(text) > 4:
+        text = text[2:-2].strip()
+    # Narration prefixes: 'The answer is X', 'Answer: X', 'Based on ... is X'.
+    lowered = text.lower()
+    for prefix in ("answer:", "the answer is ", "answer is "):
+        if lowered.startswith(prefix):
+            text = text[len(prefix) :].strip()
+            lowered = text.lower()
+    if lowered.startswith("based on the provided evidence"):
+        # '... the canary code is **amber**.' → keep the tail after 'is'.
+        head, sep, tail = text.rpartition(" is ")
+        if sep:
+            text = tail.strip()
+    text = text.strip().strip(".").strip()
+    if not text or text.lower() == "insufficient":
+        return text
+    # Multi-word tail: prefer the final noun phrase after the last ' is '.
+    if " is " in text and len(text.split()) > 4:
+        head, sep, tail = text.rpartition(" is ")
+        if sep and tail:
+            candidate = tail.strip().strip(".").strip()
+            if candidate and len(candidate.split()) <= 6:
+                return candidate
+    return text
 
 
 def _pack_hook(reader) -> object:
@@ -183,7 +218,14 @@ def _load_instances(
     return visible, gate
 
 
-def _improvement_round(arm: str, agent_dir: Path, feedback: bytes, index: int) -> dict[str, str]:
+def _improvement_round(arm: str, workspace: Path, feedback: bytes, index: int) -> dict[str, str]:
+    """One researcher round: the DS arm proposes a small strategy file.
+
+    The agent tree is a tiny workspace with a strategy stub (not the whole
+    pilot script) — the researcher edits <200 lines, so the 16k output
+    budget holds a full rewrite.
+    """
+
     if arm != "ds-researcher":
         return {}
     from rsicontext.participant.api_researcher import (
@@ -191,6 +233,19 @@ def _improvement_round(arm: str, agent_dir: Path, feedback: bytes, index: int) -
         APIResearcherImprover,
     )
 
+    agent_dir = workspace / "agent"
+    agent_dir.mkdir(parents=True, exist_ok=True)
+    strategy = agent_dir / "strategy.py"
+    if not strategy.exists():
+        strategy.write_text(
+            '"""Answer-extraction strategy. The researcher may rewrite this file."""\n\n'
+            "EXTRACTION_RULES = [\n"
+            '    "prefer quoted phrases",\n'
+            '    "strip trailing punctuation",\n'
+            "    \"prefer the final noun phrase after ' is '\",\n"
+            "]\n",
+            encoding="utf-8",
+        )
     improver = APIResearcherImprover(
         config=APIResearcherConfig(
             endpoint=READER_ENDPOINT, model="deepseek-ai/deepseek-v4.1-flash"
@@ -199,8 +254,11 @@ def _improvement_round(arm: str, agent_dir: Path, feedback: bytes, index: int) -
     round_input = ImprovementRoundInput(
         round_index=index,
         task_text=(
-            "Improve the five-stage evidence-workflow hook: better note-taking, "
-            "compression that preserves later-needed exceptions, and provenance."
+            "Improve the answer-extraction strategy for a five-stage evidence "
+            "workflow: the reader returns reasoning-style replies; failures "
+            "include empty answers, INSUFFICIENT misjudgments, and picking "
+            "document titles instead of answer phrases. Rewrite strategy.py "
+            "with better extraction rules."
         ),
         restricted_feedback_bytes=feedback,
         current_agent_dir=agent_dir,
@@ -237,15 +295,16 @@ def main() -> int:
     results: dict[str, object] = {}
 
     # --- Arm run on the visible split -------------------------------------
+    # Participant state is routed THROUGH the store: load/save are store
+    # bridges, so the memory-op ledger is populated and the leak probe scans
+    # real transcripts (the contract's auditable state channel).
     store = SessionStateStore(schema=schema)
-    session_state: dict[str, object] = {}
 
     def load_state() -> dict[str, object] | None:
-        return dict(session_state) if session_state else None
+        return store.read("visible-1")
 
     def save_state(state: dict[str, object]) -> None:
-        session_state.clear()
-        session_state.update(state)
+        store.write("visible-1", state)
 
     if args.arm == "fixed":
         hook_factory = lambda state: _pack_hook(_reader_call)  # noqa: E731
@@ -273,8 +332,7 @@ def main() -> int:
             "transcript_digests": list(results["visible"]["transcript_digests"]),
         }
     ).encode()
-    agent_dir = Path("scripts")  # placeholder tree for the DS round prompt
-    ds_changes = _improvement_round(args.arm, agent_dir, feedback, 0)
+    ds_changes = _improvement_round(args.arm, args.output.parent / "agent-workspace", feedback, 0)
     results["improvement_round"] = {
         "arm": args.arm,
         "changed_files": sorted(ds_changes),
@@ -284,15 +342,13 @@ def main() -> int:
     canary_tokens = [visible[0].instance_id + "::GOLD-CANARY"]
 
     def gate_runner() -> object:
-        gate_state: dict[str, object] = {}
-        gate_store = store  # same store, new session id
-
+        # Gate state also routes through the store: the gate session starts
+        # byte-empty (split boundary) and its ops land in its own transcript.
         def gate_load() -> dict[str, object] | None:
-            return dict(gate_state) if gate_state else None
+            return store.read("gate-1")
 
         def gate_save(state: dict[str, object]) -> None:
-            gate_state.clear()
-            gate_state.update(state)
+            store.write("gate-1", state)
 
         gate_hook = (
             (lambda state: _pack_hook(_reader_call))
@@ -300,7 +356,7 @@ def main() -> int:
             else (lambda state: _stateful_pack_hook(_reader_call, state))
         )
         record = run_session_flow(
-            gate_store,
+            store,
             SessionKind.GATE,
             "gate-1",
             gate,
@@ -327,14 +383,12 @@ def main() -> int:
     # real reader replaced by the digest lookup, and compare transcripts.
     recorder = ReplayRecorder(reader=_reader_call)
     rec_store = SessionStateStore(schema=schema)
-    rec_state: dict[str, object] = {}
 
     def rec_load() -> dict[str, object] | None:
-        return dict(rec_state) if rec_state else None
+        return rec_store.read("record-1")
 
     def rec_save(state: dict[str, object]) -> None:
-        rec_state.clear()
-        rec_state.update(state)
+        rec_store.write("record-1", state)
 
     rec_hook = (
         (lambda state: _pack_hook(recorder))
@@ -353,14 +407,12 @@ def main() -> int:
     )
 
     replay_store = SessionStateStore(schema=schema)
-    replay_state: dict[str, object] = {}
 
     def replay_load() -> dict[str, object] | None:
-        return dict(replay_state) if replay_state else None
+        return replay_store.read("replay-1")
 
     def replay_save(state: dict[str, object]) -> None:
-        replay_state.clear()
-        replay_state.update(state)
+        replay_store.write("replay-1", state)
 
     replay_record = replay(
         replay_store,
