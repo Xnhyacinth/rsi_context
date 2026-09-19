@@ -198,6 +198,24 @@ def _stateful_pack_hook(reader, state: dict) -> object:
     return _StatefulHook(state)
 
 
+def _usable_row(row: dict) -> bool:
+    """A row is usable when it has a question, answers, and non-empty ctx texts
+    (PopQA carries some retrieval blocks with empty bodies)."""
+
+    if not str(row.get("question") or "").strip():
+        return False
+    answers = row.get("possible_answers")
+    if not answers:
+        return False
+    ctxs = row.get("ctxs")
+    if not isinstance(ctxs, list) or not ctxs:
+        return False
+    usable = [
+        c for c in ctxs if str(c.get("text") or "").strip() and str(c.get("title") or "").strip()
+    ]
+    return len(usable) >= 4 and any(c.get("has_answer") for c in usable)
+
+
 def _load_instances(
     n_visible: int, n_gate: int
 ) -> tuple[list[LifecycleInstance], list[LifecycleInstance]]:
@@ -209,6 +227,8 @@ def _load_instances(
             row_key = str(row.get("id"))
             if row_key in seen_ids:
                 continue  # PopQA packs multiple relations under one entity id
+            if not _usable_row(row):
+                continue
             seen_ids.add(row_key)
             rows.append(row)
             if len(rows) >= n_visible + n_gate:

@@ -126,8 +126,14 @@ def build_example_instance(popqa_jsonl_row: Mapping[str, object]) -> LifecycleIn
     gold_positions = [position for position, ctx in enumerate(ctxs) if _ctx_has_answer(ctx)]
     if not gold_positions:
         raise ValueError("the example constructor requires at least one gold ctx")
+    # PopQA retrieval blocks occasionally carry empty bodies/titles; they are
+    # not usable survey documents, so selection skips them.
     non_gold_positions = [
-        position for position, ctx in enumerate(ctxs) if not _ctx_has_answer(ctx)
+        position
+        for position, ctx in enumerate(ctxs)
+        if not _ctx_has_answer(ctx)
+        and str(ctx.get("text") or "").strip()
+        and str(ctx.get("title") or "").strip()
     ][:_SURVEY_NON_GOLD_DOCS]
     if not non_gold_positions:
         raise ValueError("the example constructor requires at least one non-gold ctx")
