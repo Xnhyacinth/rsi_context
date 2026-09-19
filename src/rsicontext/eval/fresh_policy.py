@@ -37,6 +37,7 @@ _WORKER_ENVIRONMENT = {
     "LANG": "C.UTF-8",
     "LC_ALL": "C.UTF-8",
     "PATH": "/usr/local/bin:/usr/bin:/bin",
+    "PYTHONHASHSEED": "0",
     "PYTHONIOENCODING": "utf-8",
 }
 

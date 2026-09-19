@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import Final, Literal, cast
 
 _SCHEMA_VERSION: Final = 1
+_SUPPORTED_SCHEMA_VERSIONS: Final = (1, 2)
 _PROBABILITY_TOLERANCE: Final = 1e-9
 
 
@@ -169,6 +170,78 @@ class PromotionRecommendation:
 
 
 @dataclass(frozen=True, slots=True)
+class ImprovementCostV2:
+    """Two-column cost split: the improvement loop's own accounted cost (C_improve)."""
+
+    improve_input_tokens: int | None = None
+    improve_output_tokens: int | None = None
+    improve_wall_seconds: float | None = None
+    improve_dollar_estimate: float | None = None
+
+    def __post_init__(self) -> None:
+        for token_name, token_value in (
+            ("improve_input_tokens", self.improve_input_tokens),
+            ("improve_output_tokens", self.improve_output_tokens),
+        ):
+            if token_value is None:
+                continue
+            if isinstance(token_value, bool) or not isinstance(token_value, int) or token_value < 0:
+                raise ManifestError(
+                    f"participant_v2.improvement_cost.{token_name} must be a non-negative integer"
+                )
+        for duration_name, duration_value in (
+            ("improve_wall_seconds", self.improve_wall_seconds),
+            ("improve_dollar_estimate", self.improve_dollar_estimate),
+        ):
+            if duration_value is None:
+                continue
+            _finite(duration_value, field=f"participant_v2.improvement_cost.{duration_name}")
+            if duration_value < 0:
+                raise ManifestError(
+                    f"participant_v2.improvement_cost.{duration_name} must be non-negative"
+                )
+
+
+@dataclass(frozen=True, slots=True)
+class ParticipantV2:
+    """v2 participant registration block (participant-interface-v1.md §Manifest extensions)."""
+
+    participant_id: str
+    arm: Literal["fixed", "experience_accumulation", "open_s_cli", "stateful_control"]
+    seed_id: str | None = None
+    state_schema: str | None = None
+    improvement_cost: ImprovementCostV2 | None = None
+    pool_tier: Literal["T1_ANCHOR", "T2_VERSIONED_API", "T3_COMPATIBILITY"] | None = None
+    state_transcript_ref: str | None = None
+    task_order_seed: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.arm not in {"fixed", "experience_accumulation", "open_s_cli", "stateful_control"}:
+            raise ManifestError("participant_v2.arm must be one of the v2 registration arms")
+        _nonempty(self.participant_id, field="participant_v2.participant_id")
+        if self.seed_id is not None:
+            _nonempty(self.seed_id, field="participant_v2.seed_id")
+        if self.state_schema is not None and not _is_digest(self.state_schema):
+            raise ManifestError(
+                "participant_v2.state_schema must be a lowercase SHA-256-style 64-hex digest"
+            )
+        if self.pool_tier is not None and self.pool_tier not in {
+            "T1_ANCHOR",
+            "T2_VERSIONED_API",
+            "T3_COMPATIBILITY",
+        }:
+            raise ManifestError(
+                "participant_v2.pool_tier must be T1_ANCHOR, T2_VERSIONED_API, or T3_COMPATIBILITY"
+            )
+        if self.state_transcript_ref is not None:
+            _nonempty(self.state_transcript_ref, field="participant_v2.state_transcript_ref")
+        if self.task_order_seed is not None and (
+            isinstance(self.task_order_seed, bool) or self.task_order_seed < 0
+        ):
+            raise ManifestError("participant_v2.task_order_seed must be a non-negative integer")
+
+
+@dataclass(frozen=True, slots=True)
 class Manifest:
     """Strict manifest attached to one candidate policy artifact."""
 
@@ -180,10 +253,13 @@ class Manifest:
     cost: CostEstimate
     promotion: PromotionRecommendation
     schema_version: int = _SCHEMA_VERSION
+    participant_v2: ParticipantV2 | None = None
 
     def __post_init__(self) -> None:
-        if self.schema_version != _SCHEMA_VERSION:
-            raise ManifestError(f"schema_version must be {_SCHEMA_VERSION}")
+        if self.schema_version not in _SUPPORTED_SCHEMA_VERSIONS:
+            raise ManifestError(f"schema_version must be one of {list(_SUPPORTED_SCHEMA_VERSIONS)}")
+        if self.schema_version == _SCHEMA_VERSION and self.participant_v2 is not None:
+            raise ManifestError("participant_v2 requires schema_version 2")
         _nonempty(self.candidate_name, field="candidate_name")
         if self.parent_artifact_id is not None and not _is_digest(self.parent_artifact_id):
             raise ManifestError("parent_artifact_id must be null or a lowercase SHA-256 digest")
@@ -245,20 +321,19 @@ class Manifest:
     def from_dict(cls, raw: Mapping[str, object]) -> Manifest:
         """Validate a decoded JSON object without coercing values."""
 
-        _require_fields(
-            raw,
-            {
-                "candidate_name",
-                "cost",
-                "evidence",
-                "mechanisms",
-                "parent_artifact_id",
-                "predictions",
-                "promotion",
-                "schema_version",
-            },
-            field="manifest",
-        )
+        expected_fields = {
+            "candidate_name",
+            "cost",
+            "evidence",
+            "mechanisms",
+            "parent_artifact_id",
+            "predictions",
+            "promotion",
+            "schema_version",
+        }
+        if raw.get("schema_version") == 2 and "participant_v2" in raw:
+            expected_fields = expected_fields | {"participant_v2"}
+        _require_fields(raw, expected_fields, field="manifest")
         schema_version = _as_int(raw["schema_version"], field="schema_version")
         candidate_name = _as_str(raw["candidate_name"], field="candidate_name")
         parent_raw = raw["parent_artifact_id"]
@@ -275,6 +350,11 @@ class Manifest:
             _parse_prediction(value)
             for value in _as_sequence(raw["predictions"], field="predictions")
         )
+        participant_v2 = (
+            _parse_participant_v2(raw["participant_v2"])
+            if schema_version == 2 and "participant_v2" in raw
+            else None
+        )
         return cls(
             candidate_name=candidate_name,
             parent_artifact_id=parent_raw,
@@ -284,12 +364,13 @@ class Manifest:
             cost=_parse_cost(raw["cost"]),
             promotion=_parse_promotion(raw["promotion"]),
             schema_version=schema_version,
+            participant_v2=participant_v2,
         )
 
     def to_dict(self) -> dict[str, object]:
         """Return the canonical JSON-compatible representation."""
 
-        return {
+        result: dict[str, object] = {
             "candidate_name": self.candidate_name,
             "cost": {
                 "evaluation_input_tokens": self.cost.evaluation_input_tokens,
@@ -338,6 +419,9 @@ class Manifest:
             },
             "schema_version": self.schema_version,
         }
+        if self.participant_v2 is not None:
+            result["participant_v2"] = _participant_v2_to_dict(self.participant_v2)
+        return result
 
 
 def load_manifest(path: str | Path) -> Manifest:
@@ -451,6 +535,16 @@ def _require_fields(raw: Mapping[str, object], expected: set[str], *, field: str
         raise ManifestError(f"{field} fields mismatch; missing={missing}, extra={extra}")
 
 
+def _allow_fields(
+    raw: Mapping[str, object], *, allowed: set[str], required: set[str], field: str
+) -> None:
+    actual = set(raw)
+    missing = sorted(required - actual)
+    extra = sorted(actual - allowed)
+    if missing or extra:
+        raise ManifestError(f"{field} fields mismatch; missing={missing}, extra={extra}")
+
+
 def _parse_mechanism(value: object) -> MechanismClaim:
     raw = _as_mapping(value, field="mechanism")
     _require_fields(raw, {"description", "mechanism_id", "policy_paths"}, field="mechanism")
@@ -550,3 +644,146 @@ def _parse_promotion(value: object) -> PromotionRecommendation:
         ),
         rationale=_as_str(raw["rationale"], field="promotion.rationale"),
     )
+
+
+def _parse_participant_v2(value: object) -> ParticipantV2:
+    raw = _as_mapping(value, field="participant_v2")
+    _allow_fields(
+        raw,
+        allowed={
+            "arm",
+            "improvement_cost",
+            "participant_id",
+            "pool_tier",
+            "seed_id",
+            "state_schema",
+            "state_transcript_ref",
+            "task_order_seed",
+        },
+        required={"arm", "participant_id"},
+        field="participant_v2",
+    )
+    arm = _as_str(raw["arm"], field="participant_v2.arm")
+    if arm not in {"fixed", "experience_accumulation", "open_s_cli", "stateful_control"}:
+        raise ManifestError("participant_v2.arm must be one of the v2 registration arms")
+    pool_tier = _optional_str(raw, "pool_tier", field="participant_v2.pool_tier")
+    if pool_tier is not None and pool_tier not in {
+        "T1_ANCHOR",
+        "T2_VERSIONED_API",
+        "T3_COMPATIBILITY",
+    }:
+        raise ManifestError(
+            "participant_v2.pool_tier must be T1_ANCHOR, T2_VERSIONED_API, or T3_COMPATIBILITY"
+        )
+    return ParticipantV2(
+        participant_id=_as_str(raw["participant_id"], field="participant_v2.participant_id"),
+        arm=cast(
+            Literal["fixed", "experience_accumulation", "open_s_cli", "stateful_control"],
+            arm,
+        ),
+        seed_id=_optional_str(raw, "seed_id", field="participant_v2.seed_id"),
+        state_schema=_optional_str(raw, "state_schema", field="participant_v2.state_schema"),
+        improvement_cost=(
+            _parse_improvement_cost(raw["improvement_cost"]) if "improvement_cost" in raw else None
+        ),
+        pool_tier=cast(
+            Literal["T1_ANCHOR", "T2_VERSIONED_API", "T3_COMPATIBILITY"] | None,
+            pool_tier,
+        ),
+        state_transcript_ref=_optional_str(
+            raw, "state_transcript_ref", field="participant_v2.state_transcript_ref"
+        ),
+        task_order_seed=_optional_int(
+            raw, "task_order_seed", field="participant_v2.task_order_seed"
+        ),
+    )
+
+
+def _parse_improvement_cost(value: object) -> ImprovementCostV2:
+    raw = _as_mapping(value, field="participant_v2.improvement_cost")
+    _allow_fields(
+        raw,
+        allowed={
+            "improve_dollar_estimate",
+            "improve_input_tokens",
+            "improve_output_tokens",
+            "improve_wall_seconds",
+        },
+        required=set(),
+        field="participant_v2.improvement_cost",
+    )
+    return ImprovementCostV2(
+        improve_input_tokens=_optional_int(
+            raw,
+            "improve_input_tokens",
+            field="participant_v2.improvement_cost.improve_input_tokens",
+        ),
+        improve_output_tokens=_optional_int(
+            raw,
+            "improve_output_tokens",
+            field="participant_v2.improvement_cost.improve_output_tokens",
+        ),
+        improve_wall_seconds=_optional_float(
+            raw,
+            "improve_wall_seconds",
+            field="participant_v2.improvement_cost.improve_wall_seconds",
+        ),
+        improve_dollar_estimate=_as_optional_float(
+            raw.get("improve_dollar_estimate"),
+            field="participant_v2.improvement_cost.improve_dollar_estimate",
+        ),
+    )
+
+
+def _optional_str(raw: Mapping[str, object], key: str, *, field: str) -> str | None:
+    if key not in raw:
+        return None
+    return _as_str(raw[key], field=field)
+
+
+def _optional_int(raw: Mapping[str, object], key: str, *, field: str) -> int | None:
+    if key not in raw:
+        return None
+    return _as_int(raw[key], field=field)
+
+
+def _optional_float(raw: Mapping[str, object], key: str, *, field: str) -> float | None:
+    if key not in raw:
+        return None
+    return _as_float(raw[key], field=field)
+
+
+def _as_optional_float(value: object, *, field: str) -> float | None:
+    if value is None:
+        return None
+    return _as_float(value, field=field)
+
+
+def _participant_v2_to_dict(participant: ParticipantV2) -> dict[str, object]:
+    result: dict[str, object] = {
+        "participant_id": participant.participant_id,
+        "arm": participant.arm,
+    }
+    if participant.seed_id is not None:
+        result["seed_id"] = participant.seed_id
+    if participant.state_schema is not None:
+        result["state_schema"] = participant.state_schema
+    if participant.improvement_cost is not None:
+        cost = participant.improvement_cost
+        improvement_cost: dict[str, object] = {}
+        if cost.improve_input_tokens is not None:
+            improvement_cost["improve_input_tokens"] = cost.improve_input_tokens
+        if cost.improve_output_tokens is not None:
+            improvement_cost["improve_output_tokens"] = cost.improve_output_tokens
+        if cost.improve_wall_seconds is not None:
+            improvement_cost["improve_wall_seconds"] = cost.improve_wall_seconds
+        if cost.improve_dollar_estimate is not None:
+            improvement_cost["improve_dollar_estimate"] = cost.improve_dollar_estimate
+        result["improvement_cost"] = improvement_cost
+    if participant.pool_tier is not None:
+        result["pool_tier"] = participant.pool_tier
+    if participant.state_transcript_ref is not None:
+        result["state_transcript_ref"] = participant.state_transcript_ref
+    if participant.task_order_seed is not None:
+        result["task_order_seed"] = participant.task_order_seed
+    return result

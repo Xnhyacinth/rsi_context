@@ -93,6 +93,7 @@ print(json.dumps({"type": "turn.completed", "usage": {"input_tokens": 17, "outpu
         "LANG",
         "LC_ALL",
         "PATH",
+        "PYTHONHASHSEED",
         "PYTHONIOENCODING",
         "RSICONTEXT_TEST_CREDENTIAL",
     }
@@ -307,10 +308,13 @@ def test_failure_diagnostic_keeps_exception_line_and_drops_raw_stderr() -> None:
         "APIResearcherError: API researcher response is not valid JSON\n"
     )
 
-    assert researcher_failure_diagnostic(
-        "researcher process exited with status 1",
-        traceback.encode(),
-    ) == "APIResearcherError: API researcher response is not valid JSON"
+    assert (
+        researcher_failure_diagnostic(
+            "researcher process exited with status 1",
+            traceback.encode(),
+        )
+        == "APIResearcherError: API researcher response is not valid JSON"
+    )
     assert (
         researcher_failure_diagnostic(
             "researcher process exited with status 7",

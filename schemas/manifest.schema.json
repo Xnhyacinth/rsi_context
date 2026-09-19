@@ -63,6 +63,37 @@
         { "type": "null" }
       ]
     },
+    "participant_v2": {
+      "additionalProperties": false,
+      "properties": {
+        "arm": {
+          "enum": ["fixed", "experience_accumulation", "open_s_cli", "stateful_control"]
+        },
+        "improvement_cost": {
+          "additionalProperties": false,
+          "properties": {
+            "improve_dollar_estimate": {
+              "anyOf": [
+                { "minimum": 0, "type": "number" },
+                { "type": "null" }
+              ]
+            },
+            "improve_input_tokens": { "minimum": 0, "type": "integer" },
+            "improve_output_tokens": { "minimum": 0, "type": "integer" },
+            "improve_wall_seconds": { "minimum": 0, "type": "number" }
+          },
+          "type": "object"
+        },
+        "participant_id": { "minLength": 1, "type": "string" },
+        "pool_tier": { "enum": ["T1_ANCHOR", "T2_VERSIONED_API", "T3_COMPATIBILITY"] },
+        "seed_id": { "minLength": 1, "type": "string" },
+        "state_schema": { "pattern": "^[0-9a-f]{64}$", "type": "string" },
+        "state_transcript_ref": { "minLength": 1, "type": "string" },
+        "task_order_seed": { "minimum": 0, "type": "integer" }
+      },
+      "required": ["participant_id", "arm"],
+      "type": "object"
+    },
     "predictions": {
       "items": {
         "additionalProperties": false,
@@ -122,7 +153,7 @@
       ],
       "type": "object"
     },
-    "schema_version": { "const": 1 }
+    "schema_version": { "enum": [1, 2] }
   },
   "required": [
     "candidate_name",

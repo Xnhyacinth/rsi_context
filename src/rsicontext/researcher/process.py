@@ -119,6 +119,7 @@ _BASE_ENVIRONMENT = {
     "LANG": "C.UTF-8",
     "LC_ALL": "C.UTF-8",
     "PATH": "/usr/local/bin:/usr/bin:/bin",
+    "PYTHONHASHSEED": "0",
     "PYTHONIOENCODING": "utf-8",
 }
 _ENVIRONMENT_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
