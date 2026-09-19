@@ -13,7 +13,7 @@ Every GPU command on this host must be wrapped so the resident hold process is
 restored even after a crash:
 
 ```bash
-bash /workspace/wynckeliao/ops/gpu/hold.sh wrap 0,1 -- <command>
+bash /volume/pt-dev/qjiu/wynckeliao-env/ops/gpu/hold.sh wrap 0,1 -- <command>
 ```
 
 ## Model canaries

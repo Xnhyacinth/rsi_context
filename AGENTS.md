@@ -19,5 +19,5 @@
   exactly one target-model call; adaptive runs must account for every target
   and auxiliary call.
 - Use the project-local `uv` environment. Wrap every GPU command with
-  `/workspace/wynckeliao/ops/gpu/hold.sh wrap ...`.
+  `/volume/pt-dev/qjiu/wynckeliao-env/ops/gpu/hold.sh wrap ...`.
 - Run pytest with branch coverage, Ruff, strict mypy, and Bandit before merging.

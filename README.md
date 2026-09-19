@@ -43,8 +43,8 @@ uv sync --extra dev --extra serve
 tokenization, scheduling, and memory behavior. The default harness installation
 remains dependency-light and does not install CUDA packages.
 
-Use `/workspace/wynckeliao/ops/gpu/hold.sh wrap ...` for every GPU-backed job on
-the shared host. See `docs/experiment-protocol.md` for the frozen variables,
+Use `/volume/pt-dev/qjiu/wynckeliao-env/ops/gpu/hold.sh wrap ...` for every
+GPU-backed job on the shared host. See `docs/experiment-protocol.md` for the frozen variables,
 split semantics, and promotion rules.
 
 The toy campaign deliberately produces scores `0 → 1 → 0`: lexical retrieval
@@ -149,7 +149,7 @@ uv run --no-sync python scripts/local_dynamic_gate.py \
 uv run --no-sync python scripts/autonomous_dynamic_pilot.py \
   --output results/autonomous-dynamic/<unique> \
   --local-serving-profile qwen3.6-27b-128k-bf16-h200x8 \
-  --researcher-executable /root/.npm-global/bin/codex \
+  --researcher-executable /volume/pt-dev/qjiu/.npm-global/bin/codex \
   --researcher-model gpt-5.6-sol --rounds 2
 ```
 
