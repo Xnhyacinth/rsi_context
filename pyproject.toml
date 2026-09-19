@@ -31,6 +31,7 @@ packages = ["src/rsicontext"]
 [tool.pytest.ini_options]
 addopts = "--strict-markers --strict-config -ra"
 testpaths = ["tests"]
+markers = ["live: requires live external credentials (skipped by default; run with -m live)"]
 
 [tool.ruff]
 line-length = 100

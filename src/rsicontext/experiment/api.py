@@ -59,6 +59,7 @@ class APIProfile:
     provider_revision: str | None
     chat_template_enable_thinking: bool | None = None
     api_key_required: bool = True
+    system_prompt: str | None = None
 
     def __post_init__(self) -> None:
         for field_name, value in (
@@ -111,6 +112,12 @@ class APIProfile:
             raise RegistryError("chat_template_enable_thinking must be a boolean or null")
         if not isinstance(self.api_key_required, bool):
             raise RegistryError("api_key_required must be a boolean")
+        if self.system_prompt is not None and (
+            not isinstance(self.system_prompt, str)
+            or not self.system_prompt.strip()
+            or "\x00" in self.system_prompt
+        ):
+            raise RegistryError("system_prompt must be a non-empty string or null")
 
     @classmethod
     def from_dict(cls, value: object) -> APIProfile:
@@ -133,7 +140,11 @@ class APIProfile:
         missing = fields.difference(value)
         if missing:
             raise RegistryError(f"API profile missing fields: {', '.join(sorted(missing))}")
-        optional_fields = {"api_key_required", "chat_template_enable_thinking"}
+        optional_fields = {
+            "api_key_required",
+            "chat_template_enable_thinking",
+            "system_prompt",
+        }
         unexpected = set(value).difference(fields | optional_fields)
         if unexpected:
             raise RegistryError(
@@ -143,6 +154,7 @@ class APIProfile:
             **{field_name: value[field_name] for field_name in fields},
             chat_template_enable_thinking=value.get("chat_template_enable_thinking"),
             api_key_required=value.get("api_key_required", True),
+            system_prompt=value.get("system_prompt"),
         )
 
     @property
@@ -156,6 +168,8 @@ class APIProfile:
             identity.pop("chat_template_enable_thinking")
         if self.api_key_required:
             identity.pop("api_key_required")
+        if self.system_prompt is None:
+            identity.pop("system_prompt")
         payload = json.dumps(identity, separators=(",", ":"), sort_keys=True)
         return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -228,6 +242,8 @@ def build_profile_reader(
     reader_kwargs: dict[str, Any] = {}
     if transport is not None:
         reader_kwargs["transport"] = transport
+    if profile.system_prompt is not None:
+        reader_kwargs["system_prompt"] = profile.system_prompt
     return OpenAICompatibleReader(
         endpoint=endpoint.endpoint,
         model=profile.model,
@@ -314,7 +330,7 @@ def run_api_canary(
     reader = build_profile_reader(
         profile,
         ResolvedAPIEndpoint(endpoint=endpoint, api_key=api_key),
-        max_tokens=min(8, profile.max_output_tokens),
+        max_tokens=min(1024, profile.max_output_tokens),
         transport=transport,
     )
     chunk = DocumentChunk("api-canary-1", "api-canary", 0, len(_CANARY_TEXT), _CANARY_TEXT, 6)

@@ -1,366 +1,155 @@
+"""Tests for the DeepSeek API researcher arm (participant/api_researcher.py).
+
+Unit tests use an injected fake transport (monkeypatched urllib) so no real
+endpoint is called; one marked-live smoke requires SIFLOW_API_KEY and
+SIFLOW_BASE_URL in the environment.
+"""
+
 from __future__ import annotations
 
-import io
 import json
-import sys
-import urllib.request
 from pathlib import Path
-from typing import cast
 
 import pytest
 
-from rsicontext.experiment import load_api_profiles
-from rsicontext.researcher import ResearcherRequest
-from rsicontext.researcher.api import (
-    API_RESEARCHER_SYSTEM_PROMPT,
-    APIResearcherArtifact,
-    APIResearcherCommandBuilder,
+from rsicontext.participant.api_researcher import (
+    APIResearcherConfig,
     APIResearcherError,
-    api_researcher_system_prompt_hash,
-    run_api_researcher_turn,
+    APIResearcherImprover,
 )
+from rsicontext.participant.registration import ImprovementRoundInput, ParticipantError
 
-ROOT = Path(__file__).parents[1]
-PROFILE_ID = "tencent-copilot-hy3-ioa-researcher"
-
-
-def _manifest() -> dict[str, object]:
-    return {
-        "schema_version": 1,
-        "candidate_name": "api-candidate",
-        "parent_artifact_id": "a" * 64,
-        "mechanisms": [
-            {
-                "mechanism_id": "lexical",
-                "description": "Rank chunks by query overlap.",
-                "policy_paths": ["policy/policy.py"],
-            }
-        ],
-        "evidence": [
-            {
-                "evidence_id": "visible",
-                "kind": "visible-item-trace",
-                "reference": "VISIBLE_FEEDBACK_BEGIN",
-                "claim": "Visible failures motivate lexical selection.",
-            }
-        ],
-        "predictions": [
-            {
-                "item_id": "visible-1",
-                "probabilities": {"improve": 0.5, "unchanged": 0.4, "regress": 0.1},
-                "mechanism_ids": ["lexical"],
-                "evidence_ids": ["visible"],
-            }
-        ],
-        "cost": {
-            "researcher_input_tokens": 0,
-            "researcher_output_tokens": 0,
-            "evaluation_input_tokens": 0,
-            "evaluation_output_tokens": 0,
-            "gpu_seconds": 0.0,
-            "wall_seconds": 0.0,
-        },
-        "promotion": {
-            "decision": "hold",
-            "expected_score_delta": 0.0,
-            "max_regression_probability": 0.1,
-            "rationale": "Qualification prediction.",
-        },
-    }
+_ENDPOINT = "https://api.siflow.cn/model-api/chat/completions"
 
 
-def _artifact_response(*, policy_source: str | None = None) -> str:
-    return json.dumps(
-        {
-            "schema_version": 1,
-            "policy_source": policy_source
-            or (
-                "from rsicontext.policy import LexicalPolicy\n\n"
-                "class Policy(LexicalPolicy):\n"
-                "    pass\n"
-            ),
-            "manifest": _manifest(),
+def _config() -> APIResearcherConfig:
+    return APIResearcherConfig(endpoint=_ENDPOINT, model="deepseek-ai/deepseek-v4.1-flash")
+
+
+def _agent_tree(tmp_path: Path) -> Path:
+    agent_dir = tmp_path / "agent"
+    agent_dir.mkdir()
+    (agent_dir / "policy.py").write_text("POLICY = 'h0'\n")
+    (agent_dir / "notes.md").write_text("# notes\n")
+    (agent_dir / "binary.bin").write_bytes(b"\x00\x01")  # excluded from prompt
+    return agent_dir
+
+
+def _round_input(agent_dir: Path) -> ImprovementRoundInput:
+    return ImprovementRoundInput(
+        round_index=0,
+        task_text="improve the strategy",
+        restricted_feedback_bytes=json.dumps({"previous": 0.5}).encode(),
+        current_agent_dir=agent_dir,
+        state_path=None,
+        remaining_slots=5,
+        task_order_seed=7,
+    )
+
+
+class _FakeResponse:
+    def __init__(self, payload: bytes) -> None:
+        self._payload = payload
+
+    def read(self) -> bytes:
+        return self._payload
+
+    def __enter__(self) -> _FakeResponse:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+
+def _fake_server(monkeypatch: pytest.MonkeyPatch, reply_content: str) -> dict[str, object]:
+    captured: dict[str, object] = {}
+
+    def fake_urlopen(request: object, timeout: float) -> _FakeResponse:
+        captured["body"] = json.loads(request.data.decode() if request.data else "{}")
+        captured["headers"] = {k.lower(): v for k, v in request.header_items()}
+        payload = {
+            "choices": [{"message": {"content": reply_content, "role": "assistant"}}],
+            "usage": {"prompt_tokens": 500, "completion_tokens": 120},
+            "model": "deepseek-ai/deepseek-v4.1-flash",
         }
-    )
+        return _FakeResponse(json.dumps(payload).encode())
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    return captured
 
 
-def _stream(content: str) -> bytes:
-    event = {
-        "choices": [{"delta": {"content": content}, "finish_reason": "stop"}],
-        "id": "research-response-1",
-        "model": "hy3-ioa",
-        "usage": {"completion_tokens": 300, "prompt_tokens": 700},
-    }
-    return f"data: {json.dumps(event)}\n\ndata: [DONE]\n\n".encode()
+def test_config_requires_chat_completions_suffix() -> None:
+    with pytest.raises(ParticipantError):
+        APIResearcherConfig(endpoint="https://api.siflow.cn/model-api", model="m")
 
 
-def test_researcher_profile_is_distinct_from_reader_but_uses_same_alias() -> None:
-    profiles = load_api_profiles(ROOT / "configs" / "api_profiles.json")
-    reader = profiles.get("tencent-copilot-hy3-ioa")
-    researcher = profiles.get(PROFILE_ID)
+def test_improve_round_trip(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    agent_dir = _agent_tree(tmp_path)
+    reply = json.dumps({"changes": {"policy.py": "POLICY = 'improved'\n"}})
+    captured = _fake_server(monkeypatch, reply)
+    monkeypatch.setenv("SIFLOW_API_KEY", "sk-test")
 
-    assert researcher.model == reader.model == "hy3-ioa"
-    assert researcher.endpoint_env == reader.endpoint_env
-    assert researcher.api_key_env == reader.api_key_env
-    assert researcher.max_output_tokens == 32768
-    assert researcher.profile_hash != reader.profile_hash
-    assert len(api_researcher_system_prompt_hash()) == 64
-    assert "question-answering reader" in API_RESEARCHER_SYSTEM_PROMPT
+    improver = APIResearcherImprover(config=_config())
+    output = improver.improve(_round_input(agent_dir))
 
-
-def test_api_artifact_parser_and_writer_replace_only_policy_and_manifest(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    policy = workspace / "policy"
-    policy.mkdir(parents=True)
-    (policy / "seed.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
-
-    artifact = APIResearcherArtifact.from_response(_artifact_response())
-    artifact.write_workspace(workspace)
-
-    assert sorted(path.name for path in policy.iterdir()) == ["policy.py"]
-    assert "LexicalPolicy" in (policy / "policy.py").read_text(encoding="utf-8")
-    assert (
-        json.loads((workspace / "manifest.json").read_text(encoding="utf-8"))["parent_artifact_id"]
-        == "a" * 64
-    )
-    assert sorted(path.name for path in workspace.iterdir()) == ["manifest.json", "policy"]
+    assert output.agent_files_changed == {"policy.py": "POLICY = 'improved'\n"}
+    assert output.usage.input_tokens == 500
+    assert output.usage.output_tokens == 120
+    assert output.usage.wall_seconds >= 0
+    # Prompt carried the agent files (binary excluded) and the feedback.
+    body = captured["body"]
+    assert isinstance(body, dict)
+    user_text = body["messages"][1]["content"]
+    assert "policy.py" in user_text
+    assert "binary.bin" not in user_text
+    assert "previous" in user_text
+    # Credentials never live on the improver object.
+    assert "sk-test" not in repr(improver)
 
 
-def test_api_artifact_writer_accepts_a_multi_file_policy_tree(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    policy = workspace / "policy"
-    policy.mkdir(parents=True)
-    (policy / "seed.py").write_text("VALUE = 0\n", encoding="utf-8")
-    payload = json.dumps(
-        {
-            "schema_version": 1,
-            "policy_source": {
-                "policy.py": (
-                    "from retrieval import rank\n"
-                    "from rsicontext.policy import ContextPack\n\n"
-                    "class Policy:\n"
-                    "    def assemble(self, artifact, query, budget):\n"
-                    "        del query, budget\n"
-                    "        spans = rank(artifact.chunks)\n"
-                    "        return ContextPack(spans=spans, ordering=(spans[0].chunk_id,), "
-                    "token_count=spans[0].token_count)\n"
-                ),
-                "retrieval.py": ("def rank(chunks):\n    return chunks[:1]\n"),
-            },
-            "manifest": _manifest(),
-        }
-    )
-
-    APIResearcherArtifact.from_response(payload).write_workspace(workspace)
-
-    assert sorted(path.name for path in policy.iterdir()) == [
-        "policy.py",
-        "retrieval.py",
-        "seed.py",
-    ]
-    assert "from retrieval import rank" in (policy / "policy.py").read_text(encoding="utf-8")
-    assert (policy / "seed.py").read_text(encoding="utf-8") == "VALUE = 0\n"
-
-
-def test_api_artifact_parser_accepts_trailing_commentary(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    policy = workspace / "policy"
-    policy.mkdir(parents=True)
-    (policy / "seed.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
-
-    APIResearcherArtifact.from_response(
-        "Here is the artifact:\n" + _artifact_response() + "\nThanks."
-    ).write_workspace(workspace)
-
-    assert "LexicalPolicy" in (policy / "policy.py").read_text(encoding="utf-8")
-
-
-def test_api_artifact_parser_strips_markdown_fences(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    policy = workspace / "policy"
-    policy.mkdir(parents=True)
-    (policy / "seed.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
-
-    APIResearcherArtifact.from_response(f"```json\n{_artifact_response()}\n```").write_workspace(
-        workspace
-    )
-
-    assert "LexicalPolicy" in (policy / "policy.py").read_text(encoding="utf-8")
-
-
-def test_api_artifact_object_payload_merges_changed_files_only(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    policy = workspace / "policy"
-    policy.mkdir(parents=True)
-    (policy / "policy.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
-    (policy / "retrieval.py").write_text("RANKED = False\n", encoding="utf-8")
-    payload = json.dumps(
-        {
-            "schema_version": 1,
-            "policy_source": {"retrieval.py": "RANKED = True\n"},
-            "manifest": _manifest(),
-        }
-    )
-
-    APIResearcherArtifact.from_response(payload).write_workspace(workspace)
-
-    assert (policy / "policy.py").read_text(encoding="utf-8") == "class Policy:\n    pass\n"
-    assert (policy / "retrieval.py").read_text(encoding="utf-8") == "RANKED = True\n"
-
-
-def test_api_artifact_object_payload_rejects_identical_parent_tree(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    policy = workspace / "policy"
-    policy.mkdir(parents=True)
-    (policy / "policy.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
-    payload = json.dumps(
-        {
-            "schema_version": 1,
-            "policy_source": {"policy.py": "class Policy:\n    pass\n"},
-            "manifest": _manifest(),
-        }
-    )
-
-    with pytest.raises(APIResearcherError, match="did not change the parent policy tree"):
-        APIResearcherArtifact.from_response(payload).write_workspace(workspace)
-
-    assert (policy / "policy.py").read_text(encoding="utf-8") == "class Policy:\n    pass\n"
-    assert not (workspace / "manifest.json").exists()
-
-
-def test_invalid_manifest_includes_the_underlying_reason() -> None:
-    manifest = _manifest()
-    predictions = list(manifest["predictions"])
-    first = dict(predictions[0])
-    first["probabilities"] = {"improve": 0.9, "unchanged": 0.4, "regress": 0.1}
-    manifest["predictions"] = [first]
-    payload = json.dumps(
-        {
-            "schema_version": 1,
-            "policy_source": "class Policy:\n    pass\n",
-            "manifest": manifest,
-        }
-    )
-    with pytest.raises(APIResearcherError, match="must sum to exactly one"):
-        APIResearcherArtifact.from_response(payload)
+def test_missing_credential_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SIFLOW_API_KEY", raising=False)
+    improver = APIResearcherImprover(config=_config())
+    with pytest.raises(Exception, match="credential"):
+        improver.improve(_round_input(_agent_tree(tmp_path)))
 
 
 @pytest.mark.parametrize(
-    ("response", "message"),
+    "reply",
     [
-        ("```json\n{}\n```", "fields"),
-        (json.dumps({"schema_version": 1}), "fields"),
-        (
-            _artifact_response(policy_source="import os\nclass Policy:\n    pass\n"),
-            "policy audit",
-        ),
+        "no json here",
+        '{"not_changes": {}}',
+        '{"changes": {"../../evil.py": "x"}}',
+        '{"changes": {"no_ext": "x"}}',
+        '{"changes": {"ok.py": 42}}',
     ],
 )
-def test_api_artifact_fails_closed_without_partial_writes(
-    tmp_path: Path, response: str, message: str
+def test_unsafe_or_malformed_replies_rejected(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reply: str
 ) -> None:
-    workspace = tmp_path / "workspace"
-    policy = workspace / "policy"
-    policy.mkdir(parents=True)
-    seed = policy / "seed.py"
-    seed.write_text("class Policy:\n    pass\n", encoding="utf-8")
-
-    with pytest.raises(APIResearcherError, match=message):
-        APIResearcherArtifact.from_response(response).write_workspace(workspace)
-
-    assert seed.is_file()
-    assert not (workspace / "manifest.json").exists()
+    agent_dir = _agent_tree(tmp_path)
+    _fake_server(monkeypatch, reply)
+    monkeypatch.setenv("SIFLOW_API_KEY", "sk-test")
+    improver = APIResearcherImprover(config=_config())
+    with pytest.raises(APIResearcherError):
+        improver.improve(_round_input(agent_dir))
 
 
-def test_api_researcher_turn_freezes_request_and_records_identity(tmp_path: Path) -> None:
-    workspace = tmp_path / "workspace"
-    (workspace / "policy").mkdir(parents=True)
-    (workspace / "policy" / "seed.py").write_text("class Policy:\n    pass\n", encoding="utf-8")
-    profile = load_api_profiles(ROOT / "configs" / "api_profiles.json").get(PROFILE_ID)
-    requests: list[dict[str, object]] = []
+@pytest.mark.live
+def test_live_siflow_deepseek_round_trip(tmp_path: Path) -> None:
+    """Live smoke: one real round on the researcher endpoint (needs env vars)."""
 
-    def transport(request: urllib.request.Request, timeout: float) -> bytes:
-        assert request.data is not None
-        requests.append(json.loads(cast(bytes, request.data)))
-        return _stream(_artifact_response())
+    import os
 
-    result = run_api_researcher_turn(
-        profile=profile,
-        endpoint="https://copilot.tencent.com/v2/chat/completions",
-        api_key="secret",
-        prompt="visible research prompt",
-        workspace=workspace,
-        transport=transport,
-        timer=iter((1.0, 1.5)).__next__,
+    if not os.environ.get("SIFLOW_API_KEY") or not os.environ.get("SIFLOW_BASE_URL"):
+        pytest.skip("live smoke requires SIFLOW_API_KEY and SIFLOW_BASE_URL")
+    config = APIResearcherConfig(
+        endpoint=f"{os.environ['SIFLOW_BASE_URL']}/chat/completions"
+        if not os.environ["SIFLOW_BASE_URL"].endswith("/chat/completions")
+        else os.environ["SIFLOW_BASE_URL"],
+        model="deepseek-ai/deepseek-v4.1-flash",
     )
-
-    assert result.profile_id == PROFILE_ID
-    assert result.profile_hash == profile.profile_hash
-    assert result.response_model == "hy3-ioa"
-    assert result.response_id == "research-response-1"
-    assert result.input_tokens == 700
-    assert result.output_tokens == 300
-    assert result.elapsed_seconds == pytest.approx(0.5)
-    assert requests[0]["temperature"] == 0.0
-    assert requests[0]["seed"] == 42
-    assert requests[0]["max_tokens"] == 32768
-    messages = cast(list[dict[str, object]], requests[0]["messages"])
-    assert messages[0]["content"] == API_RESEARCHER_SYSTEM_PROMPT
-    assert messages[1]["content"] == "visible research prompt"
-    assert "secret" not in json.dumps(result.to_dict())
-
-
-def test_api_researcher_command_is_inert_and_prompt_stays_on_stdin(tmp_path: Path) -> None:
-    request = ResearcherRequest(workspace=tmp_path, prompt="visible prompt", model="hy3-ioa")
-    builder = APIResearcherCommandBuilder(
-        python_executable=Path(sys.executable),
-        profiles_path=ROOT / "configs" / "api_profiles.json",
-        profile_id=PROFILE_ID,
-    )
-
-    spec = builder.build(request)
-
-    assert spec.output_format == "jsonl"
-    assert spec.cwd == tmp_path.resolve()
-    assert spec.argv[:3] == (
-        str(Path(sys.executable).absolute()),
-        "-m",
-        "rsicontext.researcher.api",
-    )
-    assert "visible prompt" not in spec.argv
-    assert spec.stdin == "visible prompt"
-
-
-def test_api_researcher_main_prints_a_one_line_diagnostic(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    workspace = tmp_path / "workspace"
-    workspace.mkdir()
-    monkeypatch.setenv("COPILOT_API_KEY", "secret")
-    monkeypatch.setenv("COPILOT_BASE_URL", "https://copilot.tencent.com/v2")
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "rsicontext.researcher.api",
-            "--profiles",
-            str(ROOT / "configs" / "api_profiles.json"),
-            "--profile-id",
-            PROFILE_ID,
-            "--workspace",
-            str(workspace),
-        ],
-    )
-    monkeypatch.setattr(sys, "stdin", io.StringIO("visible research prompt"))
-
-    def boom(**kwargs: object) -> None:
-        del kwargs
-        raise APIResearcherError("API researcher response is not valid JSON")
-
-    monkeypatch.setattr("rsicontext.researcher.api.run_api_researcher_turn", boom)
-    from rsicontext.researcher.api import main
-
-    assert main() == 1
-    captured = capsys.readouterr()
-    assert captured.err == "APIResearcherError: API researcher response is not valid JSON\n"
-    assert "secret" not in captured.err
+    improver = APIResearcherImprover(config=config)
+    output = improver.improve(_round_input(_agent_tree(tmp_path)))
+    assert isinstance(output.agent_files_changed, dict)
+    assert output.usage.input_tokens > 0
