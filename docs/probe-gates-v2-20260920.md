@@ -40,12 +40,15 @@ v2 is **INCONCLUSIVE** (probe measures the wrong layer), not failed-on-the-merit
 - Evidence necessity (strict readout): **closed**.
 - Stability under irrelevant edits: **closed** (at floor; watch it).
 - Document load-bearingness: **closed** on this corpus slice.
-- Fact-following: **closed** — the lifecycle-path probe (built 2026-09-20
-  later that day, reader-free structural probe) measured follow rate 1.0
-  with baseline sanity 1.0 on 8 items: committed answers follow edited
-  stage-1 facts through the full five-stage lifecycle. The family's
-  evidence dependence holds on the answer path, not just the reader
-  channel. The reader-level fact-swap (0.125) remains recorded as a
+- Fact-following: **closed under an oracle participant** (amended 2026-09-20
+  by docs/world-audit-20260920.md §5.2) — the lifecycle-path probe (built
+  2026-09-20 later that day, reader-free structural probe) measured follow
+  rate 1.0 with baseline sanity 1.0 on 8 items: committed answers follow
+  edited stage-1 facts through the full five-stage lifecycle **when the
+  participant is the scripted perfect-reader hook** (`_OracleStatefulHook`).
+  This proves the runner+materials+checker transmit an edited stage-1 fact
+  to the committed answer; it does not measure any real participant's
+  fact-following. The reader-level fact-swap (0.125) remains recorded as a
   reader-extraction lens, not a family gate.
 
 ## Disposition
