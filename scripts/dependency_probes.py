@@ -898,10 +898,11 @@ def swap_lifecycle_instance(
     probe asks whether the participant's evidence path produces it. Returns
     ``(swapped_instance, replaced_alias)``, or None when no alias occurs in
     a gold body, the alternate never lands, or an original alias would
-    survive in any stage document (inside a gold title, or an
-    alias-carrying noise document in the survey slice) — a counterfactual
-    world that still states the original fact is ill-formed, so the item
-    must skip rather than measure against it.
+    survive anywhere the participant sees (any stage document — a gold
+    title or an alias-carrying noise document in the survey slice — or any
+    stage prompt text, which embeds the question) — a counterfactual world
+    that still states the original fact is ill-formed, so the item must
+    skip rather than measure against it.
     """
 
     stage_one = inst.stages[0]
@@ -944,9 +945,9 @@ def swap_lifecycle_instance(
     ):
         return None
     if any(
-        _contains(alias, document.text)
+        _contains(alias, surface)
         for stage in stages
-        for document in stage.documents
+        for surface in (stage.prompt_text, *(document.text for document in stage.documents))
         for alias in aliases
         if alias.strip()
     ):

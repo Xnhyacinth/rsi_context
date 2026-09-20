@@ -556,6 +556,26 @@ def test_lifecycle_fact_swap_skips_when_alias_survives_outside_gold_bodies() -> 
     )
 
 
+def test_lifecycle_fact_swap_skips_when_alias_survives_in_a_prompt() -> None:
+    # The stage-1 prompt embeds the question: when the question itself
+    # carries an answer alias (the label-defect class), the swapped world
+    # would still state the original fact in its own instructions — the
+    # survival guard must scan prompt texts, not just documents.
+    row = _v2_row()
+    row["question"] = "What genre is Zephyr's alpha rock sound?"
+    _build_v2(row)  # v2-usable: gold-sane never looks at the question
+    _set_active_family("research-v2")
+    try:
+        result = SCRIPT.run_lifecycle_fact_swap([row])
+    finally:
+        _set_active_family("research-v1")
+    assert result["summary"]["evaluated"] == 0
+    assert (
+        result["per_item"][0]["skipped"]
+        == "original alias survives outside the stage-1 gold bodies"
+    )
+
+
 def test_pick_lifecycle_alternate_collision_guards() -> None:
     instance = _build_v2(_v2_row())
     aliases = ("alpha rock",)
