@@ -37,10 +37,18 @@ strategies arms adopted were largely irrelevant to the outcome.
 
 ## Caveats and gate-quality findings (from the implementing workstreams)
 
-- **Longdoc probe is weak on this corpus**: PopQA entities are popular;
-  the reader answers from parametric knowledge (0.625 with NO evidence).
-  The correct reading of the null contrast is "documents add nothing
-  beyond what the reader already knows" — itself a valid family verdict.
+- **Longdoc probe's null contrast is now explained** (paired with the
+  fifth probe): the SAME reader scores 0.625 with no evidence when
+  answering-from-memory is LICENSED, and refuses 8/8 (1.0) when it is
+  not. So longdoc-necessity's failure is **permission-driven parametric
+  recall on popular PopQA entities**, not evidence-independence of the
+  task. Consequence for the standing gates: the licensed readout
+  (longdoc) stays as a corpus-difficulty lens; the STRICT readout
+  (evidence-missing, refusal-rate floor 0.75) is the qualification gate
+  — and it PASSES. The family revision must still make documents
+  load-bearing for the ANSWER PATH (the reader refuses without evidence,
+  but with evidence the answer comes from one short passage today, not
+  from the long corpus).
 - **The alias-substring entailment gate has two known gaps** (found by
   running it over the corpus, 293 unique entities): the literal 4402885
   defect row PASSES it (incidental "Poland" mention; alias "PL"
