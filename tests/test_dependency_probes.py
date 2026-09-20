@@ -238,6 +238,56 @@ def test_to_probe_item_resolves_gold_and_distractor() -> None:
     assert item.distractor == "Unrelated filler passage for bulk padding here."
 
 
+# --- evidence-missing probe (strict gold-drop readout) ---------------------------
+
+
+def test_evidence_missing_prompt_omits_the_knowledge_permission_sentence() -> None:
+    # The probe's condition is longdoc-necessity's (b) MINUS the
+    # permission to answer from memory; the prompt must carry only the
+    # question and the bare no-evidence statement, and never the words
+    # that would license a parametric answer.
+    prompts: list[str] = []
+
+    def spy_reader(prompt: str) -> str:
+        prompts.append(prompt)
+        return "INSUFFICIENT"
+
+    items = [SCRIPT.to_probe_item(_row(1))]
+    result = SCRIPT.run_evidence_missing(items, spy_reader)
+    assert len(prompts) == 1
+    assert prompts[0] == "Question:\nWhat genre is Alpha?\n\nNo evidence is supplied."
+    assert "own knowledge" not in prompts[0]
+    # Refusal rate metric: the INSUFFICIENT reply is the compliant output.
+    assert result["summary"]["refusal_rate"] == 1.0
+    assert result["summary"]["parametric_answer_rate"] == 0.0
+    assert result["verdict"]["reader_treats_evidence_as_necessary"] is True
+
+
+def test_evidence_missing_counts_parametric_answers_as_gate_failures() -> None:
+    # A reader that answers correctly from memory when the evidence is
+    # gone fails this gate: the reply is not a refusal and would have
+    # scored a hit had evidence been supplied.
+    replies = iter(["alpha rock", "INSUFFICIENT", "Some other guess."])
+    items = [SCRIPT.to_probe_item(_row(index)) for index in range(3)]
+    result = SCRIPT.run_evidence_missing(items, lambda prompt: next(replies))
+    summary = result["summary"]
+    assert summary["refusal_rate"] == round(1 / 3, 3)
+    assert summary["parametric_answer_rate"] == round(1 / 3, 3)
+    assert summary["other_answer_rate"] == round(1 / 3, 3)
+    assert result["verdict"]["reader_treats_evidence_as_necessary"] is False
+    assert [entry["refused"] for entry in result["per_item"]] == [False, True, False]
+    assert [entry["parametric_answer"] for entry in result["per_item"]] == [True, False, False]
+
+
+def test_evidence_missing_refusal_detection_normalizes_the_reply() -> None:
+    # Reasoning-reader wrappers around INSUFFICIENT still count as
+    # refusals: the same normalization alias_hit applies.
+    replies = iter(["INSUFFICIENT", "Insufficient.", "The answer is INSUFFICIENT."])
+    items = [SCRIPT.to_probe_item(_row(index)) for index in range(3)]
+    result = SCRIPT.run_evidence_missing(items, lambda prompt: next(replies))
+    assert result["summary"]["refusal_rate"] == 1.0
+
+
 # --- no-history probe (offline: oracle hook + real runner) -----------------------
 
 

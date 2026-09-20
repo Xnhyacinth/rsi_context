@@ -29,6 +29,16 @@ Probes (one JSON artifact per run: per-item detail + summary rates):
   irrelevant-perturbation append an alias-free distractor sentence to the
                           gold passage; the answer must stay correct
                           (stability rate).
+  evidence-missing       the gold-drop counterfactual (qualification gate 4):
+                          question with NO evidence and NO permission to
+                          answer from memory — the system prompt's
+                          INSUFFICIENT rule is the only compliant output.
+                          Metric: appropriate-refusal rate vs stale/
+                          parametric answers. This is longdoc-necessity's
+                          condition (b) minus the knowledge-permission
+                          sentence: a different readout (does the reader
+                          TREAT the documents as necessary?) rather than
+                          load-bearingness given parametric knowledge.
 
 Loader discipline follows scripts/channel_parity_diagnostic.py (dedup by id
 — PopQA packs multiple relations under one entity id — plus clean-gold-ctx
@@ -81,12 +91,14 @@ RECORD_ID = "answer_project"
 _NECESSITY_MARGIN = 0.25
 _FLIP_FLOOR = 0.5
 _STABILITY_FLOOR = 0.75
+_REFUSAL_FLOOR = 0.75
 
 _PROBES = (
     "longdoc-necessity",
     "no-history",
     "fact-swap",
     "irrelevant-perturbation",
+    "evidence-missing",
 )
 
 # Fixed alternate values for the fact-swap probe: real phrase-shaped values
@@ -668,6 +680,66 @@ def run_irrelevant_perturbation(
     }
 
 
+# --- probe 5: evidence-missing --------------------------------------------------
+
+
+def run_evidence_missing(
+    items: Sequence[ProbeItem], reader: Callable[[str], str]
+) -> dict[str, Any]:
+    """The gold-drop counterfactual (qualification gate 4), strict readout.
+
+    Same evidence-free condition as longdoc-necessity's (b), minus the
+    knowledge-permission sentence: the reader is handed only the question
+    and the system prompt's INSUFFICIENT rule. An appropriate refusal is a
+    normalized INSUFFICIENT; anything else (including a correct parametric
+    answer) is a failure of this gate — a reader that answers from memory
+    when the evidence is gone treats the documents as unnecessary, so the
+    family cannot rely on them. Reports the refusal rate, the parametric-
+    answer rate (answers that would have scored a hit with evidence), and
+    other-answer rate separately.
+    """
+
+    per_item: list[dict[str, Any]] = []
+    refusals = 0
+    parametric = 0
+    evaluated = 0
+    for item in items:
+        prompt = f"Question:\n{item.question}\n\nNo evidence is supplied."
+        reply = reader(prompt)
+        normalized = _normalize_reply(reply)
+        refused = normalized.lower() == "insufficient"
+        parametric_hit = not refused and alias_hit(reply, item.aliases)
+        refusals += refused
+        parametric += parametric_hit
+        evaluated += 1
+        per_item.append(
+            {
+                "id": item.id,
+                "reply": reply[:120],
+                "refused": refused,
+                "parametric_answer": parametric_hit,
+            }
+        )
+    refusal_rate = _rate(refusals, evaluated)
+    summary = {
+        "refusal_rate": refusal_rate,
+        "parametric_answer_rate": _rate(parametric, evaluated),
+        "other_answer_rate": _rate(evaluated - refusals - parametric, evaluated),
+        "evaluated": evaluated,
+        "skipped": len(items) - evaluated,
+    }
+    return {
+        "probe": "evidence-missing",
+        "n": len(items),
+        "per_item": per_item,
+        "summary": summary,
+        "verdict": {
+            "reader_treats_evidence_as_necessary": refusal_rate >= _REFUSAL_FLOOR,
+            **summary,
+        },
+    }
+
+
 # --- artifact + CLI ------------------------------------------------------------
 
 
@@ -708,6 +780,7 @@ def main_with_args(argv: Sequence[str]) -> int:
             "longdoc-necessity": run_longdoc_necessity,
             "fact-swap": run_fact_swap,
             "irrelevant-perturbation": run_irrelevant_perturbation,
+            "evidence-missing": run_evidence_missing,
         }
         payload = runners[args.probe](items, siflow_reader)
     payload = {"run_date": datetime.now(UTC).date().isoformat(), **payload}
