@@ -32,6 +32,10 @@ _STAGE_KINDS: tuple[str, ...] = (
 )
 _ACTION_DEPENDENCIES: tuple[str, ...] = ("weak", "strong")
 _FAMILY_RESEARCH_V1 = "research-v1"
+# research-v2: the leak-closed revision (docs/dependency-probes-20260920.md) —
+# same stage grammar, no answer-bearing evidence after stage 1, stage 5 empty.
+_FAMILY_RESEARCH_V2 = "research-v2"
+_REGISTERED_FAMILIES = (_FAMILY_RESEARCH_V1, _FAMILY_RESEARCH_V2)
 
 
 def _require_str(value: object, field: str, *, allow_empty: bool = False) -> None:
@@ -208,8 +212,8 @@ class LifecycleInstance:
     def __post_init__(self) -> None:
         _require_str(self.instance_id, "instance_id")
         _require_str(self.family, "family")
-        if self.family != _FAMILY_RESEARCH_V1:
-            raise ValueError(f"family must be {_FAMILY_RESEARCH_V1!r}")
+        if self.family not in _REGISTERED_FAMILIES:
+            raise ValueError(f"family must be one of {_REGISTERED_FAMILIES!r}, got {self.family!r}")
         object.__setattr__(self, "stages", tuple(self.stages))
         if any(not isinstance(stage, StageSpec) for stage in self.stages):
             raise TypeError("instance stages must be StageSpec values")
