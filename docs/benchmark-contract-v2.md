@@ -206,14 +206,46 @@ model.
 - **Trajectory metrics beyond final score**: acquisition, retention, transfer,
   deployment cost — each a table cell with a clustered CI; no abstract-only
   headline numbers.
-- **State-boundary contract**: participant state resets at every split
-  boundary (visible / gate / replay / sealed are separate sessions); gate and
-  replay sessions contain only gate items; the full state transcript is logged
-  and auditable; a pre-registered leak probe injects visible-gold canary
-  tokens in a canary session and requires their absence from all gate packs.
+- **State-boundary contract (amended 2026-09-20)**: evaluation branches
+  (gate / replay / sealed / transfer) start independently from a **frozen
+  learning snapshot** `S_k` — what the participant legitimately learned
+  (code, skills, memory, observed facts) carries EQUALLY into every
+  branch; branch-generated state is confined to its branch and never
+  written back. Gate and replay sessions contain only gate items; the
+  full state transcript is logged and auditable; the pre-registered leak
+  probe (visible-gold canaries absent from gate state and packs) remains
+  the direct anti-leakage instrument. The boundary is information SOURCE,
+  TIME, and SCOPE — never the textual shape of what is remembered (the
+  withdrawn "method-experience-only" rule is documented in
+  `root-cause-24-of-24-20260920.md`). All persistence channels (state
+  store, code, memory packages, indexes) count against the byte cap.
 - **Engineering failures are not negative results**. A qualification-gate
   failure says the instrument was not ready; only a null under a qualified
   cell answers a scientific question.
+- **Continuously-updating systems report the online cost formula**: the
+  two-column `C_improve + N·C_deploy` model covers the offline one-shot
+  case; a system that keeps updating while serving reports the per-task
+  decomposition `C_total(N) = C_initial_improve + Σ_t (C_serve,t +
+  C_update,t + C_maintain,t)`, where maintain is memory
+  consolidation/compaction (state hygiene that changes no strategy), summed
+  per token, wall, and dollar component.
+- **Replay and re-run are separate evidence kinds**: deterministic replay
+  over recorded outputs is evidence of execution and ledger reproducibility
+  only; performance variance estimates come exclusively from fresh-request
+  re-runs; canary health checks are evidence of neither — they gate the
+  batch, not the claim.
+- **Stage-level scores are not independent samples**: stages within one
+  instance share that instance's history, and instances within one world
+  share the world's trajectory; CIs and order-effect tests therefore cluster
+  at the world/trajectory level, and repeated model calls estimate call
+  variance, not task diversity.
+- **Budget documentation lives in one place**: reader budgets in
+  [`configs/api_profiles.json`](../configs/api_profiles.json)
+  (`max_output_tokens` per profile) and improver budgets in the participant
+  spec's arms section
+  ([`participant-interface-v1.md`](participant-interface-v1.md)); the 16k
+  improver output cap is the registered value; any other budget seen in
+  artifacts is historical.
 
 ## Honesty constraints carried from the v1 review
 
@@ -224,12 +256,25 @@ model.
   not a novelty argument.
 - No "first" claims: closest neighbors (Recuris, Evo-Memory, MemoryBench,
   MemoryArena, MemEvolve/AutoMem, PAST-Bench, ModularRSI, SoL-Pi, MGM,
-  Dream-RSI) are treated as competitors and co-designers of the differential
-  questions; the per-neighbor "must additionally answer" table is part of the
-  task-family spec.
+  Dream-RSI, EvoArena) are treated as competitors and co-designers of the
+  differential questions; the per-neighbor "must additionally answer" table
+  is part of the task-family spec.
 - The frozen-weights setting is reported as an attribution choice; weight-level
   self-improvement (SPELL-style, MetaRSI's model operators) is adjacent work,
   not out-of-scope ignorables.
+- **Difficulty gates are development instruments, not permanent rules**
+  (2026-09-20 review): a legitimately strong method reaching a high score is
+  a result, not a task failure; tasks are calibrated on capability coverage
+  and solvability, never iterated until a method ranking appears. Panels
+  used to revise tasks become development material and cannot later serve
+  as unseen gates. Easy, solvable tasks are retained deliberately as the
+  regression-observation surface ("did improving break old abilities").
+- **Continuation vs migration are separately reported**; "not updating" is
+  never conflated with "not remembering" (the fixed arm is
+  memory-operational); open main comparison reports whole systems (initial
+  capability, post-experience, retention, migration, full cost), and
+  mechanism attribution is claimed only within interface-compatible
+  analysis subsets.
 
 ## Execution phases
 

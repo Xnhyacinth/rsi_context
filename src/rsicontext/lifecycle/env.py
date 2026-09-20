@@ -6,10 +6,18 @@ evaluated by objective state comparison. No general tool execution in v1 of
 this family; the only writes are the typed actions below, so the evaluator
 verifies the actual end state, never the stated one ("reported done" ≠
 "state is correct").
+
+This module also owns ``alias_hit`` — the alias-aware answer containment
+scorer from the 2026-09-20 root-cause report (single-alias pinning with
+strict substring matching mislabeled evidence-supported reader phrasings).
+It lives here, next to ``ObjectiveChecker`` (its primary consumer), so
+scoring and the build-time gold-entailment gate in ``material.py`` share one
+normalization implementation.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -18,6 +26,40 @@ ActionKind = Literal["create_record", "update_record", "finalize"]
 
 _ACTION_KINDS: tuple[str, ...] = ("create_record", "update_record", "finalize")
 _PROVENANCE_FIELD = "provenance"
+_ANSWER_FIELD = "answer"
+_NON_WORD = re.compile(r"[^\w\s]", re.UNICODE)
+_WHITESPACE = re.compile(r"\s+")
+
+
+def normalize_answer_text(text: str) -> str:
+    """Case-fold, strip punctuation (to spaces), and collapse whitespace.
+
+    The single normalization shared by ``alias_hit`` scoring here and the
+    build-time gold-entailment gate in ``material.py`` — one implementation
+    so the two gates can never drift apart.
+    """
+
+    return _WHITESPACE.sub(" ", _NON_WORD.sub(" ", text.casefold())).strip()
+
+
+def alias_hit(reply: str, aliases: tuple[str, ...]) -> bool:
+    """True when ``reply`` and any alias match by normalized containment.
+
+    Both sides are normalized (case-insensitive, punctuation replaced by
+    spaces, whitespace collapsed); a hit is ``alias in reply`` OR ``reply in
+    alias`` — so a verbatim evidence phrasing containing an alias ("power
+    pop, punk, punk pop" vs "punk") and a short-form reply inside an alias
+    ("POL" vs "Republic of Poland") both count. An empty reply never hits.
+    """
+
+    reply_norm = normalize_answer_text(reply)
+    if not reply_norm:
+        return False
+    for alias in aliases:
+        alias_norm = normalize_answer_text(alias)
+        if alias_norm and (alias_norm in reply_norm or reply_norm in alias_norm):
+            return True
+    return False
 
 
 def _require_str(value: object, name: str) -> None:
@@ -157,9 +199,21 @@ class ObjectiveChecker:
     names what must hold, not what must be absent); named-but-missing records,
     missing fields, and unequal values are failures. Nested values are compared
     by equality only — v1 of this family uses flat typed fields by design.
+
+    Alias mode: with ``aliases`` given, ``answer`` fields additionally pass
+    via :func:`alias_hit` (normalized containment against the full alias set),
+    fixing the single-alias pinning root cause — a committed "power pop, punk,
+    punk pop" against expected "punk rock" passes when "punk" is an alias.
+    All other fields stay exact regardless; ``aliases=None`` (default) is the
+    original fully-exact behavior.
     """
 
-    def check(self, state: ProjectState, expected: Mapping[str, object]) -> CheckResult:
+    def check(
+        self,
+        state: ProjectState,
+        expected: Mapping[str, object],
+        aliases: tuple[str, ...] | None = None,
+    ) -> CheckResult:
         if not isinstance(state, ProjectState):
             raise TypeError("check requires a ProjectState value")
         if not isinstance(expected, Mapping):
@@ -178,12 +232,25 @@ class ObjectiveChecker:
                 expected_value = expected_fields[field_name]
                 if field_name not in actual:
                     failures.append(f"record {record_id!r}: field {field_name!r} missing")
-                elif not self._equal(actual[field_name], expected_value):
+                elif not self._field_equal(actual[field_name], expected_value, field_name, aliases):
                     failures.append(
                         f"record {record_id!r}: field {field_name!r} "
                         f"expected {expected_value!r}, got {actual[field_name]!r}"
                     )
         return CheckResult(passed=not failures, failures=tuple(failures))
+
+    @staticmethod
+    def _field_equal(
+        actual: object, expected: object, field_name: str, aliases: tuple[str, ...] | None
+    ) -> bool:
+        if (
+            aliases
+            and field_name == _ANSWER_FIELD
+            and isinstance(actual, str)
+            and alias_hit(actual, aliases)
+        ):
+            return True
+        return ObjectiveChecker._equal(actual, expected)
 
     @staticmethod
     def _equal(actual: object, expected: object) -> bool:

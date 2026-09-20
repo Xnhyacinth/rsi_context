@@ -163,7 +163,11 @@ class APIResearcherImprover:
             # Reasoning researchers can emit the final output only inside the
             # reasoning channel: fall back to its tail (the last JSON object
             # the model formed before finishing).
-            reasoning = message.get("reasoning") or message.get("reasoning_content")
+            reasoning = (
+                (message.get("reasoning") or message.get("reasoning_content"))
+                if isinstance(message, dict)
+                else None
+            )
             if isinstance(reasoning, str) and "{" in reasoning:
                 tail = reasoning[reasoning.rfind('{"changes"') :].strip()
                 if tail.startswith("{") and "}" in tail:

@@ -7,8 +7,8 @@ stages are executed against a participant-agnostic hook, with evaluator-only
 fields never surfaced to ``run()`` callers.
 """
 
-from .env import Action, CheckResult, ObjectiveChecker, ProjectState
-from .material import build_example_instance
+from .env import Action, CheckResult, ObjectiveChecker, ProjectState, alias_hit
+from .material import build_example_instance, gold_entailment_sane
 from .runner import LifecycleRunRecord, ParticipantHook, StageResponse, StageView, run_lifecycle
 from .spec import (
     DescriptionAxes,
@@ -34,8 +34,10 @@ __all__ = [
     "StageResponse",
     "StageSpec",
     "StageView",
+    "alias_hit",
     "build_example_instance",
     "dump_instance",
+    "gold_entailment_sane",
     "load_instance",
     "run_lifecycle",
 ]

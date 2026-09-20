@@ -1,9 +1,14 @@
-"""Two-column cost accounting: improvement versus deployment (contract v2)."""
+"""Two-column cost accounting: improvement versus deployment (contract v2).
+
+Offline one-shot records (``CostRecord``/``amortized_total``) and the online
+per-task serve/update/maintain decomposition for continuously-updating
+systems (``OnlineCostRecord``/``amortized_online_total``).
+"""
 
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -194,6 +199,158 @@ def amortized_total(rec: CostRecord, horizon: int) -> TotalCost:
         deploy_tokens_out=rec.deploy_tokens_out,
         deploy_wall_seconds=rec.deploy_wall_seconds,
         deploy_dollar_estimate=rec.deploy_dollar_estimate,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class OnlineCostRecord:
+    """One served task's cost decomposition for a continuously-updating system.
+
+    While serving task ``t``, such a system spends ``serve`` tokens on the
+    task itself, ``update`` tokens revising strategy/state from the restricted
+    feedback, and ``maintain`` tokens on memory consolidation/compaction
+    (state hygiene that changes no strategy). Tokens are the core accounting;
+    wall seconds default to 0.0 and dollar estimates to ``None`` per stream
+    when unmeasured/unpriced, mirroring the two-column ledger's convention.
+    """
+
+    task_index: int
+    serve_tokens_in: int = 0
+    serve_tokens_out: int = 0
+    update_tokens_in: int = 0
+    update_tokens_out: int = 0
+    maintain_tokens_in: int = 0
+    maintain_tokens_out: int = 0
+    serve_wall_seconds: float = 0.0
+    update_wall_seconds: float = 0.0
+    maintain_wall_seconds: float = 0.0
+    serve_dollar_estimate: float | None = None
+    update_dollar_estimate: float | None = None
+    maintain_dollar_estimate: float | None = None
+
+    def __post_init__(self) -> None:
+        _nonnegative_int(self.task_index, "task_index")
+        for field_name, value in (
+            ("serve_tokens_in", self.serve_tokens_in),
+            ("serve_tokens_out", self.serve_tokens_out),
+            ("update_tokens_in", self.update_tokens_in),
+            ("update_tokens_out", self.update_tokens_out),
+            ("maintain_tokens_in", self.maintain_tokens_in),
+            ("maintain_tokens_out", self.maintain_tokens_out),
+        ):
+            _nonnegative_int(value, field_name)
+        for field_name, seconds in (
+            ("serve_wall_seconds", self.serve_wall_seconds),
+            ("update_wall_seconds", self.update_wall_seconds),
+            ("maintain_wall_seconds", self.maintain_wall_seconds),
+        ):
+            _nonnegative_number(seconds, field_name)
+        for field_name, dollars in (
+            ("serve_dollar_estimate", self.serve_dollar_estimate),
+            ("update_dollar_estimate", self.update_dollar_estimate),
+            ("maintain_dollar_estimate", self.maintain_dollar_estimate),
+        ):
+            _optional_nonnegative_number(dollars, field_name)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "maintain_dollar_estimate": self.maintain_dollar_estimate,
+            "maintain_tokens_in": self.maintain_tokens_in,
+            "maintain_tokens_out": self.maintain_tokens_out,
+            "maintain_wall_seconds": self.maintain_wall_seconds,
+            "serve_dollar_estimate": self.serve_dollar_estimate,
+            "serve_tokens_in": self.serve_tokens_in,
+            "serve_tokens_out": self.serve_tokens_out,
+            "serve_wall_seconds": self.serve_wall_seconds,
+            "task_index": self.task_index,
+            "update_dollar_estimate": self.update_dollar_estimate,
+            "update_tokens_in": self.update_tokens_in,
+            "update_tokens_out": self.update_tokens_out,
+            "update_wall_seconds": self.update_wall_seconds,
+        }
+
+
+def _stream_dollars(dollars: float | None, *components: float | int) -> float | None:
+    """One cost stream's dollar contribution: priced, free, or unknown.
+
+    A stream that never ran (every token/wall component zero) is free — no
+    price required. A stream that ran but carries no price makes the total
+    unknown (``None``), matching the ledger's convention that dollar
+    estimates aggregate only when every contributing record carried one.
+    """
+
+    if dollars is not None:
+        return dollars
+    if all(component == 0 for component in components):
+        return 0.0
+    return None
+
+
+def amortized_online_total(
+    records: Sequence[OnlineCostRecord],
+    initial_improve: CostRecord | None = None,
+) -> TotalCost:
+    """The online cost formula over a continuously-updating run.
+
+    ``C_total(N) = C_initial_improve + Σ_t (C_serve,t + C_update,t +
+    C_maintain,t)`` summed over the N task records, per token, wall, and
+    dollar component. Only the improve column of ``initial_improve`` is read
+    (its deploy column belongs to the offline model); an absent
+    ``initial_improve`` contributes zero to every improve component. The
+    returned ``horizon`` is pinned to 1 because the deploy column already
+    sums the per-task costs over the tasks that actually executed — the
+    offline ``C_improve + N·C_deploy`` is the special case where every
+    task's cost equals the per-unit ``C_deploy``. Dollar estimates aggregate
+    only when every stream that actually ran carried one; idle streams
+    (zero tokens and zero wall) contribute zero without needing a price.
+    """
+
+    for record in records:
+        if not isinstance(record, OnlineCostRecord):
+            raise TypeError("online records must be OnlineCostRecord values")
+    return TotalCost(
+        horizon=1,
+        improve_tokens_in=0 if initial_improve is None else initial_improve.improve_tokens_in,
+        improve_tokens_out=0 if initial_improve is None else initial_improve.improve_tokens_out,
+        improve_wall_seconds=(
+            0.0 if initial_improve is None else initial_improve.improve_wall_seconds
+        ),
+        improve_dollar_estimate=(
+            0.0 if initial_improve is None else initial_improve.improve_dollar_estimate
+        ),
+        deploy_tokens_in=sum(
+            r.serve_tokens_in + r.update_tokens_in + r.maintain_tokens_in for r in records
+        ),
+        deploy_tokens_out=sum(
+            r.serve_tokens_out + r.update_tokens_out + r.maintain_tokens_out for r in records
+        ),
+        deploy_wall_seconds=sum(
+            r.serve_wall_seconds + r.update_wall_seconds + r.maintain_wall_seconds for r in records
+        ),
+        deploy_dollar_estimate=_sum_optional(
+            dollars
+            for r in records
+            for dollars in (
+                _stream_dollars(
+                    r.serve_dollar_estimate,
+                    r.serve_tokens_in,
+                    r.serve_tokens_out,
+                    r.serve_wall_seconds,
+                ),
+                _stream_dollars(
+                    r.update_dollar_estimate,
+                    r.update_tokens_in,
+                    r.update_tokens_out,
+                    r.update_wall_seconds,
+                ),
+                _stream_dollars(
+                    r.maintain_dollar_estimate,
+                    r.maintain_tokens_in,
+                    r.maintain_tokens_out,
+                    r.maintain_wall_seconds,
+                ),
+            )
+        ),
     )
 
 

@@ -20,6 +20,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
+from rsicontext.lifecycle.env import normalize_answer_text
 from rsicontext.lifecycle.spec import (
     DescriptionAxes,
     DocumentRef,
@@ -93,6 +94,45 @@ def _decode_possible_answers(raw: object) -> tuple[str, ...]:
     raise ValueError("possible_answers must be a JSON-encoded list string or a list")
 
 
+def gold_entailment_sane(row: Mapping[str, object]) -> bool:
+    """Build-time sanity gate: do the gold passages actually support the label?
+
+    True when every gold ctx (``has_answer`` flagged) carries non-empty text
+    and at least one alias from ``possible_answers`` appears — normalized the
+    same way ``alias_hit`` normalizes (case-insensitive, punctuation-stripped)
+    — in at least one gold ctx's text. Rows failing this are the root-cause
+    report's label-defect class 1 (gold retrieval about a different entity,
+    or a KILT normalization absent from the evidence). Malformed rows
+    (undecodable answers, missing/invalid ctxs, no gold ctxs) return False
+    rather than raising, so this is safe to use as a plain filter predicate;
+    ``build_example_instance`` still constructs failing rows — callers filter.
+    """
+
+    try:
+        aliases = _decode_possible_answers(row.get("possible_answers"))
+    except ValueError:  # undecodable/malformed answers: not a usable row
+        return False
+    raw_ctxs = row.get("ctxs")
+    if not isinstance(raw_ctxs, list):
+        return False
+    gold_texts: list[str] = []
+    for ctx in raw_ctxs:
+        if not isinstance(ctx, Mapping) or not _ctx_has_answer(ctx):
+            continue
+        text = ctx.get("text")
+        if not isinstance(text, str) or not text.strip():
+            return False
+        gold_texts.append(text)
+    if not gold_texts:
+        return False
+    normalized_texts = [normalize_answer_text(text) for text in gold_texts]
+    return any(
+        (alias_norm := normalize_answer_text(alias))
+        and any(alias_norm in text for text in normalized_texts)
+        for alias in aliases
+    )
+
+
 def build_example_instance(popqa_jsonl_row: Mapping[str, object]) -> LifecycleInstance:
     """Deterministically build the five-stage research-v1 example instance.
 
@@ -108,13 +148,15 @@ def build_example_instance(popqa_jsonl_row: Mapping[str, object]) -> LifecycleIn
        re-verification requirement;
     5. act_verify — ``expected_state_delta`` derived from
        ``possible_answers[0]``: a finalize write of the answer with the gold
-       support as provenance.
+       support as provenance; ``expected_aliases`` and the instance-level
+       ``answer_aliases`` carry the full alias set for alias-aware checking.
     """
 
     question = _require_str(popqa_jsonl_row.get("question"), "question")
     row_id_raw = popqa_jsonl_row.get("id")
     row_id = str(row_id_raw) if row_id_raw is not None else "unknown"
-    answer_norm = _decode_possible_answers(popqa_jsonl_row.get("possible_answers"))[0]
+    answer_aliases = _decode_possible_answers(popqa_jsonl_row.get("possible_answers"))
+    answer_norm = answer_aliases[0]
     raw_ctxs = popqa_jsonl_row.get("ctxs")
     if not isinstance(raw_ctxs, list) or not raw_ctxs:
         raise ValueError("ctxs must be a non-empty list")
@@ -219,6 +261,7 @@ def build_example_instance(popqa_jsonl_row: Mapping[str, object]) -> LifecycleIn
                 expected_state_delta={
                     _FINAL_RECORD_ID: _finalize_record_fields(answer_norm, gold_doc_ids),
                 },
+                expected_aliases=answer_aliases,
             ),
         ),
         axes=DescriptionAxes(
@@ -233,4 +276,5 @@ def build_example_instance(popqa_jsonl_row: Mapping[str, object]) -> LifecycleIn
             "records": [_FINAL_RECORD_ID],
             "action_kinds": ["create_record", "update_record", "finalize"],
         },
+        answer_aliases=answer_aliases,
     )

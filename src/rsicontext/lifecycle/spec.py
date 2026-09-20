@@ -5,12 +5,12 @@ contract ``docs/benchmark-contract-v2.md``. One instance is one evidence
 project in five stages; the five description axes are carried as metadata,
 never collapsed into one difficulty score.
 
-Evaluator-only fields: ``StageSpec.gold_evidence_ids`` and
-``StageSpec.expected_state_delta`` MUST NEVER be surfaced to ``run()`` /
-``ParticipantHook`` callers — the runner constructs ``StageView`` from a
-``StageSpec`` minus exactly these fields, so the exclusion is enforced by
-construction (see ``runner.py``). They exist here for the evaluator and for
-instance serialization only.
+Evaluator-only fields: ``StageSpec.gold_evidence_ids``,
+``StageSpec.expected_state_delta``, and ``StageSpec.expected_aliases`` MUST
+NEVER be surfaced to ``run()`` / ``ParticipantHook`` callers — the runner
+constructs ``StageView`` from a ``StageSpec`` minus exactly these fields, so
+the exclusion is enforced by construction (see ``runner.py``). They exist here
+for the evaluator and for instance serialization only.
 """
 
 from __future__ import annotations
@@ -129,10 +129,13 @@ class DocumentRef:
 class StageSpec:
     """One lifecycle stage.
 
-    ``gold_evidence_ids`` and ``expected_state_delta`` are evaluator-only
-    fields (see module docstring): they must never appear in any view handed
-    to a participant. ``expected_state_delta`` is required (non-None) for
-    ``act_verify`` stages — it is what the final project state must contain.
+    ``gold_evidence_ids``, ``expected_state_delta``, and ``expected_aliases``
+    are evaluator-only fields (see module docstring): they must never appear in
+    any view handed to a participant. ``expected_state_delta`` is required
+    (non-None) for ``act_verify`` stages — it is what the final project state
+    must contain. ``expected_aliases`` (act_verify stages only) carries the
+    answer's full alias set so final checks can be alias-aware instead of
+    pinned on the primary answer alone.
     """
 
     stage_id: str
@@ -141,6 +144,7 @@ class StageSpec:
     documents: tuple[DocumentRef, ...]
     gold_evidence_ids: tuple[str, ...]
     expected_state_delta: Mapping[str, object] | None = None
+    expected_aliases: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _require_str(self.stage_id, "stage_id")
@@ -159,10 +163,15 @@ class StageSpec:
             if not isinstance(self.expected_state_delta, Mapping):
                 raise TypeError("expected_state_delta must be a mapping or None")
             object.__setattr__(self, "expected_state_delta", dict(self.expected_state_delta))
+        object.__setattr__(self, "expected_aliases", tuple(self.expected_aliases))
+        for alias in self.expected_aliases:
+            _require_str(alias, "expected_aliases entry")
         if self.kind == "act_verify" and self.expected_state_delta is None:
             raise ValueError("act_verify stages require expected_state_delta")
         if self.kind != "act_verify" and self.expected_state_delta is not None:
             raise ValueError("only act_verify stages carry expected_state_delta")
+        if self.kind != "act_verify" and self.expected_aliases:
+            raise ValueError("only act_verify stages carry expected_aliases")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -174,12 +183,19 @@ class StageSpec:
             "expected_state_delta": (
                 None if self.expected_state_delta is None else dict(self.expected_state_delta)
             ),
+            "expected_aliases": list(self.expected_aliases),
         }
 
 
 @dataclass(frozen=True, slots=True)
 class LifecycleInstance:
-    """A complete five-stage research-v1 evidence project."""
+    """A complete five-stage research-v1 evidence project.
+
+    ``answer_aliases`` is the full PopQA ``possible_answers`` alias set;
+    ``answer_norm`` remains the primary answer the act_verify prompt asks the
+    agent to commit. Default empty tuple keeps older constructors/payloads
+    loadable (alias-unaware).
+    """
 
     instance_id: str
     family: str
@@ -187,6 +203,7 @@ class LifecycleInstance:
     axes: DescriptionAxes
     answer_norm: str
     sandbox_spec: Mapping[str, object]
+    answer_aliases: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _require_str(self.instance_id, "instance_id")
@@ -213,6 +230,11 @@ class LifecycleInstance:
         if not isinstance(self.sandbox_spec, Mapping):
             raise TypeError("sandbox_spec must be a mapping")
         object.__setattr__(self, "sandbox_spec", dict(self.sandbox_spec))
+        object.__setattr__(self, "answer_aliases", tuple(self.answer_aliases))
+        for alias in self.answer_aliases:
+            _require_str(alias, "answer_aliases entry")
+        if self.answer_aliases and self.answer_norm not in self.answer_aliases:
+            raise ValueError("answer_aliases must contain answer_norm when non-empty")
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -222,6 +244,7 @@ class LifecycleInstance:
             "axes": self.axes.to_dict(),
             "answer_norm": self.answer_norm,
             "sandbox_spec": dict(self.sandbox_spec),
+            "answer_aliases": list(self.answer_aliases),
         }
 
 
@@ -307,6 +330,7 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         documents=tuple(documents),
         gold_evidence_ids=_load_str_list(d, "gold_evidence_ids"),
         expected_state_delta=expected,
+        expected_aliases=_load_str_list(d, "expected_aliases"),
     )
 
 
@@ -348,6 +372,7 @@ def load_instance(d: Mapping[str, object]) -> LifecycleInstance:
         axes=_load_axes(raw_axes),
         answer_norm=_load_str(d, "answer_norm"),
         sandbox_spec=dict(raw_sandbox),
+        answer_aliases=_load_str_list(d, "answer_aliases"),
     )
 
 

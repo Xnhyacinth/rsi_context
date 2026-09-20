@@ -232,7 +232,9 @@ def run_lifecycle(
     expected = act_verify.expected_state_delta
     if expected is None:  # guarded by StageSpec.__post_init__; kept for mypy
         raise ValueError("act_verify stage lacks expected_state_delta")
-    final_check = ObjectiveChecker().check(env, expected)
+    final_check = ObjectiveChecker().check(
+        env, expected, aliases=act_verify.expected_aliases or None
+    )
     wall_seconds = time.monotonic() - started
     return LifecycleRunRecord(
         instance_id=inst.instance_id,

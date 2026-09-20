@@ -10,6 +10,7 @@ calls; qualification-gate panels are later deliverables and not tested here.
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 
 import pytest
 
@@ -25,8 +26,10 @@ from rsicontext.lifecycle import (
     StageResponse,
     StageSpec,
     StageView,
+    alias_hit,
     build_example_instance,
     dump_instance,
+    gold_entailment_sane,
     load_instance,
     run_lifecycle,
 )
@@ -536,3 +539,329 @@ def test_run_record_to_dict_canonical() -> None:
 def test_check_result_rejects_non_bool_passed() -> None:
     with pytest.raises(TypeError, match="passed"):
         CheckResult(passed=1, failures=())  # type: ignore[arg-type]
+
+
+# --- alias-aware scoring (root-cause report 2026-09-20) -----------------------
+
+
+def test_answer_aliases_round_trip() -> None:
+    inst = build_example_instance(popqa_row())
+    assert inst.answer_aliases == ("punk rock", "punk", "punk music")
+    assert inst.stages[4].expected_aliases == ("punk rock", "punk", "punk music")
+    payload = json.loads(json.dumps(dump_instance(inst)))
+    assert payload["answer_aliases"] == ["punk rock", "punk", "punk music"]
+    assert payload["stages"][4]["expected_aliases"] == ["punk rock", "punk", "punk music"]
+    reloaded = load_instance(payload)
+    assert reloaded == inst
+    assert canonical_instance_json(reloaded) == canonical_instance_json(inst)
+
+
+def test_instance_without_aliases_defaults_empty_and_round_trips() -> None:
+    inst = make_instance()
+    assert inst.answer_aliases == ()
+    assert inst.stages[4].expected_aliases == ()
+    payload = dump_instance(inst)
+    assert payload["answer_aliases"] == []
+    assert load_instance(json.loads(json.dumps(payload))) == inst
+
+
+def test_load_instance_accepts_legacy_payload_without_alias_keys() -> None:
+    payload = dump_instance(make_instance())
+    del payload["answer_aliases"]
+    for stage in payload["stages"]:
+        del stage["expected_aliases"]
+    reloaded = load_instance(payload)
+    assert reloaded.answer_aliases == ()
+    assert all(stage.expected_aliases == () for stage in reloaded.stages)
+
+
+def test_answer_aliases_must_contain_primary_answer() -> None:
+    with pytest.raises(ValueError, match="answer_aliases"):
+        replace(make_instance(), answer_aliases=("waltz",))
+
+
+def test_expected_aliases_rejected_on_non_act_verify_stage() -> None:
+    with pytest.raises(ValueError, match="expected_aliases"):
+        StageSpec(
+            stage_id="s1-survey",
+            kind="survey",
+            prompt_text="p",
+            documents=(make_document("doc-1"),),
+            gold_evidence_ids=("doc-1",),
+            expected_aliases=("punk",),
+        )
+
+
+def test_alias_hit_true_cases() -> None:
+    # case-insensitive match
+    assert alias_hit("PUNK ROCK", ("punk rock",))
+    # alias contained in a longer evidence phrasing (PopQA 1652383 pattern:
+    # the gold passage says "power pop, punk, punk pop" while the primary
+    # answer is the KILT normalization "punk rock")
+    assert alias_hit("power pop punk punk pop", ("punk rock", "punk", "power pop"))
+    # reply contained in an alias (short-form codes, PopQA 4402885 aliases)
+    assert alias_hit("POL", ("Poland", "POL", "Republic of Poland", "PL", "Polska"))
+    assert alias_hit("republic of poland", ("Poland", "Republic of Poland"))
+    # punctuation differences collapse before matching
+    assert alias_hit("punk-rock!", ("punk rock",))
+    assert alias_hit("power-pop, punk", ("punk",))
+    # an alias that normalizes to empty is skipped, not fatal
+    assert alias_hit("punk", ("!!", "punk"))
+
+
+def test_alias_hit_false_cases() -> None:
+    assert not alias_hit("", ("punk rock",))
+    assert not alias_hit("   ", ("punk",))
+    assert not alias_hit("punk", ())
+    assert not alias_hit("jazz trio", ("punk rock", "punk"))
+    # substring in neither direction (PopQA 3006731 residual class: the
+    # reader phrase is a genuine normalization gap outside the alias set)
+    assert not alias_hit("comedy horror", ("horror film",))
+
+
+def test_objective_checker_alias_mode_passes_evidence_phrasing() -> None:
+    state = ProjectState()
+    state.apply(
+        Action(
+            kind="create_record",
+            record_id="answer_project",
+            fields={
+                "answer": "power pop punk punk pop",
+                "supports": ["doc-2387652-0"],
+                "status": "final",
+            },
+        )
+    )
+    result = ObjectiveChecker().check(
+        state,
+        {
+            "answer_project": {
+                "answer": "punk rock",
+                "supports": ["doc-2387652-0"],
+                "status": "final",
+            }
+        },
+        aliases=("punk rock", "punk", "power pop"),
+    )
+    assert result.passed
+    assert result.failures == ()
+
+
+def test_objective_checker_alias_mode_keeps_other_fields_exact() -> None:
+    state = ProjectState()
+    state.apply(
+        Action(
+            kind="create_record",
+            record_id="r",
+            fields={"answer": "punk", "supports": ["doc-wrong"]},
+        )
+    )
+    result = ObjectiveChecker().check(
+        state,
+        {"r": {"answer": "punk rock", "supports": ["doc-1"]}},
+        aliases=("punk rock", "punk"),
+    )
+    assert not result.passed
+    assert not any("field 'answer'" in failure for failure in result.failures)
+    assert any("field 'supports'" in failure for failure in result.failures)
+
+
+def test_objective_checker_alias_mode_fails_without_any_alias_hit() -> None:
+    state = ProjectState()
+    state.apply(Action(kind="create_record", record_id="r", fields={"answer": "jazz"}))
+    result = ObjectiveChecker().check(
+        state, {"r": {"answer": "punk rock"}}, aliases=("punk rock", "punk")
+    )
+    assert not result.passed
+
+
+def test_objective_checker_exact_mode_unchanged_by_alias_addition() -> None:
+    state = ProjectState()
+    state.apply(
+        Action(kind="create_record", record_id="r", fields={"answer": "power pop punk punk pop"})
+    )
+    expected: dict[str, object] = {"r": {"answer": "punk rock"}}
+    assert not ObjectiveChecker().check(state, expected).passed
+    assert not ObjectiveChecker().check(state, expected, aliases=None).passed
+
+
+def test_run_lifecycle_alias_scoring_accepts_evidence_phrasing() -> None:
+    inst = build_example_instance(popqa_row())
+
+    class EvidencePhraseHook(ScriptedHook):
+        """Commits the verbatim evidence phrasing instead of the primary answer."""
+
+        def on_stage(self, stage: StageView) -> StageResponse:
+            if stage.kind == "act_verify":
+                return StageResponse(
+                    pack_text="final commit [[doc:doc-2387652-0]]",
+                    actions=(
+                        Action(
+                            kind="create_record",
+                            record_id="answer_project",
+                            fields={
+                                "answer": "power pop and punk",
+                                "supports": ["doc-2387652-0"],
+                                "status": "final",
+                            },
+                        ),
+                        Action(
+                            kind="finalize",
+                            record_id="answer_project",
+                            fields={},
+                            provenance=("doc-2387652-0",),
+                        ),
+                    ),
+                )
+            return super().on_stage(stage)
+
+    record = run_lifecycle(inst, EvidencePhraseHook(), ProjectState())
+    assert record.final_check.passed
+    assert record.final_check.failures == ()
+
+
+def test_stage_view_excludes_expected_aliases() -> None:
+    inst = build_example_instance(popqa_row())
+    hook = ScriptedHook()
+    run_lifecycle(inst, hook, ProjectState())
+    for view in hook.seen_views:
+        serialized = json.dumps(view, default=lambda o: getattr(o, "__dict__", str(o)))
+        assert "expected_aliases" not in serialized
+        assert not hasattr(view, "expected_aliases")
+
+
+# --- gold-passage entailment sanity gate (build-time) -------------------------
+
+
+def wilcza_row() -> dict[str, object]:
+    """The PopQA 4402885 pattern: gold retrieval about a DIFFERENT entity.
+
+    The corpus row's gold passage is the Wilcza Góra disambiguation page, not
+    the asked-about Wilcza Jama; this fixture keeps the wrong-entity text but
+    drops the incidental parenthetical place-name tokens so the alias-
+    containment gate sees the defect (in the literal corpus row the gold text
+    mentions "Poland" only inside Voivodeship parentheticals, which the
+    substring gate cannot distinguish from support).
+    """
+
+    return {
+        "id": 4402885,
+        "question": "In what country is Wilcza Jama, Sokółka County?",
+        "possible_answers": '["Poland", "POL", "Republic of Poland", "PL", "Polska"]',
+        "ctxs": [
+            {
+                "id": "3119263",
+                "title": "Wilcza Góra",
+                # NB: phrased without words containing the short code aliases
+                # ("PL" is a substring of "places") — under plain containment
+                # semantics a two-letter alias matches inside unrelated words.
+                "text": (
+                    "Wilcza Góra\nWilcza Góra may refer to the following localities:\n"
+                    "- Wilcza Góra, Kuyavian-Pomeranian Voivodeship\n"
+                    "- Wilcza Góra, Masovian Voivodeship\n"
+                    "- Wilcza Góra, Silesian Voivodeship"
+                ),
+                "score": 0.70,
+                "has_answer": True,
+            },
+            {
+                "id": "23428304",
+                "title": "Wilcza Jama, Sokółka County",
+                "text": (
+                    "Wilcza Jama is a village in the administrative district of "
+                    "Gmina Sokółka, within Sokółka County, Podlaskie Voivodeship, "
+                    "in north-eastern Poland, close to the border with Belarus."
+                ),
+                "score": 0.94,
+                "has_answer": False,
+            },
+        ],
+    }
+
+
+def poet_row() -> dict[str, object]:
+    """The PopQA 542248 pattern: gold passage names the answer (alias present)."""
+
+    return {
+        "id": 542248,
+        "question": "What is Tadhg Dall Ó hUiginn's occupation?",
+        "possible_answers": '["poet", "poetess", "bard"]',
+        "ctxs": [
+            {
+                "id": "6010898",
+                "title": "Tadhg Dall Ó hUiginn",
+                "text": (
+                    "Tadhg Dall Ó hUiginn\nTadhg Dall Ó hUiginn (c. 1550 - c.1591) "
+                    "was an Irish poet. A well-known late-Gaelic era poet, he was a "
+                    "member of a family of professional poets from north Connacht."
+                ),
+                "score": 0.84,
+                "has_answer": True,
+            },
+            {
+                "id": "6010900",
+                "title": "Tadhg Dall Ó hUiginn",
+                "text": "Later life details and descendants of the same figure.",
+                "score": 0.82,
+                "has_answer": False,
+            },
+        ],
+    }
+
+
+def test_gold_entailment_sane_true_when_alias_in_gold_text() -> None:
+    assert gold_entailment_sane(poet_row())
+
+
+def test_gold_entailment_sane_false_when_gold_about_different_entity() -> None:
+    assert not gold_entailment_sane(wilcza_row())
+
+
+def test_gold_entailment_sane_false_for_malformed_rows() -> None:
+    empty_gold_text = poet_row()
+    empty_gold_text["ctxs"] = [
+        {"id": "g", "title": "T", "text": "  ", "score": 0.9, "has_answer": True}
+    ]
+    assert not gold_entailment_sane(empty_gold_text)
+
+    no_gold = poet_row()
+    no_gold["ctxs"] = [dict(poet_row()["ctxs"][1])]  # type: ignore[index]
+    assert not gold_entailment_sane(no_gold)
+
+    bad_answers = poet_row()
+    bad_answers["possible_answers"] = "not-json"
+    assert not gold_entailment_sane(bad_answers)
+
+    missing_ctxs = poet_row()
+    del missing_ctxs["ctxs"]
+    assert not gold_entailment_sane(missing_ctxs)
+
+
+def test_gold_entailment_sane_any_gold_ctx_suffices() -> None:
+    row = poet_row()
+    second_gold = {
+        "id": "6010999",
+        "title": "Bard",
+        "text": "A bard is a professional story teller.",
+        "score": 0.80,
+        "has_answer": True,
+    }
+    row["ctxs"] = [
+        {
+            "id": "6010898-b",
+            "title": "Tadhg Dall Ó hUiginn",
+            "text": "Biography without naming the occupation.",
+            "score": 0.84,
+            "has_answer": True,
+        },
+        second_gold,
+    ]
+    # "poet" appears in neither gold text, but "bard" does
+    assert gold_entailment_sane(row)
+
+
+def test_build_example_instance_still_constructs_insane_rows() -> None:
+    # the gate is a filter for callers, not a constructor exception
+    inst = build_example_instance(wilcza_row())
+    assert inst.answer_aliases == ("Poland", "POL", "Republic of Poland", "PL", "Polska")
+    assert not gold_entailment_sane(wilcza_row())

@@ -12,6 +12,7 @@ from rsicontext.participant.arms import (
     FixedStrategyImprover,
     OpenSClIResearcherImprover,
 )
+from rsicontext.participant.recuris_arm import RecurisStyleImprover
 from rsicontext.participant.registration import (
     ALLOWED_ARMS,
     ALLOWED_REGISTRATION_LABELS,
@@ -48,6 +49,7 @@ __all__ = [
     "OpenSClIResearcherImprover",
     "ParticipantError",
     "QualificationResult",
+    "RecurisStyleImprover",
     "Registration",
     "RegistrationLabel",
     "StateSpec",

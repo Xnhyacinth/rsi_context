@@ -128,7 +128,7 @@ def _normalize_answer(raw: str) -> str:
             lowered = text.lower()
     if lowered.startswith("based on the provided evidence"):
         # '... the canary code is **amber**.' → keep the tail after 'is'.
-        head, sep, tail = text.rpartition(" is ")
+        _head, sep, tail = text.rpartition(" is ")
         if sep:
             text = tail.strip()
     text = text.strip().strip(".").strip()
@@ -136,7 +136,7 @@ def _normalize_answer(raw: str) -> str:
         return text
     # Multi-word tail: prefer the final noun phrase after the last ' is '.
     if " is " in text and len(text.split()) > 4:
-        head, sep, tail = text.rpartition(" is ")
+        _head, sep, tail = text.rpartition(" is ")
         if sep and tail:
             candidate = tail.strip().strip(".").strip()
             if candidate and len(candidate.split()) <= 6:
