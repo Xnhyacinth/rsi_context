@@ -94,7 +94,6 @@ def gold_dominance(row: dict) -> dict[str, object]:
     noise = [c for c in clean if not _is_gold(c)]
     survey = noise[:8] + gold
     first_gold_rank = next((survey.index(c) + 1 for c in survey if _is_gold(c)), None)
-    aliases = decode_aliases(row.get("possible_answers"))
     subject = str(row.get("subj") or row.get("s_wiki_title") or "")
     # Ambiguity: how many noise docs mention the subject or a title variant
     # of the question entity (the Holiday-film pattern)?

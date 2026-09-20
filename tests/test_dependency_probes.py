@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
@@ -400,3 +400,240 @@ def test_cli_no_history_runs_without_a_key(monkeypatch: pytest.MonkeyPatch, tmp_
     assert payload["probe"] == "no-history"
     assert payload["n"] == 1
     assert payload["summary"]["stateful"]["rate"] == 1.0
+
+
+# --- lifecycle-fact-swap probe (v2-only, offline: oracle hook + real runner) ------
+
+
+def _v2_row(
+    row_id: int = 1,
+    *,
+    answers: str = '["alpha rock"]',
+    gold_text: str = "Zephyr is a band whose verified genre is alpha rock.",
+    noise_text: str = "Unrelated filler passage for bulk padding here.",
+) -> dict[str, Any]:
+    """A research-v2-usable row: the gold-sane gate needs the question's
+    subject (subj / s_wiki_title) mentioned in the gold passage alongside
+    an answer alias, and the subject must not itself be an answer alias
+    (otherwise the swap's alias-survival guard would always fire)."""
+
+    row = _row(
+        row_id,
+        question="What genre is Zephyr?",
+        answers=answers,
+        ctxs=[
+            _ctx("gold", "Gold source", gold_text, gold=True),
+            _ctx("noise", "Noise one", noise_text),
+        ],
+    )
+    row["subj"] = "Zephyr"
+    row["s_wiki_title"] = "Zephyr (band)"
+    return row
+
+
+def _set_active_family(value: str) -> None:
+    # SCRIPT's type is ModuleType; mypy cannot see the script's private
+    # globals through it, so the family switch goes through one cast.
+    cast(Any, SCRIPT)._ACTIVE_FAMILY = value
+
+
+def _build_v2(row: dict[str, Any]) -> Any:
+    _set_active_family("research-v2")
+    try:
+        return SCRIPT._build_instance(row)
+    finally:
+        _set_active_family("research-v1")
+
+
+def test_lifecycle_swap_edits_gold_bodies_and_repoints_stage_five() -> None:
+    aliases = ("alpha rock",)
+    instance = _build_v2(_v2_row())
+    swapped_pair = SCRIPT.swap_lifecycle_instance(instance, aliases, "Luxembourg")
+    assert swapped_pair is not None
+    swapped, replaced = swapped_pair
+    assert replaced == "alpha rock"
+    # Stage 1: the gold document's BODY carries the alternate and no
+    # original alias; its identity (header line: doc marker + title) and
+    # the noise document are untouched — only the fact changed, not the
+    # world's document structure.
+    baseline_s1, swapped_s1 = instance.stages[0], swapped.stages[0]
+    assert swapped_s1.documents[0] == baseline_s1.documents[0]
+    header, body = SCRIPT._split_doc_text(swapped_s1.documents[1])
+    assert header == SCRIPT._split_doc_text(baseline_s1.documents[1])[0]
+    assert SCRIPT._contains("Luxembourg", body)
+    assert not SCRIPT._contains("alpha rock", body)
+    assert swapped_s1.gold_evidence_ids == baseline_s1.gold_evidence_ids
+    # Stages 2-4 (constraint, delegation, rule change) are byte-identical.
+    assert swapped.stages[1:4] == instance.stages[1:4]
+    # Stage 5 expectations follow the edit: the checker measures
+    # follow-the-edit, so committing the edited fact is what passes.
+    baseline_act, swapped_act = instance.stages[-1], swapped.stages[-1]
+    assert swapped_act.expected_aliases == ("Luxembourg",)
+    assert swapped_act.expected_state_delta is not None
+    assert swapped_act.expected_state_delta[SCRIPT.RECORD_ID]["answer"] == "Luxembourg"
+    assert (
+        swapped_act.expected_state_delta[SCRIPT.RECORD_ID]["supports"]
+        == baseline_act.expected_state_delta[SCRIPT.RECORD_ID]["supports"]
+    )
+    assert swapped.answer_norm == "Luxembourg"
+    assert swapped.answer_aliases == ("Luxembourg",)
+
+
+def test_lifecycle_fact_swap_positive_control_follows_the_edit_end_to_end() -> None:
+    # The measurement's positive control: an evidence-following participant
+    # (the stateful oracle) must commit the alternate under the swapped
+    # world AND pass the re-pointed final check, and hit the original under
+    # the baseline world. If this cannot pass, the probe measures nothing.
+    from rsicontext.lifecycle import ProjectState, run_lifecycle
+
+    row = _v2_row()
+    aliases = ("alpha rock",)
+    instance = _build_v2(row)
+    swapped_pair = SCRIPT.swap_lifecycle_instance(instance, aliases, "Luxembourg")
+    assert swapped_pair is not None
+    swapped, _ = swapped_pair
+    baseline_record = run_lifecycle(
+        instance, SCRIPT._OracleStatefulHook({}, aliases, force_empty=False), ProjectState()
+    )
+    swapped_record = run_lifecycle(
+        swapped, SCRIPT._OracleStatefulHook({}, ("Luxembourg",), force_empty=False), ProjectState()
+    )
+    assert SCRIPT._committed_answer(baseline_record) == "alpha rock"
+    assert baseline_record.final_check.passed is True
+    assert SCRIPT._committed_answer(swapped_record) == "Luxembourg"
+    assert swapped_record.final_check.passed is True
+
+    _set_active_family("research-v2")
+    try:
+        result = SCRIPT.run_lifecycle_fact_swap([row])
+    finally:
+        _set_active_family("research-v1")
+    assert result["probe"] == "lifecycle-fact-swap"
+    per_item = result["per_item"][0]
+    assert per_item["replaced"] == "alpha rock"
+    assert per_item["alternate"] == "Luxembourg"
+    assert per_item["baseline_committed"] == "alpha rock"
+    assert per_item["baseline_hit"] is True
+    assert per_item["swapped_committed"] == "Luxembourg"
+    assert per_item["followed_swap"] is True
+    assert result["summary"]["follow_rate"] == 1.0
+    assert result["summary"]["baseline_hit_rate"] == 1.0
+    assert result["summary"]["uninformative"] == 0
+    assert result["verdict"]["fact_followed"] is True
+    assert result["verdict"]["baseline_sane"] is True
+
+
+def test_lifecycle_fact_swap_skips_when_no_whole_phrase_alias_in_gold_bodies() -> None:
+    # gold-sane normalizes punctuation, so 'alpha-rock' satisfies the alias
+    # containment gate while no whole-phrase alias occurs in the gold BODY
+    # — nothing swappable, and the skip must say so (not "alias survives").
+    row = _v2_row(gold_text="Zephyr plays a kind of alpha-rock hybrid on stage.")
+    _build_v2(row)  # proves the row itself is v2-usable (gold-sane passes)
+    _set_active_family("research-v2")
+    try:
+        result = SCRIPT.run_lifecycle_fact_swap([row])
+    finally:
+        _set_active_family("research-v1")
+    assert result["summary"]["evaluated"] == 0
+    assert result["per_item"][0]["skipped"] == "no swappable answer span in stage-1 gold bodies"
+    assert result["verdict"]["fact_followed"] is False
+
+
+def test_lifecycle_fact_swap_skips_when_alias_survives_outside_gold_bodies() -> None:
+    # An alias-carrying noise document rides along in the stage-1 survey
+    # slice: the counterfactual world would still state the original fact,
+    # so the item is ill-formed and must skip rather than measure.
+    row = _v2_row(noise_text="Critics compared them to alpha rock bands of the era.")
+    _set_active_family("research-v2")
+    try:
+        result = SCRIPT.run_lifecycle_fact_swap([row])
+    finally:
+        _set_active_family("research-v1")
+    assert result["summary"]["evaluated"] == 0
+    assert (
+        result["per_item"][0]["skipped"]
+        == "original alias survives outside the stage-1 gold bodies"
+    )
+
+
+def test_pick_lifecycle_alternate_collision_guards() -> None:
+    instance = _build_v2(_v2_row())
+    aliases = ("alpha rock",)
+    # Equals an alias, contained inside an alias, and already visible to
+    # the participant (the question names the subject Zephyr) are all
+    # collisions: a committed alternate must be attributable to the edit.
+    assert SCRIPT.pick_lifecycle_alternate(instance, aliases, alternates=["alpha rock"]) is None
+    assert SCRIPT.pick_lifecycle_alternate(instance, aliases, alternates=["rock"]) is None
+    assert SCRIPT.pick_lifecycle_alternate(instance, aliases, alternates=["Zephyr"]) is None
+    assert SCRIPT.pick_lifecycle_alternate(instance, aliases, alternates=["Luxembourg"]) == (
+        "Luxembourg"
+    )
+    # The default pool's first collision-free alternate.
+    assert SCRIPT.pick_lifecycle_alternate(instance, aliases) == "Luxembourg"
+
+
+def test_lifecycle_fact_swap_rejects_v1_family() -> None:
+    # research-v1's stage-5 leak hands the answer to the participant, so a
+    # committed answer cannot be attributed to a stage-1 edit: the probe
+    # refuses the family outright instead of measuring noise.
+    _set_active_family("research-v1")
+    with pytest.raises(ValueError, match="v2-only"):
+        SCRIPT.run_lifecycle_fact_swap([_row(1)])
+
+
+def test_cli_lifecycle_fact_swap_rejects_v1(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv("SIFLOW_API_KEY", raising=False)
+    output = tmp_path / "probe-lifecycle-fact-swap.json"
+    assert (
+        SCRIPT.main_with_args(
+            [
+                "--probe",
+                "lifecycle-fact-swap",
+                "--family",
+                "research-v1",
+                "--n",
+                "1",
+                "--output",
+                str(output),
+            ]
+        )
+        == 2
+    )
+    assert not output.exists()
+
+
+def test_cli_lifecycle_fact_swap_runs_without_a_key(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Reader-free probe: no SIFLOW_API_KEY, full CLI round-trip, artifact
+    # parses back with the probe's payload shape.
+    monkeypatch.delenv("SIFLOW_API_KEY", raising=False)
+    monkeypatch.setattr(SCRIPT, "_ACTIVE_FAMILY", "research-v1")
+    source = tmp_path / "rows.jsonl"
+    source.write_text(json.dumps(_v2_row(1)) + "\n", encoding="utf-8")
+    monkeypatch.setattr(SCRIPT, "POPQA_ROWS", source)
+    output = tmp_path / "probe-lifecycle-fact-swap.json"
+    assert (
+        SCRIPT.main_with_args(
+            [
+                "--probe",
+                "lifecycle-fact-swap",
+                "--family",
+                "research-v2",
+                "--n",
+                "1",
+                "--output",
+                str(output),
+            ]
+        )
+        == 0
+    )
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["probe"] == "lifecycle-fact-swap"
+    assert payload["n"] == 1
+    assert payload["summary"]["follow_rate"] == 1.0
+    assert payload["verdict"]["fact_followed"] is True
+    assert payload["per_item"][0]["swapped_committed"] == "Luxembourg"
+    assert "run_date" in payload

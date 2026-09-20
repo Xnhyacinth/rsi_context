@@ -10,17 +10,26 @@ Roles stay separated per the owner's assignment: the researcher model
 proposes; the reader model (a different profile) is invoked only by the
 benchmark during evaluation. Credentials resolve from the environment at
 call time — never stored on this object, never serialized.
+
+Reliability (the 1/4 arm record, docs/arm-comparison-v2-first-20260920.md):
+transient reasoning-channel failures — empty replies, output-budget
+truncation, transport errors — retry under a bounded ``RetryPolicy``;
+deterministic protocol failures (malformed JSON, unsafe paths) never
+retry, and every attempt lands in a per-improver attempt log with its
+token counts.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, ClassVar, Final
 
 from rsicontext.participant.registration import (
     ImprovementRoundInput,
@@ -38,10 +47,97 @@ _SYSTEM_PROMPT = (
     "Only include files you changed. Paths must be relative and safe. "
     "Never touch benchmark-owned files."
 )
+_RETRYABLE_OUTCOMES: Final = frozenset({"empty_content", "truncated", "transport_error"})
+
+
+def _reported_tokens(usage: object, key: str) -> int:
+    """Best-effort token count from a possibly-malformed usage block.
+
+    A failed attempt still cost money when the endpoint reported tokens;
+    a usage block that never arrived or is malformed contributes zero.
+    """
+
+    value = usage.get(key) if isinstance(usage, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int):
+        return 0
+    return value
 
 
 class APIResearcherError(RuntimeError):
     """Raised when the researcher endpoint fails protocol validation."""
+
+
+class APIResearcherRetryableError(APIResearcherError):
+    """A transient researcher failure that a bounded retry may fix.
+
+    Deterministic protocol failures stay plain ``APIResearcherError``:
+    replaying the same request (temperature 0, fixed seed) would fail
+    identically. The token counts of the failed attempt ride along so the
+    round's usage accounting can still charge it — a failed attempt's
+    tokens cost money.
+    """
+
+    outcome: ClassVar[str]
+
+    def __init__(self, message: str, *, input_tokens: int = 0, output_tokens: int = 0) -> None:
+        super().__init__(message)
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+
+
+class APIResearcherEmptyError(APIResearcherRetryableError):
+    """Reply content empty, even after the reasoning-tail fallback."""
+
+    outcome = "empty_content"
+
+
+class APIResearcherTruncatedError(APIResearcherRetryableError):
+    """Reply cut off by the output-token budget (finish_reason == "length")."""
+
+    outcome = "truncated"
+
+
+class APIResearcherTransportError(APIResearcherRetryableError):
+    """Endpoint unreachable: URLError or timeout before any payload arrived."""
+
+    outcome = "transport_error"
+
+
+@dataclass(frozen=True, slots=True)
+class RetryPolicy:
+    """Bounded retry for transient researcher failures.
+
+    ``retry_on`` carries failure classes by name ("empty_content",
+    "truncated", "transport_error"); deterministic protocol failures are
+    never listed, so they pass through on the first attempt. Validation
+    guards against retry classes outside that taxonomy.
+    """
+
+    max_attempts: int = 3
+    backoff_seconds: float = 5.0
+    retry_on: tuple[str, ...] = ("empty_content", "truncated", "transport_error")
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.max_attempts, int) or isinstance(self.max_attempts, bool):
+            raise ParticipantError("max_attempts must be an integer")
+        if self.max_attempts < 1:
+            raise ParticipantError("max_attempts must be at least 1")
+        if (
+            isinstance(self.backoff_seconds, bool)
+            or not isinstance(self.backoff_seconds, (int, float))
+            or not math.isfinite(float(self.backoff_seconds))
+            or float(self.backoff_seconds) < 0
+        ):
+            raise ParticipantError("backoff_seconds must be finite and non-negative")
+        if not isinstance(self.retry_on, tuple) or any(
+            not isinstance(name, str) for name in self.retry_on
+        ):
+            raise ParticipantError("retry_on must be a tuple of failure-class names")
+        unknown = [name for name in self.retry_on if name not in _RETRYABLE_OUTCOMES]
+        if unknown:
+            raise ParticipantError(
+                "retry_on names unknown failure classes: " + ", ".join(sorted(unknown))
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,6 +149,7 @@ class APIResearcherConfig:
     api_key_env: str = "SIFLOW_API_KEY"
     timeout_seconds: float = 600.0
     max_output_tokens: int = 16384
+    retry: RetryPolicy = field(default_factory=RetryPolicy)
 
     def __post_init__(self) -> None:
         if not isinstance(self.endpoint, str) or not self.endpoint.startswith("https://"):
@@ -61,6 +158,8 @@ class APIResearcherConfig:
             raise ParticipantError("researcher endpoint must target /chat/completions")
         if not isinstance(self.model, str) or not self.model.strip():
             raise ParticipantError("researcher model must be non-empty")
+        if not isinstance(self.retry, RetryPolicy):
+            raise ParticipantError("retry must be a RetryPolicy")
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +168,9 @@ class APIResearcherImprover:
 
     config: APIResearcherConfig
     round_budget_notes: tuple[str, ...] = ()
+    sleep: Callable[[float], None] = field(default=time.sleep, repr=False, compare=False)
     _usage: list[UsageReport] = field(default_factory=list, repr=False, compare=False)
+    _attempt_log: list[dict[str, object]] = field(default_factory=list, repr=False, compare=False)
 
     def improve(self, round_input: ImprovementRoundInput) -> ImprovementRoundOutput:
         import os
@@ -81,7 +182,7 @@ class APIResearcherImprover:
             )
         prompt = self._build_prompt(round_input)
         started = time.perf_counter()
-        content, input_tokens, output_tokens = self._request(prompt, api_key)
+        content, input_tokens, output_tokens = self._request_with_retry(prompt, api_key)
         elapsed = time.perf_counter() - started
         usage = UsageReport(
             input_tokens=input_tokens,
@@ -102,7 +203,62 @@ class APIResearcherImprover:
 
         return tuple(self._usage)
 
+    def attempts(self) -> tuple[dict[str, object], ...]:
+        """Every researcher request attempt, in order, across all rounds.
+
+        One record per attempt: ``{"attempt": int, "outcome": str,
+        "input_tokens": int, "output_tokens": int}`` — the improver-side
+        reliability record behind the arm's 1/4 operational history.
+        """
+
+        return tuple(self._attempt_log)
+
     # --- internals --------------------------------------------------------
+
+    def _request_with_retry(self, prompt: str, api_key: str) -> tuple[str, int, int]:
+        """Bounded retry loop around one HTTP request.
+
+        Usage from every attempt — failed ones included — sums into the
+        returned totals; wall time is the caller's concern (it wraps this
+        whole loop). When the final attempt still fails transiently, its
+        exception propagates so the round is recorded as failed, not
+        silently absorbed.
+        """
+
+        policy = self.config.retry
+        total_input = 0
+        total_output = 0
+        for index in range(policy.max_attempts):
+            if index:
+                self.sleep(policy.backoff_seconds)
+            try:
+                content, in_tokens, out_tokens = self._request_once(prompt, api_key)
+            except APIResearcherRetryableError as exc:
+                total_input += exc.input_tokens
+                total_output += exc.output_tokens
+                self._attempt_log.append(
+                    {
+                        "attempt": index + 1,
+                        "outcome": exc.outcome,
+                        "input_tokens": exc.input_tokens,
+                        "output_tokens": exc.output_tokens,
+                    }
+                )
+                if index == policy.max_attempts - 1 or exc.outcome not in policy.retry_on:
+                    raise
+                continue
+            total_input += in_tokens
+            total_output += out_tokens
+            self._attempt_log.append(
+                {
+                    "attempt": index + 1,
+                    "outcome": "ok",
+                    "input_tokens": in_tokens,
+                    "output_tokens": out_tokens,
+                }
+            )
+            return content, total_input, total_output
+        raise AssertionError("unreachable: retry loop must return or raise")
 
     def _build_prompt(self, round_input: ImprovementRoundInput) -> str:
         files: dict[str, str] = {}
@@ -123,7 +279,7 @@ class APIResearcherImprover:
         }
         return json.dumps(payload, indent=1, sort_keys=True)
 
-    def _request(self, prompt: str, api_key: str) -> tuple[str, int, int]:
+    def _request_once(self, prompt: str, api_key: str) -> tuple[str, int, int]:
         body = {
             "model": self.config.model,
             "messages": [
@@ -148,7 +304,7 @@ class APIResearcherImprover:
             with urllib.request.urlopen(request, timeout=self.config.timeout_seconds) as response:
                 payload = response.read()
         except (urllib.error.URLError, TimeoutError) as exc:
-            raise APIResearcherError(f"researcher endpoint unreachable: {exc}") from exc
+            raise APIResearcherTransportError(f"researcher endpoint unreachable: {exc}") from exc
         try:
             raw: Any = json.loads(payload)
         except (json.JSONDecodeError, UnicodeDecodeError) as exc:
@@ -159,6 +315,7 @@ class APIResearcherImprover:
         message = choices[0].get("message")
         content = message.get("content") if isinstance(message, dict) else None
         finish_reason = choices[0].get("finish_reason")
+        usage = raw.get("usage") if isinstance(raw, dict) else None
         if not isinstance(content, str) or not content.strip():
             # Reasoning researchers can emit the final output only inside the
             # reasoning channel: fall back to its tail (the last JSON object
@@ -173,8 +330,11 @@ class APIResearcherImprover:
                 if tail.startswith("{") and "}" in tail:
                     content = tail[: tail.rfind("}") + 1]
         if not isinstance(content, str) or not content.strip():
-            raise APIResearcherError("researcher response content is empty")
-        usage = raw.get("usage") if isinstance(raw, dict) else None
+            raise APIResearcherEmptyError(
+                "researcher response content is empty",
+                input_tokens=_reported_tokens(usage, "prompt_tokens"),
+                output_tokens=_reported_tokens(usage, "completion_tokens"),
+            )
         if not isinstance(usage, dict):
             raise APIResearcherError("researcher response must report token usage")
         in_tokens = usage.get("prompt_tokens")
@@ -182,7 +342,11 @@ class APIResearcherImprover:
         if not isinstance(in_tokens, int) or not isinstance(out_tokens, int):
             raise APIResearcherError("researcher usage must carry prompt/completion tokens")
         if finish_reason == "length":
-            raise APIResearcherError("researcher reply was truncated by the output-token budget")
+            raise APIResearcherTruncatedError(
+                "researcher reply was truncated by the output-token budget",
+                input_tokens=in_tokens,
+                output_tokens=out_tokens,
+            )
         return content, in_tokens, out_tokens
 
     def _parse_changes(self, content: str) -> dict[str, str]:
@@ -214,6 +378,11 @@ class APIResearcherImprover:
 
 __all__ = [
     "APIResearcherConfig",
+    "APIResearcherEmptyError",
     "APIResearcherError",
     "APIResearcherImprover",
+    "APIResearcherRetryableError",
+    "APIResearcherTransportError",
+    "APIResearcherTruncatedError",
+    "RetryPolicy",
 ]

@@ -14,6 +14,7 @@ Status: **standing-gate rerun record** per docs/dependency-probes-20260920.md
 | irrelevant-perturbation | FAIL (0.625) | **PASS** — stability 0.75 (floor 0.75) | stable under irrelevant edits |
 | longdoc-necessity | FAIL (0.625 = 0.625) | **PASS** — gold 0.875 vs short-rule 0.5 (`longdoc_necessary: true`) | documents load-bearing |
 | fact-swap | FAIL (flip 0.125) | **FAIL** — flip 0.125 | see below |
+| lifecycle-fact-swap | n/a | **PASS** — follow rate 1.0, baseline sanity 1.0 (probe-v2-lifecycle-factswap-20260920.json) | the answer-path gate the reader-level probe could not measure: committed answers follow edited stage-1 facts through the full lifecycle |
 
 ## The fact-swap failure is a probe-family mismatch, recorded honestly
 
@@ -39,7 +40,13 @@ v2 is **INCONCLUSIVE** (probe measures the wrong layer), not failed-on-the-merit
 - Evidence necessity (strict readout): **closed**.
 - Stability under irrelevant edits: **closed** (at floor; watch it).
 - Document load-bearingness: **closed** on this corpus slice.
-- Fact-following: **open** — requires the lifecycle-path variant.
+- Fact-following: **closed** — the lifecycle-path probe (built 2026-09-20
+  later that day, reader-free structural probe) measured follow rate 1.0
+  with baseline sanity 1.0 on 8 items: committed answers follow edited
+  stage-1 facts through the full five-stage lifecycle. The family's
+  evidence dependence holds on the answer path, not just the reader
+  channel. The reader-level fact-swap (0.125) remains recorded as a
+  reader-extraction lens, not a family gate.
 
 ## Disposition
 

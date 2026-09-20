@@ -39,10 +39,24 @@ Probes (one JSON artifact per run: per-item detail + summary rates):
                           sentence: a different readout (does the reader
                           TREAT the documents as necessary?) rather than
                           load-bearingness given parametric knowledge.
+  lifecycle-fact-swap    the answer-path fact-swap the reader-level probe
+                          cannot measure: rebuild a research-v2 instance's
+                          stage-1 gold documents with the answer phrase
+                          swapped for a fixed alternate (stage-5 expectations
+                          re-pointed at the alternate — under a world where
+                          the fact differs, committing the edited fact is
+                          the correct behavior), then run baseline and
+                          swapped instances through run_lifecycle with the
+                          stateful oracle hook and ask whether the COMMITTED
+                          answer (sandbox final state) follows the edit
+                          (follow rate). v2-only — v1's stage-5 leak hands
+                          the answer over, so no edit can be meaningfully
+                          followed — and reader-free like no-history: a
+                          structural information-flow probe.
 
 Loader discipline follows scripts/channel_parity_diagnostic.py (dedup by id
 — PopQA packs multiple relations under one entity id — plus clean-gold-ctx
-filtering) with one addition shared by all four probes: at least one clean
+filtering) with one addition shared by all probes: at least one clean
 NON-gold ctx (build_example_instance requires it and the perturbation probe
 draws its distractor there), so every probe runs over the same item set.
 Answer matching is alias-aware over the row's FULL possible_answers list,
@@ -59,7 +73,7 @@ import re
 import sys
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -67,9 +81,11 @@ from typing import Any
 from rsicontext.lifecycle import (
     Action,
     DocumentRef,
+    LifecycleInstance,
     LifecycleRunRecord,
     ProjectState,
     StageResponse,
+    StageSpec,
     StageView,
     build_example_instance,
     run_lifecycle,
@@ -127,6 +143,7 @@ _NECESSITY_MARGIN = 0.25
 _FLIP_FLOOR = 0.5
 _STABILITY_FLOOR = 0.75
 _REFUSAL_FLOOR = 0.75
+_BASELINE_HIT_FLOOR = 0.5
 
 _PROBES = (
     "longdoc-necessity",
@@ -134,7 +151,12 @@ _PROBES = (
     "fact-swap",
     "irrelevant-perturbation",
     "evidence-missing",
+    "lifecycle-fact-swap",
 )
+
+# Reader-free probes: the participant is the stateful oracle hook (a
+# structural information-flow measurement), so no SIFLOW_API_KEY is needed.
+_NO_READER_PROBES = ("no-history", "lifecycle-fact-swap")
 
 # Fixed alternate values for the fact-swap probe: real phrase-shaped values
 # chosen to collide with PopQA aliases and gold passages rarely; the editor
@@ -799,6 +821,254 @@ def run_evidence_missing(
     }
 
 
+# --- probe 6: lifecycle-fact-swap -----------------------------------------------
+
+
+def _split_doc_text(document: DocumentRef) -> tuple[str, str]:
+    """Split a stage document into its header line and its body.
+
+    ``material_v2`` writes every document as ``[[doc:ID]] title\\nbody``;
+    the header is the document's identity (stage 2 references the gold
+    title by name), so a world edit changes the BODY only and titles stay
+    stable across the counterfactual.
+    """
+
+    newline = document.text.find("\n")
+    if newline == -1:
+        return "", document.text
+    return document.text[: newline + 1], document.text[newline + 1 :]
+
+
+def _stage_gold_bodies(stage: StageSpec) -> list[str]:
+    """Body texts of a stage's gold-evidence documents."""
+
+    gold_ids = frozenset(stage.gold_evidence_ids)
+    return [
+        _split_doc_text(document)[1] for document in stage.documents if document.doc_id in gold_ids
+    ]
+
+
+def pick_lifecycle_alternate(
+    inst: LifecycleInstance,
+    aliases: Sequence[str],
+    alternates: Sequence[str] = _ALTERNATES,
+) -> str | None:
+    """First collision-free alternate for a lifecycle swap.
+
+    ``fact_swap``'s collision guards at instance scale: the alternate must
+    not equal any alias, must not overlap one by containment, and must not
+    already occur anywhere the participant sees (any stage's documents or
+    prompt text) — otherwise a committed alternate could not be attributed
+    to the edit rather than to a prior mention.
+    """
+
+    surface = "\n".join(
+        [stage.prompt_text for stage in inst.stages]
+        + [document.text for stage in inst.stages for document in stage.documents]
+    )
+    lowered = {alias.lower() for alias in aliases if alias.strip()}
+    for candidate in alternates:
+        if candidate.lower() in lowered:
+            continue
+        if _contains(candidate, surface):
+            continue
+        if any(
+            _contains(alias, candidate) or _contains(candidate, alias)
+            for alias in aliases
+            if alias.strip()
+        ):
+            continue
+        return candidate
+    return None
+
+
+def swap_lifecycle_instance(
+    inst: LifecycleInstance,
+    aliases: Sequence[str],
+    alternate: str,
+) -> tuple[LifecycleInstance, str] | None:
+    """Rebuild ``inst`` as the counterfactual world where the gold fact differs.
+
+    Every alias occurrence (longest first, whole-phrase) in the stage-1 gold
+    document BODIES is replaced by ``alternate``; titles, noise documents,
+    and stages 2-4 are untouched. The act_verify expectation follows the
+    edit — ``answer`` becomes the alternate and ``expected_aliases`` becomes
+    ``(alternate,)`` — because under a world where the fact is different,
+    committing the edited fact is the correct participant behavior; the
+    probe asks whether the participant's evidence path produces it. Returns
+    ``(swapped_instance, replaced_alias)``, or None when no alias occurs in
+    a gold body, the alternate never lands, or an original alias would
+    survive in any stage document (inside a gold title, or an
+    alias-carrying noise document in the survey slice) — a counterfactual
+    world that still states the original fact is ill-formed, so the item
+    must skip rather than measure against it.
+    """
+
+    stage_one = inst.stages[0]
+    gold_ids = frozenset(stage_one.gold_evidence_ids)
+    swapped_docs: list[DocumentRef] = []
+    replaced = ""
+    for document in stage_one.documents:
+        header, body = _split_doc_text(document)
+        edited = body
+        if document.doc_id in gold_ids:
+            for alias in sorted((a for a in aliases if a.strip()), key=len, reverse=True):
+                pattern = rf"(?<!\w){re.escape(alias)}(?!\w)"
+                if re.search(pattern, edited, flags=re.IGNORECASE):
+                    edited = re.sub(pattern, alternate, edited, flags=re.IGNORECASE)
+                    replaced = replaced or alias
+        swapped_docs.append(document if edited == body else replace(document, text=header + edited))
+    if not replaced:
+        return None
+    act = inst.stages[-1]
+    delta = act.expected_state_delta
+    if delta is None:  # guarded by StageSpec.__post_init__; kept for mypy
+        return None
+    fields = delta.get(RECORD_ID)
+    if not isinstance(fields, Mapping):
+        return None
+    swapped_stage_one = replace(stage_one, documents=tuple(swapped_docs))
+    swapped_act = replace(
+        act,
+        expected_state_delta={**delta, RECORD_ID: {**fields, "answer": alternate}},
+        expected_aliases=(alternate,),
+    )
+    stages = tuple(
+        swapped_stage_one if stage is stage_one else swapped_act if stage is act else stage
+        for stage in inst.stages
+    )
+    if not any(
+        _contains(alternate, document.text)
+        for document in swapped_stage_one.documents
+        if document.doc_id in gold_ids
+    ):
+        return None
+    if any(
+        _contains(alias, document.text)
+        for stage in stages
+        for document in stage.documents
+        for alias in aliases
+        if alias.strip()
+    ):
+        return None
+    return (
+        replace(inst, stages=stages, answer_norm=alternate, answer_aliases=(alternate,)),
+        replaced,
+    )
+
+
+def run_lifecycle_fact_swap(rows: Sequence[Mapping[str, object]]) -> dict[str, Any]:
+    """Does the COMMITTED answer follow an edited stage-1 fact (answer path)?
+
+    The reader-level fact-swap probe hands the edited passage straight to
+    the reader, so it measures extraction, not the v2 family's answer path.
+    This probe runs the edit through the full five-stage lifecycle: per row
+    it builds the baseline v2 instance plus a swapped twin (stage-1 gold
+    bodies edited, stage-5 expectations re-pointed at the alternate), runs
+    BOTH through ``run_lifecycle`` with the stateful oracle hook (the
+    swapped run's hook carries the alternate as its alias so the oracle can
+    find the edited value), and asks whether the committed answer (sandbox
+    final state) follows the edit. The baseline run is the sanity control:
+    an item whose baseline commit misses is uninformative about
+    evidence-following and is counted separately. Reader-free like
+    no-history. v2-only: research-v1's stage-5 leak hands the answer to
+    the participant, so no committed answer could be attributed to a
+    stage-1 edit.
+    """
+
+    if _ACTIVE_FAMILY != "research-v2":
+        raise ValueError(
+            "lifecycle-fact-swap is v2-only: research-v1's stage-5 leak makes a "
+            "committed answer unattributable to a stage-1 edit"
+        )
+    per_item: list[dict[str, Any]] = []
+    followed = 0
+    baseline_hits = 0
+    evaluated = 0
+    for row in rows:
+        item_id = str(row.get("id"))
+        aliases = decode_aliases(row.get("possible_answers"))
+        instance = _build_instance(row)
+        # Skip-reason split: swap_lifecycle_instance cannot distinguish
+        # "nothing to edit in the gold bodies" (gold-sane can pass on a
+        # normalized form, e.g. 'alpha-rock', that no whole-phrase alias
+        # matches) from "an alias survives elsewhere", so the span check
+        # runs here to label the skip correctly.
+        if not any(
+            _contains(alias, body)
+            for body in _stage_gold_bodies(instance.stages[0])
+            for alias in aliases
+            if alias.strip()
+        ):
+            per_item.append(
+                {"id": item_id, "skipped": "no swappable answer span in stage-1 gold bodies"}
+            )
+            continue
+        alternate = pick_lifecycle_alternate(instance, aliases)
+        if alternate is None:
+            per_item.append({"id": item_id, "skipped": "no collision-free alternate"})
+            continue
+        swapped = swap_lifecycle_instance(instance, aliases, alternate)
+        if swapped is None:
+            per_item.append(
+                {
+                    "id": item_id,
+                    "skipped": "original alias survives outside the stage-1 gold bodies",
+                }
+            )
+            continue
+        swapped_instance, replaced = swapped
+        baseline_answer = _committed_answer(
+            run_lifecycle(
+                instance, _OracleStatefulHook({}, aliases, force_empty=False), ProjectState()
+            )
+        )
+        swapped_answer = _committed_answer(
+            run_lifecycle(
+                swapped_instance,
+                _OracleStatefulHook({}, (alternate,), force_empty=False),
+                ProjectState(),
+            )
+        )
+        baseline_hit = alias_hit(baseline_answer, aliases)
+        followed_swap = alias_hit(swapped_answer, (alternate,))
+        followed += followed_swap
+        baseline_hits += baseline_hit
+        evaluated += 1
+        per_item.append(
+            {
+                "id": item_id,
+                "aliases": list(aliases),
+                "replaced": replaced,
+                "alternate": alternate,
+                "baseline_committed": baseline_answer,
+                "baseline_hit": baseline_hit,
+                "swapped_committed": swapped_answer,
+                "followed_swap": followed_swap,
+            }
+        )
+    follow_rate = _rate(followed, evaluated)
+    baseline_hit_rate = _rate(baseline_hits, evaluated)
+    summary = {
+        "follow_rate": follow_rate,
+        "baseline_hit_rate": baseline_hit_rate,
+        "uninformative": evaluated - baseline_hits,
+        "evaluated": evaluated,
+        "skipped": len(rows) - evaluated,
+    }
+    return {
+        "probe": "lifecycle-fact-swap",
+        "n": len(rows),
+        "per_item": per_item,
+        "summary": summary,
+        "verdict": {
+            "fact_followed": follow_rate >= _FLIP_FLOOR,
+            "baseline_sane": baseline_hit_rate >= _BASELINE_HIT_FLOOR,
+            **summary,
+        },
+    }
+
+
 # --- artifact + CLI ------------------------------------------------------------
 
 
@@ -820,7 +1090,14 @@ def main_with_args(argv: Sequence[str]) -> int:
     args = parser.parse_args(argv)
     global _ACTIVE_FAMILY
     _ACTIVE_FAMILY = args.family
-    if args.probe != "no-history" and not os.environ.get("SIFLOW_API_KEY"):
+    if args.probe == "lifecycle-fact-swap" and args.family != "research-v2":
+        print(
+            "lifecycle-fact-swap requires --family research-v2 "
+            "(v1's stage-5 leak makes the measurement meaningless)",
+            file=sys.stderr,
+        )
+        return 2
+    if args.probe not in _NO_READER_PROBES and not os.environ.get("SIFLOW_API_KEY"):
         print(f"missing SIFLOW_API_KEY (required by --probe {args.probe})", file=sys.stderr)
         return 2
     if args.output.exists():
@@ -834,6 +1111,8 @@ def main_with_args(argv: Sequence[str]) -> int:
         print(f"warning: only {len(rows)} usable rows (asked {args.n})", file=sys.stderr)
     if args.probe == "no-history":
         payload: dict[str, Any] = run_no_history(rows)
+    elif args.probe == "lifecycle-fact-swap":
+        payload = run_lifecycle_fact_swap(rows)
     else:
         items = [to_probe_item(row) for row in rows]
         runners: dict[
