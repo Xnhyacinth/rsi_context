@@ -76,6 +76,41 @@ from rsicontext.lifecycle import (
 )
 
 POPQA_ROWS = Path("data/helmet-data/data/kilt/popqa_test_1000_k1000_dep6.jsonl")
+_ACTIVE_FAMILY = "research-v1"
+
+
+def _build_instance(row: Mapping[str, object]) -> Any:
+    """Construct the probe instance for the active family (v1 or v2)."""
+
+    if _ACTIVE_FAMILY == "research-v2":
+        from rsicontext.lifecycle.material_v2 import (
+            build_research_v2_instance as build_v2,
+        )
+        from rsicontext.lifecycle.material_v2 import (
+            gold_sane_v2,
+        )
+
+        if not gold_sane_v2(row):
+            raise ValueError("row fails the research-v2 gold-sane gate")
+        ctxs = row.get("ctxs")
+        assert isinstance(ctxs, list)
+        noise = [
+            position
+            for position, ctx in enumerate(ctxs)
+            if isinstance(ctx, dict)
+            and not (ctx.get("has_answer") is True or ctx.get("has_answer") == 1)
+            and str(ctx.get("text") or "").strip()
+            and str(ctx.get("title") or "").strip()
+        ][:4]
+        return build_v2(
+            row,
+            world_id=f"probe-{row.get('id')}",
+            variant_label="primary-scope",
+            noise_positions=noise,
+        )
+    return build_example_instance(row)
+
+
 READER_ENDPOINT = "https://api.siflow.cn/model-api/chat/completions"
 READER_MODEL = "Qwen/Qwen3.6-27B"
 READER_SYSTEM = (
@@ -234,6 +269,11 @@ def load_rows(path: Path, n: int) -> list[dict[str, Any]]:
             seen.add(key)
             if not _usable_row(row):
                 continue
+            if _ACTIVE_FAMILY == "research-v2":
+                from rsicontext.lifecycle.material_v2 import gold_sane_v2 as _v2gate
+
+                if not _v2gate(row):
+                    continue
             rows.append(row)
             if len(rows) >= n:
                 break
@@ -483,7 +523,12 @@ class _OracleStatefulHook:
         notes: list[object] = list(notes_raw) if isinstance(notes_raw, list) else []
         found = _oracle_extract(stage.documents, self._aliases)
         if found:
-            notes.append({"stage": stage.stage_id, "answer": found})
+            supports = [
+                document.doc_id
+                for document in stage.documents
+                if any(_contains(alias, document.text) for alias in self._aliases)
+            ]
+            notes.append({"stage": stage.stage_id, "answer": found, "supports": supports})
         self._state["notes"] = notes[-32:]
         anchor = stage.documents[0].doc_id if stage.documents else "no-doc"
         if stage.kind != "act_verify":
@@ -494,6 +539,20 @@ class _OracleStatefulHook:
                 answer = note["answer"]
                 break
         doc_ids = tuple(document.doc_id for document in stage.documents)
+        # research-v2 stage 5 carries NO documents: provenance must come
+        # from the doc ids the oracle retained in its notes (the supports
+        # field of each note records where the answer was found). An
+        # oracle that never found the answer has no provenance to cite.
+        retained: tuple[str, ...] = ()
+        for note in reversed(notes):
+            if isinstance(note, dict):
+                supports = note.get("supports")
+                if isinstance(supports, list) and supports:
+                    retained = tuple(str(entry) for entry in supports)
+                    break
+        provenance = doc_ids or retained
+        if not provenance:
+            provenance = ("no-retained-source",)
         return StageResponse(
             pack_text=f"final commit [[doc:{anchor}]] {answer}",
             actions=(
@@ -502,16 +561,16 @@ class _OracleStatefulHook:
                     record_id=RECORD_ID,
                     fields={
                         "answer": answer,
-                        "supports": list(doc_ids),
+                        "supports": list(provenance),
                         "status": "draft",
                     },
-                    provenance=doc_ids,
+                    provenance=provenance,
                 ),
                 Action(
                     kind="finalize",
                     record_id=RECORD_ID,
                     fields={"answer": answer, "status": "final"},
-                    provenance=doc_ids,
+                    provenance=provenance,
                 ),
             ),
         )
@@ -542,7 +601,7 @@ def run_no_history(rows: Sequence[Mapping[str, object]]) -> dict[str, Any]:
     hits = {"stateful": 0, "empty_state": 0}
     for row in rows:
         aliases = decode_aliases(row.get("possible_answers"))
-        instance = build_example_instance(row)
+        instance = _build_instance(row)
         stateful_record = run_lifecycle(
             instance,
             _OracleStatefulHook({}, aliases, force_empty=False),
@@ -756,8 +815,11 @@ def main_with_args(argv: Sequence[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--n", type=int, default=8)
     parser.add_argument("--probe", choices=_PROBES, required=True)
+    parser.add_argument("--family", choices=["research-v1", "research-v2"], default="research-v1")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
+    global _ACTIVE_FAMILY
+    _ACTIVE_FAMILY = args.family
     if args.probe != "no-history" and not os.environ.get("SIFLOW_API_KEY"):
         print(f"missing SIFLOW_API_KEY (required by --probe {args.probe})", file=sys.stderr)
         return 2
