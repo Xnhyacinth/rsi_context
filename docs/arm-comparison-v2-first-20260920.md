@@ -62,7 +62,12 @@ The three worlds split cleanly by difficulty mechanism:
    poet world) actively poisoned answers — a real, mechanism-identified
    failure of naive persistence that the boundary rule eliminates.
    Continuation vs migration separation is not paperwork; it changes
-   outcomes.
+   outcomes. **[Corrected 2026-09-21 by docs/legacy-seal-20260921.md: the
+   harness implements the blunter wipe-everything rule —
+   arm_comparison_v2.py resets state to {} at every world boundary for
+   every arm, and `__carry__` is dead code — not the contract's
+   frozen-snapshot carry. "The reset prevents poisoning" is established;
+   "the contract's state boundary is implemented" is NOT.]**
 4. **The DS-researcher wiring defect is now actually fixed and
    verified**: the strategy file demonstrably enters the extraction
    pipeline (2 answers changed). The three historical occurrences of

@@ -17,6 +17,15 @@ gold-sane-v2 worlds, one reader probe each, Qwen3.6-27B @ siflow T2).
 arm comparison needs a much larger pool or a deliberate sampler to find
 items where improvement mechanisms can matter.
 
+**[Superseded 2026-09-21 by docs/world-audit-20260920.md and
+docs/legacy-seal-20260921.md: (i) 6/20 worlds carry relation-level
+question-entity ≠ gold-entity mismatches, including 3026511 in the pass
+tier — "pass" here certifies extraction, not label validity; (ii) the
+"span_selection" tier as defined (question-entity ≠ gold-subject) is the
+relation-mismatch set, so the tier-stratified sampler proposed below
+(§Consequences 1) is WITHDRAWN — structural stratification replaces it;
+(ii) the three decision worlds are withdrawn from the formal pool.]**
+
 ## Structural signals measured per world (and their limits)
 
 - `first_gold_rank` is **constant at 9** (gold appended after the 8-doc
