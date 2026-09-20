@@ -26,6 +26,7 @@ ActionKind = Literal["create_record", "update_record", "finalize"]
 
 _ACTION_KINDS: tuple[str, ...] = ("create_record", "update_record", "finalize")
 _PROVENANCE_FIELD = "provenance"
+_FINALIZED_FIELD = "finalized"
 _ANSWER_FIELD = "answer"
 _NON_WORD = re.compile(r"[^\w\s]", re.UNICODE)
 _WHITESPACE = re.compile(r"\s+")
@@ -76,12 +77,28 @@ class Action:
     ``provenance`` is required non-empty for ``finalize`` actions per the
     stage-5 semantics (task-family spec §Task structure: the check depends on
     whether the agent kept provenance, not just conclusions).
+
+    v3 precondition fields (``finalize`` only, all optional = v2 behavior):
+    ``precondition_refs`` names records the finalize requires to exist;
+    ``precondition_current_revision`` + ``precondition_revision_scope``
+    require referenced records carrying a ``check`` inside the scope to
+    also carry ``protocol_revision == current`` (the rule-change
+    invalidation, applied to IN-SCOPE records only — partial, not
+    global); ``precondition_scope_constraint`` = {domain, requires_check}
+    requires a referenced record with that domain to have another
+    referenced record carrying the required check. A failed precondition
+    is a NAMED refusal at apply time, never a silent zero (task card
+    research-v3 §Action semantics).
     """
 
     kind: ActionKind
     record_id: str
     fields: Mapping[str, object] = field(default_factory=dict)
     provenance: tuple[str, ...] = ()
+    precondition_refs: tuple[str, ...] = ()
+    precondition_current_revision: int | None = None
+    precondition_revision_scope: tuple[str, ...] = ()
+    precondition_scope_constraint: Mapping[str, str] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.kind, str) or self.kind not in _ACTION_KINDS:
@@ -93,6 +110,33 @@ class Action:
         object.__setattr__(self, "provenance", tuple(self.provenance))
         for entry in self.provenance:
             _require_str(entry, "provenance entry")
+        object.__setattr__(self, "precondition_refs", tuple(self.precondition_refs))
+        for entry in self.precondition_refs:
+            _require_str(entry, "precondition_refs entry")
+        object.__setattr__(
+            self, "precondition_revision_scope", tuple(self.precondition_revision_scope)
+        )
+        for entry in self.precondition_revision_scope:
+            _require_str(entry, "precondition_revision_scope entry")
+        if self.precondition_current_revision is not None and (
+            not isinstance(self.precondition_current_revision, int)
+            or isinstance(self.precondition_current_revision, bool)
+            or self.precondition_current_revision < 0
+        ):
+            raise ValueError("precondition_current_revision must be a non-negative integer")
+        if self.precondition_scope_constraint is not None:
+            if not isinstance(self.precondition_scope_constraint, Mapping):
+                raise TypeError("precondition_scope_constraint must be a mapping")
+            object.__setattr__(
+                self, "precondition_scope_constraint", dict(self.precondition_scope_constraint)
+            )
+        if self.kind != "finalize" and (
+            self.precondition_refs
+            or self.precondition_current_revision is not None
+            or self.precondition_revision_scope
+            or self.precondition_scope_constraint is not None
+        ):
+            raise ValueError("preconditions apply to finalize actions only")
         if self.kind == "finalize" and not self.provenance:
             raise ValueError("finalize actions require non-empty provenance")
 
@@ -102,6 +146,14 @@ class Action:
             "record_id": self.record_id,
             "fields": dict(self.fields),
             "provenance": list(self.provenance),
+            "precondition_refs": list(self.precondition_refs),
+            "precondition_current_revision": self.precondition_current_revision,
+            "precondition_revision_scope": list(self.precondition_revision_scope),
+            "precondition_scope_constraint": (
+                None
+                if self.precondition_scope_constraint is None
+                else dict(self.precondition_scope_constraint)
+            ),
         }
 
 
@@ -122,7 +174,15 @@ class ProjectState:
         self.transcript: tuple[Action, ...] = ()
 
     def apply(self, action: Action) -> None:
-        """Apply one typed action; invalid applications raise, never no-op."""
+        """Apply one typed action; invalid applications raise, never no-op.
+
+        v3 semantics: ``finalize`` LOCKS the target record (later
+        ``update_record``/``finalize`` on it raise — supersession proceeds
+        by creating a new record, per the v3 task card), and finalize
+        preconditions (see ``Action``) are checked over the CURRENT
+        records before any field is written, so a refused precondition
+        leaves the state untouched.
+        """
 
         if not isinstance(action, Action):
             raise TypeError("apply requires an Action value")
@@ -140,6 +200,11 @@ class ProjectState:
                 raise ProjectStateError(
                     f"record {action.record_id!r} does not exist; use create_record"
                 )
+            if self._is_finalized(self.records[action.record_id]):
+                raise ProjectStateError(
+                    f"record {action.record_id!r} is finalized and locked; "
+                    "supersede it with a new record instead of updating it"
+                )
             target = self.records[action.record_id]
             for key, value in action.fields.items():
                 target[key] = value
@@ -149,11 +214,66 @@ class ProjectState:
                 raise ProjectStateError(
                     f"finalize target record {action.record_id!r} does not exist"
                 )
+            if self._is_finalized(self.records[action.record_id]):
+                raise ProjectStateError(
+                    f"record {action.record_id!r} is already finalized and locked"
+                )
+            self._check_preconditions(action)
             target = self.records[action.record_id]
             for key, value in action.fields.items():
                 target[key] = value
+            target[_FINALIZED_FIELD] = True
             self._merge_provenance(target, action.provenance)
         self.transcript = (*self.transcript, action)
+
+    def _check_preconditions(self, action: Action) -> None:
+        """Evaluate a finalize action's declared preconditions, named on failure."""
+
+        if action.precondition_refs:
+            for ref in action.precondition_refs:
+                if ref not in self.records:
+                    raise ProjectStateError(
+                        f"finalize {action.record_id!r} references unknown record {ref!r}"
+                    )
+        if action.precondition_current_revision is not None:
+            scope = frozenset(action.precondition_revision_scope)
+            for ref in action.precondition_refs:
+                record = self.records.get(ref)
+                if not isinstance(record, dict):
+                    continue
+                check = record.get("check")
+                if isinstance(check, str) and check in scope:
+                    revision = record.get("protocol_revision")
+                    if revision != action.precondition_current_revision:
+                        raise ProjectStateError(
+                            f"finalize {action.record_id!r} references record {ref!r} "
+                            f"with stale protocol revision {revision!r} (in rule-change "
+                            f"scope; current is {action.precondition_current_revision})"
+                        )
+        constraint = action.precondition_scope_constraint
+        if constraint is not None:
+            domain = constraint.get("domain")
+            required_check = constraint.get("requires_check")
+            if isinstance(domain, str) and isinstance(required_check, str):
+                referenced = [self.records[ref] for ref in action.precondition_refs]
+                touches_domain = any(
+                    isinstance(record, dict) and record.get("domain") == domain
+                    for record in referenced
+                )
+                has_check = any(
+                    isinstance(record, dict) and record.get("check") == required_check
+                    for record in referenced
+                )
+                if touches_domain and not has_check:
+                    raise ProjectStateError(
+                        f"finalize {action.record_id!r} violates scope constraint: "
+                        f"domain {domain!r} requires a {required_check!r} verification "
+                        "among the referenced records"
+                    )
+
+    @staticmethod
+    def _is_finalized(record: dict[str, Any]) -> bool:
+        return record.get(_FINALIZED_FIELD) is True
 
     def snapshot(self) -> dict[str, dict[str, Any]]:
         """Copied records view for structural comparison."""

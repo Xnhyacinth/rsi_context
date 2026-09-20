@@ -35,7 +35,10 @@ _FAMILY_RESEARCH_V1 = "research-v1"
 # research-v2: the leak-closed revision (docs/dependency-probes-20260920.md) —
 # same stage grammar, no answer-bearing evidence after stage 1, stage 5 empty.
 _FAMILY_RESEARCH_V2 = "research-v2"
-_REGISTERED_FAMILIES = (_FAMILY_RESEARCH_V1, _FAMILY_RESEARCH_V2)
+# research-v3: the migration-decision main world (docs/task-card-research-v3.md) —
+# scoped constraint, partial rule change, precondition-checked commits.
+_FAMILY_RESEARCH_V3 = "research-v3"
+_REGISTERED_FAMILIES = (_FAMILY_RESEARCH_V1, _FAMILY_RESEARCH_V2, _FAMILY_RESEARCH_V3)
 
 
 def _require_str(value: object, field: str, *, allow_empty: bool = False) -> None:
