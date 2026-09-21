@@ -31,14 +31,29 @@ def summarize(path: Path) -> None:
     print(f"\n=== {path.name} (mode={label[0]} seed={label[1]} rounds={label[2]}) ===")
     arm = payload["ds_arm"]
     fixed = payload["fixed_arm"]
+    vf = payload.get("variance_floor")
+    if isinstance(vf, dict):
+        print(
+            f"  variance-floor[{vf.get('cell')}]: repeats={vf.get('repeats')} "
+            f"sd={vf.get('sd')} flip={vf.get('flip_rate')} "
+            f"within_ceiling={vf.get('within_ceiling')}"
+        )
+    failed = payload.get("failed_rounds")
+    if failed:
+        print(f"  FAILED ROUNDS: {failed}")
 
     def table(name: str, branches: dict) -> None:
         rows: list[tuple[str, str]] = []
+        gate_counts: list[int] = []
         for branch in ("continuation", "new_world", "regression"):
             variants = branches.get(branch, [])
             passed = sum(1 for v in variants if _cell_pass(v) is True)
             ran = sum(1 for v in variants if _cell_pass(v) is not None)
             expected = len(variants)
+            for variant in variants:
+                counts = variant.get("gate_failure_counts")
+                if isinstance(counts, list):
+                    gate_counts.extend(count for count in counts if isinstance(count, int))
             # An unrun/failed cell set is n/a, never 0/N: a wiring
             # failure must not read as "nothing passed" (code-review C1).
             if expected and not ran:
@@ -48,6 +63,7 @@ def summarize(path: Path) -> None:
             else:
                 rows.append((branch, f"{passed}/{ran}"))
         joined = " | ".join(f"{b}: {c}" for b, c in rows)
+        graded = f" | gate-failures: {sum(gate_counts)}" if gate_counts else ""
         crashes = sum(
             1
             for variants in (
@@ -56,7 +72,9 @@ def summarize(path: Path) -> None:
             for v in variants
             if v.get("strategy_errors")
         )
-        print(f"  {name}: {joined}" + (f" | strategy-crashes: {crashes}" if crashes else ""))
+        print(
+            f"  {name}: {joined}{graded}" + (f" | strategy-crashes: {crashes}" if crashes else "")
+        )
 
     table("F0 (fixed)", fixed["branches"])
     snapshot_branches = arm.get("snapshot_branches")
