@@ -208,4 +208,4 @@ def test_zephyr_structure_matches_v3_grammar() -> None:
     assert inst.stages[3].documents[0].superseded_by == "doc-z-verif-db"
     precondition = inst.stages[4].commit_precondition
     assert isinstance(precondition, dict)
-    assert precondition["revision_scope"] == ["genre"]  # PARTIAL: only film-category plans are scoped
+    assert precondition["revision_scope"] == ["genre"]  # PARTIAL: only film-category
