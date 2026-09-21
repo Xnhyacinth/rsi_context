@@ -362,20 +362,18 @@ def _commit_gate_failures(
                 f"commit gate: plan {plan!r} is committed without any referenced "
                 "records; the required verifications are missing"
             )
-        domain = requirement.get("domain")
         required_check = requirement.get("requires_check")
-        if isinstance(domain, str) and isinstance(required_check, str):
-            domain_record = next(
-                (record for record in referenced if record.get("domain") == domain),
-                None,
+        if isinstance(required_check, str) and not any(
+            record.get("check") == required_check for record in referenced
+        ):
+            # Keyed by the COMMITTED PLAN, never by a participant-supplied
+            # domain field: the requirement applies because the world's
+            # precondition names this plan, not because the participant
+            # labeled it.
+            failures.append(
+                f"commit gate: plan {plan!r} lacks a "
+                f"{required_check!r} verification among its referenced records"
             )
-            if domain_record is not None and not any(
-                record.get("check") == required_check for record in referenced
-            ):
-                failures.append(
-                    f"commit gate: plan {plan!r} (domain {domain!r}) lacks a "
-                    f"{required_check!r} verification among its referenced records"
-                )
     current_revision = precondition.get("current_revision")
     scope = precondition.get("revision_scope")
     if (
@@ -384,10 +382,17 @@ def _commit_gate_failures(
         and isinstance(scope, list)
     ):
         scope_set = {entry for entry in scope if isinstance(entry, str)}
+        # PARTIAL supersession: the revision-currency rule applies to
+        # in-scope checks ONLY for plans named in plan_requirements (the
+        # rule change's scope); referenced in-scope checks of OTHER plans
+        # are not invalidated (zephyr: rev-1 genre evidence is fine for
+        # non-film candidates).
+        scoped_plan = isinstance(requirement, Mapping)
         for record in referenced:
             check = record.get("check")
             if (
-                isinstance(check, str)
+                scoped_plan
+                and isinstance(check, str)
                 and check in scope_set
                 and record.get("protocol_revision") != current_revision
             ):
