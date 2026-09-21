@@ -84,6 +84,11 @@ def assert_canary_absent(
     current state bytes; raises ``LeakProbeError`` with the session,
     token, and position of any hit. Returns the probe record on a clean
     pass.
+
+    Note ``tokens`` is a LIST here even though the module's other
+    canary parameters are tuples (e.g. ``SessionPlan.canary_tokens``):
+    a tuple raises ``TypeError``. Convert at the call site —
+    ``list(plan.canary_tokens)`` — when composing the probe ad hoc.
     """
 
     checked = _checked_tokens(tokens)
