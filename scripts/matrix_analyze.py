@@ -33,13 +33,21 @@ def summarize(path: Path) -> None:
     fixed = payload["fixed_arm"]
 
     def table(name: str, branches: dict) -> None:
-        rows: list[tuple[str, int, int]] = []
+        rows: list[tuple[str, str]] = []
         for branch in ("continuation", "new_world", "regression"):
             variants = branches.get(branch, [])
             passed = sum(1 for v in variants if _cell_pass(v) is True)
             ran = sum(1 for v in variants if _cell_pass(v) is not None)
-            rows.append((branch, passed, ran))
-        joined = " | ".join(f"{b}: {p}/{r}" for b, p, r in rows)
+            expected = len(variants)
+            # An unrun/failed cell set is n/a, never 0/N: a wiring
+            # failure must not read as "nothing passed" (code-review C1).
+            if expected and not ran:
+                rows.append((branch, "n/a"))
+            elif expected and ran != expected:
+                rows.append((branch, f"{passed}/{ran} of {expected}"))
+            else:
+                rows.append((branch, f"{passed}/{ran}"))
+        joined = " | ".join(f"{b}: {c}" for b, c in rows)
         crashes = sum(
             1
             for variants in (

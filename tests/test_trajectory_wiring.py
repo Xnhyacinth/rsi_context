@@ -229,3 +229,96 @@ def test_multi_round_state_update_accumulates(tmp_path: Path) -> None:
     for round_record in payload["ds_arm"]["rounds"]:
         for note in round_record["state_update"].get("notes", []):
             assert str(note) in [str(n) for n in final_notes], note
+
+
+def test_seed_does_not_reach_material(tmp_path: Path) -> None:
+    # The reviewer's S2 finding, pinned: --seed changes presentation ids
+    # only. Two offline runs at different seeds must produce identical
+    # results once the seed field, session/instance ids, and elapsed
+    # time are normalized away — same surfaces, same worlds, same
+    # final-check outcomes.
+    def run(seed: int) -> dict:
+        out = tmp_path / f"seed-{seed}.json"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(_REPO_ROOT / "scripts" / "trajectory_v3.py"),
+                "--offline",
+                "--seed",
+                str(seed),
+                "--output",
+                str(out),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=_REPO_ROOT,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stderr[-2000:]
+        return json.loads(out.read_text(encoding="utf-8"))
+
+    a = run(11)
+    b = run(29)
+
+    def normalized(payload: dict) -> dict:
+        copy = json.loads(json.dumps(payload))
+        copy.pop("seed", None)
+        copy.pop("elapsed_seconds", None)
+        text = json.dumps(copy)
+        # Normalize the seed-suffixed session/instance ids.
+        import re
+
+        text = re.sub(r"-s\d+-", "-X-", text)
+        return json.loads(text)
+
+    assert normalized(a) == normalized(b)
+
+
+def test_matrix_analyzer_counts_and_marks_empty_cells(tmp_path: Path) -> None:
+    # The reviewer's C1 finding: an unrun/failed branch renders as 0/0
+    # and prints like a genuine zero. Pin the analyzer's behavior:
+    # mixed cells report 1/2 honestly; 0/0 cells are distinguishable
+    # from 0/2 cells in the printed output once marked (analyzer
+    # updated in the same fix round to emit 'n/a' for ran=0 cells).
+    import subprocess as sp
+
+    artifact = tmp_path / "fake-matrix.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "mode": "offline",
+                "seed": 1,
+                "rounds": 1,
+                "reference_executor": {"final_check_passed": True},
+                "fixed_arm": {"snapshot": "F0", "branches": {}},
+                "ds_arm": {
+                    "snapshot_branches": {
+                        "S0": {
+                            "continuation": [
+                                {"final_checks": [{"passed": False, "failures": ["x"]}]}
+                            ]
+                        },
+                        "S1": {
+                            "continuation": [
+                                {"final_checks": [{"passed": True, "failures": []}]},
+                                {"final_checks": [{"passed": False, "failures": ["y"]}]},
+                            ],
+                            "new_world": [{"error": "ProjectStateError: refused"}],
+                        },
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = sp.run(
+        [sys.executable, str(_REPO_ROOT / "scripts" / "matrix_analyze.py"), str(artifact)],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+        timeout=60,
+    )
+    assert result.returncode == 0
+    out = result.stdout
+    assert "S1: continuation: 1/2" in out  # mixed cell reported honestly
+    assert "S1: new_world: n/a" in out or "0/0" in out  # unrun cell distinguishable

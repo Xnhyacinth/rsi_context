@@ -20,10 +20,12 @@ Every snapshot enters the SAME three evaluation branches
 (continuation / new-world over the VARIANT worlds / regression) through
 the frozen-snapshot carry — legitimate carry, no cross-branch writes.
 
---seed is the presentation axis of the replication matrix: branch
-session ids and probe surface sampling are seed-distinct, while WORLD
-MATERIAL is never seed-dependent (material variance belongs to the
-world pool, not to the seed axis).
+--seed labels the run's provenance: branch session ids and instance
+ids only. WORLD MATERIAL, branch surface order, and variant order are
+seed-FREE (a scripted-arm trajectory is seed-independent offline; the
+researcher arm varies across seeds only because the model re-authors
+the strategy per run — the seed axis labels that variance, it does not
+cause it).
 
 Offline mode (--offline) verifies the WIRING with a deterministic fake
 reader at zero API cost. --researcher is live-only. The improvement's
@@ -540,7 +542,7 @@ def main() -> int:
         "--seed",
         type=int,
         default=0,
-        help="deterministic presentation seed: branch session ids + probe world order",
+        help="provenance seed: branch/instance ids only; material and surfaces are seed-free",
     )
     parser.add_argument(
         "--output",
@@ -735,11 +737,18 @@ def main() -> int:
         )
 
     elapsed = time.monotonic() - started
+    failed_rounds = [
+        round_record["round"]
+        for round_record in rounds_payload
+        if isinstance(round_record.get("researcher_record"), dict)
+        and str(round_record["researcher_record"].get("round_outcome", "")).startswith("failed:")
+    ]
     payload = {
         "mode": "offline" if args.offline else "live",
         "reader_model": None if args.offline else READER_MODEL,
         "seed": args.seed,
         "rounds": args.rounds,
+        "failed_rounds": failed_rounds,
         "world": "research-v3-main-0001",
         "reference_executor": reference,
         "fixed_arm": {
@@ -762,12 +771,28 @@ def main() -> int:
         json.dumps(
             {
                 k: payload[k]
-                for k in ("mode", "seed", "rounds", "reference_executor", "elapsed_seconds")
+                for k in (
+                    "mode",
+                    "seed",
+                    "rounds",
+                    "failed_rounds",
+                    "reference_executor",
+                    "elapsed_seconds",
+                )
             },
             indent=1,
         )
     )
     print(f"artifact: {args.output}")
+    if failed_rounds:
+        # A failed researcher round produced this artifact: the matrix
+        # was NOT fully produced (the code-review S1 finding — a wholly
+        # failed loop must not exit 0 looking like a complete matrix).
+        print(
+            f"failed rounds: {failed_rounds} (see rounds[].researcher_record)",
+            file=sys.stderr,
+        )
+        return 3
     return 0
 
 
