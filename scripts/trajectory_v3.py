@@ -59,6 +59,7 @@ from rsicontext.participant.snapshot import (
     freeze_session,
     run_evaluation_branch,
 )
+from rsicontext.reader_tiers import MIN_VARIANCE_REPEATS as _MIN_VARIANCE_REPEATS
 from rsicontext.session import SessionKind, SessionStateStore
 
 READER_ENDPOINT = "https://api.siflow.cn/model-api/chat/completions"
@@ -73,6 +74,11 @@ _SCHEMA: dict[str, object] = {"type": "object", "properties": {"notes": {"type":
 _COMMIT = "migration_commit"
 _STATUS = "candidate_status"
 _VARIANT_IDS = ("orinoco", "parana")
+
+#: T2 variance-floor ceiling (design-t2floor): the minimal reportable
+#: contrast is 0.20 (hy3 precedent); the rejection ceiling sits at a
+#: quarter of it. A floor SD above this rejects the reader for the block.
+_VARIANCE_CEILING = 0.05
 
 _KNOWN_CHECKS = (
     "replica-lag",
@@ -111,6 +117,86 @@ def _survey_checks(survey_text: str) -> list[str]:
     """The check names the survey's protocol document mentioned, in order."""
 
     lowered = survey_text.lower()
+    return [check for check in _KNOWN_CHECKS if check in lowered]
+
+
+def _pass_fraction(branch_results: dict) -> float:
+    """The pass fraction over all final_checks entries in a branch run."""
+
+    total = 0
+    passed = 0
+    for variants in branch_results.values():
+        if not isinstance(variants, list):
+            continue
+        for variant in variants:
+            if not isinstance(variant, dict):
+                continue
+            for entry in variant.get("final_checks", []):
+                if isinstance(entry, dict):
+                    total += 1
+                    passed += 1 if entry.get("passed") else 0
+    return passed / total if total else 0.0
+
+
+def _sample_sd(values: list[float]) -> float:
+    """Sample standard deviation (ddof=1); 0.0 for fewer than 2 values."""
+
+    if len(values) < 2:
+        return 0.0
+    mean = sum(values) / len(values)
+    return (sum((value - mean) ** 2 for value in values) / (len(values) - 1)) ** 0.5
+
+
+def _modal_share(values: list[float]) -> float:
+    """The share of the most frequent value (the honesty statistic at
+    small n with discrete scores: flip_rate = 1 - modal_share)."""
+
+    if not values:
+        return 0.0
+    counts: dict[float, int] = {}
+    for value in values:
+        counts[value] = counts.get(value, 0) + 1
+    return max(counts.values()) / len(values)
+
+
+def _reply_plan_name(reply: str, survey_text: str) -> str | None:
+    """A candidate plan name the reader's reply states, validated against
+    the CURRENT world's survey (a reply naming another world's plan —
+    hallucinated or carried — does not pass the containment check)."""
+
+    if not reply:
+        return None
+    # Candidate-name tokens: first words of the survey's title lines
+    # (the v3 material convention — 'Aurora migration plan' etc.).
+    tokens = _reply_plan_tokens(survey_text)
+    for word in reply.replace(",", " ").replace(".", " ").split():
+        cleaned = word.strip().strip("'\"").lower()
+        if cleaned and cleaned in tokens:
+            return cleaned
+    return None
+
+
+def _reply_plan_tokens(survey_text: str) -> set[str]:
+    """The candidate-name token pool: first words of the survey's title
+    lines (the v3 material convention — 'Aurora migration plan' etc.)."""
+
+    tokens: set[str] = set()
+    for line in survey_text.splitlines():
+        stripped = line.strip()
+        if stripped.lower().endswith("plan") or " candidate " in stripped.lower():
+            words = stripped.split()
+            rest = words[1:] if words and words[0].startswith("[[doc:") else words
+            if rest:
+                tokens.add(rest[0].lower())
+    return tokens
+
+
+def _reply_check_names(reply: str) -> list[str]:
+    """The known check names present in the reader's reply, in order."""
+
+    if not reply:
+        return []
+    lowered = reply.lower()
     return [check for check in _KNOWN_CHECKS if check in lowered]
 
 
@@ -187,6 +273,10 @@ class TrajectoryHook:
         self.rereads: list[str] = []
         self.strategy_errors: list[str] = []
         self._survey_text = ""
+        # Reader-derived decision inputs (the score-graded prerequisite:
+        # the READER's replies feed plan/check decisions, not only notes).
+        self._reader_survey_reply = ""
+        self._reader_protocol_reply = ""
 
     def _strategy_namespace(self) -> dict[str, object]:
         if self.strategy_text is None:
@@ -227,8 +317,31 @@ class TrajectoryHook:
             for name in preference:
                 if isinstance(name, str) and name in self._survey_text:
                     return name
+        # Reader channel: a plan named in the reader's own survey reply
+        # (the extraction surface) takes precedence over the doc-order
+        # fallback — the reply is what the participant actually read out.
+        reader_plan = _reply_plan_name(self._reader_survey_reply, self._survey_text)
+        if reader_plan:
+            return reader_plan
         # Fixed fallback: first candidate name mentioned in the survey.
         return _first_plan_name(self._survey_text)
+
+    def _derived_checks(self) -> list[str]:
+        """The check names for the commit: reader reply first, then survey.
+
+        The reader's rule-change reply is the re-read surface (the
+        check names it surfaced) — but a reply naming checks the
+        CURRENT world's survey never contained (hallucinated or carried
+        from another world) must not survive: reply checks are
+        validated against the survey's own check vocabulary.
+        """
+
+        survey_checks = _survey_checks(self._survey_text)
+        from_replies = _reply_check_names(self._reader_protocol_reply)
+        validated = [check for check in from_replies if check in survey_checks]
+        if validated:
+            return validated
+        return survey_checks
 
     def on_stage(self, stage: StageView) -> StageResponse:
         docs = "\n\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
@@ -249,6 +362,14 @@ class TrajectoryHook:
             # and PLAN_PREFERENCE/survey derivation must see the CURRENT
             # world's material only.
             self._survey_text = docs
+            # The reader's survey REPLY is a decision input: the fixed
+            # fallback's plan derivation consults it (the reader is the
+            # extraction channel; the strategy is the policy).
+            self._reader_survey_reply = reply
+        if stage.kind == "rule_change":
+            # The reader's rule-change reply carries the check names the
+            # re-read surfaced — the checks input for the commit.
+            self._reader_protocol_reply = reply
         notes_list = list(self.state.get("notes", []))  # type: ignore[union-attr]
         notes_list.append({"stage": stage.stage_id, "summary": reply[:160]})
         self.state["notes"] = notes_list[-24:]
@@ -295,7 +416,9 @@ class TrajectoryHook:
                             }
                         )
         if not checks:
-            checks = _survey_checks(self._survey_text)
+            # Reader channel first (the reply is the extraction surface),
+            # survey text second (the stage-1 source).
+            checks = self._derived_checks()
         domain = domain_by_plan.get(plan, "other")
         actions: list[Action] = []
         refs: list[str] = []
@@ -499,6 +622,18 @@ def evaluate_branches(
                     }
                     for record in run_records
                 ]
+                # The one honest graded signal at matrix size (per
+                # docs/research/analyze-grading-20260921.md): the count
+                # of distinct commit-gate failures. 0 = pass; the
+                # refused-cell case records None (never averaged over).
+                gate_failure_counts = [
+                    sum(
+                        1
+                        for failure in record.final_check.failures
+                        if failure.startswith("commit gate:")
+                    )
+                    for record in run_records
+                ]
                 strategy_errors = [
                     error for hook in captured["hooks"] for error in hook.strategy_errors
                 ]
@@ -508,6 +643,7 @@ def evaluate_branches(
                         "ran": True,
                         "surface": surface,
                         "final_checks": final_checks,
+                        "gate_failure_counts": gate_failure_counts,
                         "strategy_errors": strategy_errors,
                     }
                 )
@@ -545,6 +681,18 @@ def main() -> int:
         help="provenance seed: branch/instance ids only; material and surfaces are seed-free",
     )
     parser.add_argument(
+        "--variance-repeats",
+        type=int,
+        default=0,
+        help="T2 variance floor: N fresh repeats of --variance-cell (0=off; >=5 required)",
+    )
+    parser.add_argument(
+        "--variance-cell",
+        type=str,
+        default="S1",
+        help="the snapshot whose branch cells the variance floor measures",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("artifacts/trajectory-v3/trajectory-20260921.json"),
@@ -552,6 +700,12 @@ def main() -> int:
     args = parser.parse_args()
     if args.rounds < 1:
         print("--rounds must be at least 1", file=sys.stderr)
+        return 2
+    if args.variance_repeats and args.variance_repeats < _MIN_VARIANCE_REPEATS:
+        print(
+            f"--variance-repeats must be at least {_MIN_VARIANCE_REPEATS} (T2 gate)",
+            file=sys.stderr,
+        )
         return 2
 
     started = time.monotonic()
@@ -736,6 +890,46 @@ def main() -> int:
             seed_suffix=f"-s{args.seed}",
         )
 
+    # 5. T2 variance floor (optional, per docs/research/design-t2floor-20260921.md):
+    # N FRESH repeats of the chosen snapshot's branch cells — fresh-request
+    # replay variance only (policy identical: same strategy, temp 0, seed 42),
+    # session ids distinct per repeat. The floor bounds what a reported
+    # score delta must exceed; it does NOT cover researcher re-authoring,
+    # dev-session drift, or cross-run endpoint drift.
+    variance_floor: dict[str, object] | None = None
+    if args.variance_repeats:
+        if args.variance_cell == "F0":
+            floor_snapshot, floor_strategy = f0, None
+        elif args.variance_cell == "S0":
+            floor_snapshot, floor_strategy = s0, None
+        elif args.variance_cell in snapshots:
+            floor_snapshot = snapshots[args.variance_cell]
+            floor_strategy = rounds_payload[int(args.variance_cell[1:]) - 1]["strategy_text"]
+        else:
+            print(f"unknown --variance-cell: {args.variance_cell}", file=sys.stderr)
+            return 2
+        scores: list[float] = []
+        for repeat in range(args.variance_repeats):
+            repeat_results = evaluate_branches(
+                floor_snapshot,
+                strategy_text=floor_strategy,
+                offline=args.offline,
+                offline_answers=offline_answers,
+                seed_suffix=f"-s{args.seed}-vr{repeat}",
+            )
+            scores.append(_pass_fraction(repeat_results))
+        sd = _sample_sd(scores)
+        flip_rate = 1.0 - (_modal_share(scores) if scores else 0.0)
+        variance_floor = {
+            "cell": args.variance_cell,
+            "repeats": args.variance_repeats,
+            "scores": scores,
+            "sd": sd,
+            "flip_rate": flip_rate,
+            "ceiling": _VARIANCE_CEILING,
+            "within_ceiling": sd <= _VARIANCE_CEILING,
+        }
+
     elapsed = time.monotonic() - started
     failed_rounds = [
         round_record["round"]
@@ -749,6 +943,7 @@ def main() -> int:
         "seed": args.seed,
         "rounds": args.rounds,
         "failed_rounds": failed_rounds,
+        "variance_floor": variance_floor,
         "world": "research-v3-main-0001",
         "reference_executor": reference,
         "fixed_arm": {

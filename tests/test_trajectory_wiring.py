@@ -322,3 +322,128 @@ def test_matrix_analyzer_counts_and_marks_empty_cells(tmp_path: Path) -> None:
     out = result.stdout
     assert "S1: continuation: 1/2" in out  # mixed cell reported honestly
     assert "S1: new_world: n/a" in out or "0/0" in out  # unrun cell distinguishable
+
+
+def test_reader_reply_feeds_plan_and_check_decisions() -> None:
+    # The score-graded prerequisite (analyze-grading): the READER's
+    # replies must feed plan/verification decisions, not only notes.
+    # The hook's fixed fallback derives the plan from its survey reply
+    # and the checks from its protocol reply; a reader that answers
+    # differently produces a different commit (channel is live).
+    import sys
+
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+    from trajectory_v3 import TrajectoryHook
+
+    # Reader says: plan 'cumulus', checks 'replica-lag'/'disk-encryption'.
+    hook = TrajectoryHook(
+        {},
+        None,
+        offline=True,
+        offline_answers={
+            "Survey": "Five candidate plans: the first plan is cumulus (reporting).",
+            "Rule change": (
+                "The revision supersedes the replica-lag check only; the "
+                "disk-encryption check is unaffected."
+            ),
+        },
+    )
+    from rsicontext.lifecycle.runner import StageView
+    from rsicontext.lifecycle.spec import DocumentRef
+
+    survey_docs = (
+        DocumentRef(
+            doc_id="doc-cand-cumulus",
+            title="Cumulus migration plan",
+            text="Cumulus handles reporting.",
+            source_url="test",
+            retrieved_date="2026-09-21",
+        ),
+        DocumentRef(
+            doc_id="doc-verif-db",
+            title="Verification protocol",
+            text=(
+                "The protocol defines the replica-lag check and the "
+                "disk-encryption check."
+            ),
+            source_url="test",
+            retrieved_date="2026-09-21",
+        ),
+    )
+    survey_view = StageView(
+        stage_id="s1-survey",
+        kind="survey",
+        prompt_text="Survey the documents.",
+        documents=survey_docs,
+        axes=None,  # type: ignore[arg-type]
+        remaining_budget=5,
+    )
+    hook.on_stage(survey_view)
+    rule_view = StageView(
+        stage_id="s4-rule-change",
+        kind="rule_change",
+        prompt_text="Rule change arrives.",
+        documents=(),
+        axes=None,  # type: ignore[arg-type]
+        remaining_budget=2,
+    )
+    hook.on_stage(rule_view)
+    plan = hook.choose_plan()
+    checks = hook._derived_checks()
+    assert plan == "cumulus"  # from the READER's reply, not the doc stub
+    assert "replica-lag" in checks and "disk-encryption" in checks
+    # And the replies are recorded as the decision evidence.
+    assert any("cumulus" in str(n) for n in hook.state.get("notes", []))
+
+
+def test_variance_floor_and_gate_failure_counts(tmp_path: Path) -> None:
+    # T2 floor pins (design-t2floor): offline repeats give sd 0, flip
+    # rate 0, within ceiling; --variance-repeats 4 is refused (<5); the
+    # gate_failure_counts field is present and 0 for passing S1 cells.
+    output = tmp_path / "vf.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_REPO_ROOT / "scripts" / "trajectory_v3.py"),
+            "--offline",
+            "--variance-repeats",
+            "5",
+            "--output",
+            str(output),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    vf = payload["variance_floor"]
+    assert vf["repeats"] == 5
+    assert vf["sd"] == 0.0
+    assert vf["flip_rate"] == 0.0
+    assert vf["within_ceiling"] is True
+    s1 = payload["ds_arm"]["snapshot_branches"]["S1"]
+    for variants in s1.values():
+        for variant in variants:
+            counts = variant.get("gate_failure_counts")
+            assert counts is not None and all(count == 0 for count in counts)
+
+    refused = subprocess.run(
+        [
+            sys.executable,
+            str(_REPO_ROOT / "scripts" / "trajectory_v3.py"),
+            "--offline",
+            "--variance-repeats",
+            "4",
+            "--output",
+            str(tmp_path / "never.json"),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+        timeout=60,
+    )
+    assert refused.returncode == 2
+    assert "at least 5" in refused.stderr
