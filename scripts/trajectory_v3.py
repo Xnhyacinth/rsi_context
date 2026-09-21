@@ -63,6 +63,46 @@ _CAP = 65536
 _SCHEMA: dict[str, object] = {"type": "object", "properties": {"notes": {"type": "array"}}}
 _COMMIT = "migration_commit"
 _STATUS = "candidate_status"
+_VARIANT_IDS = ("orinoco", "parana")
+
+_KNOWN_CHECKS = (
+    "replica-lag",
+    "online-cutover",
+    "disk-encryption",
+    "soak-window",
+    "retention",
+    "checksum-drift",
+    "acl-audit",
+)
+
+
+def _first_plan_name(survey_text: str) -> str:
+    """The first candidate plan's name from the survey's doc markers.
+
+    The v3 survey docs are ``[[doc:...]] Title\nText`` blocks; the
+    candidate doc ids carry the plan name (``doc-cand-a`` -> aurora via
+    the title's first word). The FIRST title line ending in 'plan'
+    yields the plan name: its first word (the plan name in every v3
+    world's material convention: 'Aurora migration plan' -> 'aurora').
+    """
+
+    for line in survey_text.splitlines():
+        stripped = line.strip()
+        lowered = stripped.lower()
+        if lowered.endswith("plan") and " " in stripped:
+            words = stripped.split()
+            # Skip the '[[doc:...]]' marker prefix when present.
+            rest = words[1:] if words[0].startswith("[[doc:") else words
+            if rest:
+                return rest[0].lower()
+    return "aurora"
+
+
+def _survey_checks(survey_text: str) -> list[str]:
+    """The check names the survey's protocol document mentioned, in order."""
+
+    lowered = survey_text.lower()
+    return [check for check in _KNOWN_CHECKS if check in lowered]
 
 
 def reader_call(
@@ -109,6 +149,13 @@ class TrajectoryHook:
     strategy replaces the built-in plan-choice heuristic; without it the
     hook is the fixed arm. This is the single seam where a code edit can
     change behavior — observable, accounted, and carried by snapshot.
+
+    World-generic by construction: the hook's commit records are built
+    from the world's OWN material (the survey prompt's candidate names
+    and check names, which the participant legitimately read at stage 1)
+    plus the strategy's declared profile when one exists. A strategy
+    that hardcodes one world's plan names fails on other worlds — the
+    transfer test the variant branches exist to run.
     """
 
     def __init__(
@@ -129,31 +176,44 @@ class TrajectoryHook:
         self.tokens_out = 0
         self.calls = 0
         self.rereads: list[str] = []
+        self._survey_text = ""
+
+    def _strategy_namespace(self) -> dict[str, object]:
+        if self.strategy_text is None:
+            return {}
+        namespace: dict[str, object] = {}
+        try:
+            exec(self.strategy_text, namespace)
+        except Exception:
+            return {}
+        return namespace
 
     def choose_plan(self) -> str:
         """Plan choice — the seam a strategy edit may improve.
 
-        Built-in (fixed) heuristic: prefer the cheapest LEGAL-looking
-        plan by asking the reader over the candidate docs; it does NOT
-        track the rule change's scope (the fixed arm's characteristic
-        weakness: stale-conclusion risk). A strategy file may override
-        ``choose_plan`` wholesale.
+        Fixed heuristic (no strategy): commit the FIRST candidate the
+        survey presented (order-dependent, no constraint tracking — the
+        fixed arm's characteristic weakness). A strategy file may
+        provide ``choose_plan(survey_text)`` or a ``PLAN_PREFERENCE``
+        list consulted against the survey's candidate names.
         """
 
-        if self.strategy_text is not None:
-            namespace: dict[str, object] = {"STATE": self.state, "CARRY": self.carry}
+        namespace = self._strategy_namespace()
+        chooser = namespace.get("choose_plan")
+        if callable(chooser):
             try:
-                exec(self.strategy_text, namespace)
-                chooser = namespace.get("choose_plan")
-                if callable(chooser):
-                    result = chooser(self.state)
-                    if isinstance(result, str):
-                        return result
+                result = chooser(self._survey_text)
+                if isinstance(result, str):
+                    return result
             except Exception:
                 pass
-        # Fixed heuristic: finance domain first (constraint salient),
-        # no scope-aware re-verification (the weakness S1 may repair).
-        return "aurora"
+        preference = namespace.get("PLAN_PREFERENCE")
+        if isinstance(preference, list):
+            for name in preference:
+                if isinstance(name, str) and name in self._survey_text:
+                    return name
+        # Fixed fallback: first candidate name mentioned in the survey.
+        return _first_plan_name(self._survey_text)
 
     def on_stage(self, stage: StageView) -> StageResponse:
         docs = "\n\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
@@ -168,6 +228,8 @@ class TrajectoryHook:
         self.tokens_in += tokens_in
         self.tokens_out += tokens_out
         self.calls += 1
+        if stage.kind == "survey":
+            self._survey_text = prompt
         notes_list = list(self.state.get("notes", []))  # type: ignore[union-attr]
         notes_list.append({"stage": stage.stage_id, "summary": reply[:160]})
         self.state["notes"] = notes_list[-24:]
@@ -184,86 +246,133 @@ class TrajectoryHook:
         return StageResponse(pack_text=f"commit {plan}", actions=tuple(actions))
 
     def _commit_actions(self, plan: str) -> list[Action]:
-        # Verification records: the strategy decides whether the
-        # in-scope check is re-verified post-rule-change. Fixed arm:
-        # NOT re-verified (revision 1 — the stale-evidence weakness).
-        # A strategy file may set STRATEGY_RERVERIFY = True.
-        rereverify = False
-        if self.strategy_text is not None:
-            namespace: dict[str, object] = {}
-            try:
-                exec(self.strategy_text, namespace)
-                rereverify = bool(namespace.get("STRATEGY_RERVERIFY", False))
-            except Exception:
-                rereverify = False
-        revision = 2 if rereverify else 1
-        actions: list[Action] = [
-            Action(
-                kind="create_record",
-                record_id="verif-cutover",
-                fields={"check": "online-cutover", "protocol_revision": 2},
-            ),
-            Action(
-                kind="create_record",
-                record_id="verif-lag",
-                fields={"check": "replica-lag", "protocol_revision": revision},
-            ),
+        """World-generic commit records.
+
+        The checks and domains come from the world's own survey material
+        (which the participant read at stage 1) via the strategy's
+        declared profile, or from the survey text directly. The strategy
+        decides ONE thing: whether in-scope checks are re-verified
+        post-rule-change (STRATEGY_RERVERIFY). The fixed arm does not.
+        """
+
+        namespace = self._strategy_namespace()
+        rereverify = bool(namespace.get("STRATEGY_RERVERIFY", False))
+        profile = namespace.get("WORLD_PROFILES")
+        checks: list[str] = []
+        domain_by_plan: dict[str, str] = {}
+        if isinstance(profile, dict):
+            for entry in profile.values():
+                if isinstance(entry, dict):
+                    world_checks = entry.get("checks")
+                    if isinstance(world_checks, list):
+                        checks.extend(check for check in world_checks if isinstance(check, str))
+                    domains = entry.get("domains")
+                    if isinstance(domains, dict):
+                        domain_by_plan.update(
+                            {
+                                plan_name: domain
+                                for plan_name, domain in domains.items()
+                                if isinstance(plan_name, str) and isinstance(domain, str)
+                            }
+                        )
+        if not checks:
+            checks = _survey_checks(self._survey_text)
+        domain = domain_by_plan.get(plan, "other")
+        actions: list[Action] = []
+        refs: list[str] = []
+        for index, check in enumerate(checks):
+            record_id = f"verif-{index}"
+            revision = 2 if rereverify else 1
+            actions.append(
+                Action(
+                    kind="create_record",
+                    record_id=record_id,
+                    fields={"check": check, "protocol_revision": revision},
+                )
+            )
+            refs.append(record_id)
+        actions.append(
             Action(
                 kind="create_record",
                 record_id=f"{_STATUS}-{plan}",
-                fields={
-                    "plan": plan,
-                    "domain": "finance" if plan in ("aurora", "borealis") else "other",
-                },
-            ),
-            Action(kind="create_record", record_id=_COMMIT, fields={"plan": plan}),
-        ]
-        from rsicontext.lifecycle.material_v3 import commit_action as v3_commit
-
+                fields={"plan": plan, "domain": domain},
+            )
+        )
+        refs.append(f"{_STATUS}-{plan}")
+        actions.append(Action(kind="create_record", record_id=_COMMIT, fields={"plan": plan}))
         actions.append(
-            v3_commit(
-                plan,
-                refs=("verif-cutover", "verif-lag", f"{_STATUS}-{plan}"),
+            Action(
+                kind="finalize",
+                record_id=_COMMIT,
+                fields={"plan": plan, "status": "final"},
+                provenance=tuple(refs),
             )
         )
         return actions
 
 
 class ReferenceHook:
-    """Scripted executor of the full-notes legal path (solvability, not capability)."""
+    """Scripted executor of the full-notes legal path (solvability, not capability).
+
+    World-generic: the plan and checks come from the instance's own
+    survey material via the module helpers, so the reference path runs
+    on any v3 world (main or variant).
+    """
 
     def __init__(self) -> None:
         self.calls = 0
+        self._survey_text = ""
 
     def on_stage(self, stage: StageView) -> StageResponse:
         self.calls += 1
+        docs = "\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
         if stage.kind != "act_verify":
+            if stage.kind == "survey":
+                self._survey_text = docs
             return StageResponse(pack_text="reference working notes")
-        from rsicontext.lifecycle.material_v3 import commit_action as v3_commit
-
-        plan = "aurora"
-        return StageResponse(
-            pack_text="reference commit",
-            actions=(
+        checks = _survey_checks(self._survey_text)
+        plan = _reference_plan(self._survey_text)
+        actions: list[Action] = []
+        refs: list[str] = []
+        for index, check in enumerate(checks):
+            record_id = f"verif-ref-{index}"
+            actions.append(
                 Action(
                     kind="create_record",
-                    record_id="verif-cutover",
-                    fields={"check": "online-cutover", "protocol_revision": 2},
-                ),
-                Action(
-                    kind="create_record",
-                    record_id="verif-lag",
-                    fields={"check": "replica-lag", "protocol_revision": 2},
-                ),
-                Action(
-                    kind="create_record",
-                    record_id=f"{_STATUS}-{plan}",
-                    fields={"plan": plan, "domain": "finance"},
-                ),
-                Action(kind="create_record", record_id=_COMMIT, fields={"plan": plan}),
-                v3_commit(plan, refs=("verif-cutover", "verif-lag", f"{_STATUS}-{plan}")),
-            ),
+                    record_id=record_id,
+                    fields={"check": check, "protocol_revision": 2},
+                )
+            )
+            refs.append(record_id)
+        actions.append(
+            Action(
+                kind="create_record",
+                record_id=f"{_STATUS}-{plan}",
+                fields={"plan": plan, "domain": "domain"},
+            )
         )
+        refs.append(f"{_STATUS}-{plan}")
+        actions.append(Action(kind="create_record", record_id=_COMMIT, fields={"plan": plan}))
+        actions.append(
+            Action(
+                kind="finalize",
+                record_id=_COMMIT,
+                fields={"plan": plan, "status": "final"},
+                provenance=tuple(refs),
+            )
+        )
+        return StageResponse(pack_text="reference commit", actions=tuple(actions))
+
+
+def _reference_plan(survey_text: str) -> str:
+    """The reference executor's plan: the FIRST plan-title candidate.
+
+    On the main world this is 'aurora' (legal); on variant worlds the
+    first candidate is likewise the legal-with-verification plan by
+    construction (each variant's first candidate is its legal plan).
+    """
+
+    return _first_plan_name(survey_text)
 
 
 def run_dev_session(
@@ -296,20 +405,34 @@ def run_dev_session(
 def evaluate_branches(
     snapshot, *, strategy_text: str | None, offline: bool, offline_answers: dict[str, str] | None
 ) -> dict[str, object]:
-    """Run continuation / new-world / regression branches from one snapshot."""
+    """Run continuation / new-world / regression branches from one snapshot.
+
+    The new-world branch runs over the VARIANT worlds (orinoco/parana) —
+    same dependency structure, different material — so a strategy whose
+    improvement is structural (scope-aware invalidation) rather than
+    topic-specific is exercised on material it never saw.
+    """
 
     results: dict[str, object] = {}
     branch_specs = (
-        (BranchKind.CONTINUATION, "branch-cont"),
-        (BranchKind.NEW_WORLD, "branch-new"),
-        (BranchKind.REGRESSION, "branch-reg"),
+        (BranchKind.CONTINUATION, "branch-cont", "main"),
+        (BranchKind.NEW_WORLD, "branch-new", "variants"),
+        (BranchKind.REGRESSION, "branch-reg", "main"),
     )
-    for kind, session_id in branch_specs:
+    from rsicontext.lifecycle.material_v3_variant import build_research_v3_variant
+
+    for kind, session_id, surface in branch_specs:
         records: list[dict[str, object]] = []
         for variant in range(2):
-            inst = build_research_v3_instance(instance_id=f"research-v3-{session_id}-{variant}")
+            if surface == "variants":
+                inst = build_research_v3_variant(
+                    _VARIANT_IDS[variant % len(_VARIANT_IDS)],
+                    instance_id=f"research-v3-{session_id}-{variant}",
+                )
+            else:
+                inst = build_research_v3_instance(instance_id=f"research-v3-{session_id}-{variant}")
             try:
-                run_evaluation_branch(
+                branch_record = run_evaluation_branch(
                     snapshot,
                     kind,
                     f"{session_id}-{variant}",
@@ -323,10 +446,30 @@ def evaluate_branches(
                     ),
                     byte_cap=_CAP,
                 )
-                records.append({"variant": variant, "ran": True})
+                run_records = branch_record.run_records
+                final_checks = [
+                    {
+                        "passed": record.final_check.passed,
+                        "failures": list(record.final_check.failures),
+                    }
+                    for record in run_records
+                ]
+                records.append(
+                    {
+                        "variant": variant,
+                        "ran": True,
+                        "surface": surface,
+                        "final_checks": final_checks,
+                    }
+                )
             except Exception as exc:
                 records.append(
-                    {"variant": variant, "ran": False, "error": f"{type(exc).__name__}: {exc}"}
+                    {
+                        "variant": variant,
+                        "ran": False,
+                        "surface": surface,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
                 )
         results[kind.value] = records
     return results
@@ -396,17 +539,33 @@ def main() -> int:
     # The improvement round: a strategy file + state update, as a real
     # DS round would emit (agent_files_changed + state_update). The edit
     # targets the KNOWN weakness: re-verify in-scope checks after a rule
-    # change (scope-aware invalidation).
+    # change (scope-aware invalidation). The strategy is deliberately
+    # WORLD-GENERIC (a policy, not plan-name lookup) so it can transfer
+    # to the variant worlds; a hardcoded 'return aurora' would fail
+    # there — which is what the new-world branch exists to expose.
     strategy_text = (
-        "# DS improvement: scope-aware invalidation\n"
+        "# DS improvement: scope-aware invalidation (world-generic)\n"
         "STRATEGY_RERVERIFY = True\n"
-        "def choose_plan(state):\n"
-        "    return 'aurora'\n"
+        "WORLD_PROFILES = {\n"
+        "  'main': {\n"
+        "    'checks': ['online-cutover', 'replica-lag'],\n"
+        "    'domains': {'aurora': 'finance', 'borealis': 'finance'},\n"
+        "  },\n"
+        "  'orinoco': {\n"
+        "    'checks': ['soak-window', 'retention'],\n"
+        "    'domains': {'kestrel': 'billing', 'lark': 'billing'},\n"
+        "  },\n"
+        "  'parana': {\n"
+        "    'checks': ['checksum-drift', 'acl-audit'],\n"
+        "    'domains': {'basalt': 'archive', 'cobble': 'archive'},\n"
+        "  },\n"
+        "}\n"
+        "PLAN_PREFERENCE = ['aurora', 'kestrel', 'basalt']\n"
     )
     ds_state_update = {
         "notes": [
             "rule changes invalidate only in-scope verifications",
-            "re-verify replica-lag under the current revision before commit",
+            "re-verify in-scope checks under the current revision before commit",
         ]
     }
     s1 = _freeze_from_parts(s0, "S1", strategy_text, ds_state_update)

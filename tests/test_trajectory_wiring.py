@@ -44,21 +44,37 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
     assert payload["reference_executor"]["final_check_passed"] is True
     assert payload["reference_executor"]["committed_plan"] == "aurora"
 
-    # Fixed arm: every branch refusal names the stale-protocol cause.
+    def _final_check_passed(variant: dict) -> bool:
+        checks = variant.get("final_checks", [])
+        return bool(checks) and all(entry["passed"] for entry in checks)
+
+    # Fixed arm: every branch's final check FAILS, naming the stale
+    # in-scope verification (the designed weakness, now visible through
+    # the evaluator gate rather than an apply-time refusal).
     for branch in ("continuation", "new_world", "regression"):
         for variant in payload["fixed_arm"]["branches"][branch]:
-            assert variant["ran"] is False
-            assert "stale protocol revision" in variant["error"], variant
+            if variant.get("error"):
+                assert "stale" in variant["error"], variant
+            else:
+                assert not _final_check_passed(variant), variant
+                failures = [
+                    failure
+                    for entry in variant.get("final_checks", [])
+                    for failure in entry["failures"]
+                ]
+                assert any("stale" in failure for failure in failures), variant
 
-    # DS arm: S1's branches run with the scope-aware strategy; S0's
-    # carry the same refusal signature as the fixed arm (before the
-    # improvement, the arm shares the weakness).
+    # DS arm: S1's branches PASS with the scope-aware strategy; S0's
+    # share the fixed arm's stale-evidence failure signature.
     for branch in ("continuation", "new_world", "regression"):
         for variant in payload["ds_arm"]["s1_branches"][branch]:
             assert variant["ran"] is True, variant
+            assert _final_check_passed(variant), variant
         for variant in payload["ds_arm"]["s0_branches"][branch]:
-            assert variant["ran"] is False
-            assert "stale protocol revision" in variant["error"], variant
+            if variant.get("error"):
+                assert "stale" in variant["error"], variant
+            else:
+                assert not _final_check_passed(variant), variant
 
     # The improvement record is inspectable: strategy text + state update.
     improvement = payload["ds_arm"]["improvement"]
