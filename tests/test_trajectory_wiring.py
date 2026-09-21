@@ -129,3 +129,41 @@ def test_clean_strategy_records_no_errors(tmp_path: Path) -> None:
     hook = TrajectoryHook({}, None, offline=True, offline_answers={}, strategy_text=clean)
     hook.choose_plan()
     assert hook.strategy_errors == []
+
+
+def test_researcher_mode_is_live_only() -> None:
+    # --researcher with --offline is refused: the researcher is a real
+    # model; a fake-reader researcher round would be a fabrication.
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_REPO_ROOT / "scripts" / "trajectory_v3.py"),
+            "--offline",
+            "--researcher",
+            "--output",
+            str(_REPO_ROOT / "tmp" / "never-written.json"),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+        timeout=60,
+    )
+    assert result.returncode == 2
+    assert "live-only" in result.stderr
+
+
+def test_stub_strategy_is_the_fixed_baseline() -> None:
+    # The researcher-mode S1 stub (STRATEGY_RERVERIFY = False) is the
+    # fixed arm's behavior — so a researcher that changes nothing, or a
+    # failed round falling back to the stub, is exactly the no-change
+    # baseline the S0-vs-S1 contrast measures against.
+    import sys
+
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+    from trajectory_v3 import _STRATEGY_STUB, TrajectoryHook
+
+    hook = TrajectoryHook({}, None, offline=True, offline_answers={}, strategy_text=_STRATEGY_STUB)
+    assert hook.choose_plan()  # fixed fallback; no strategy errors
+    assert hook.strategy_errors == []
+    assert "STRATEGY_RERVERIFY = False" in _STRATEGY_STUB

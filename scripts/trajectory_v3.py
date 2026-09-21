@@ -506,6 +506,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--offline", action="store_true", help="fake reader, zero API cost")
     parser.add_argument(
+        "--researcher",
+        action="store_true",
+        help="the DS researcher model authors the S1 strategy (live; needs SIFLOW_API_KEY)",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("artifacts/trajectory-v3/trajectory-20260921.json"),
@@ -562,39 +567,92 @@ def main() -> int:
         snapshot_id="S0",
         byte_cap=_CAP,
     )
-
-    # The improvement round: a strategy file + state update, as a real
-    # DS round would emit (agent_files_changed + state_update). The edit
-    # targets the KNOWN weakness: re-verify in-scope checks after a rule
-    # change (scope-aware invalidation). The strategy is deliberately
-    # WORLD-GENERIC (a policy, not plan-name lookup) so it can transfer
-    # to the variant worlds; a hardcoded 'return aurora' would fail
-    # there — which is what the new-world branch exists to expose.
-    strategy_text = (
-        "# DS improvement: scope-aware invalidation (world-generic)\n"
-        "STRATEGY_RERVERIFY = True\n"
-        "WORLD_PROFILES = {\n"
-        "  'main': {\n"
-        "    'checks': ['online-cutover', 'replica-lag'],\n"
-        "    'domains': {'aurora': 'finance', 'borealis': 'finance'},\n"
-        "  },\n"
-        "  'orinoco': {\n"
-        "    'checks': ['soak-window', 'retention'],\n"
-        "    'domains': {'kestrel': 'billing', 'lark': 'billing'},\n"
-        "  },\n"
-        "  'parana': {\n"
-        "    'checks': ['checksum-drift', 'acl-audit'],\n"
-        "    'domains': {'basalt': 'archive', 'cobble': 'archive'},\n"
-        "  },\n"
-        "}\n"
-        "PLAN_PREFERENCE = ['aurora', 'kestrel', 'basalt']\n"
+    # The dev-world probe: run the S0 snapshot over the three branch
+    # kinds (dev surfaces only) to COLLECT the failure feedback the
+    # researcher will see — the same restricted-F subset the scripted
+    # strategy's design targets.
+    ds_s0_probe = evaluate_branches(
+        s0, strategy_text=None, offline=args.offline, offline_answers=offline_answers
     )
-    ds_state_update = {
-        "notes": [
-            "rule changes invalidate only in-scope verifications",
-            "re-verify in-scope checks under the current revision before commit",
-        ]
-    }
+
+    # The improvement round. Scripted mode (default): a harness-authored
+    # strategy standing in for the researcher. Researcher mode
+    # (--researcher, live only): the DS model rewrites the strategy stub
+    # over restricted feedback from the DS dev session's failures — the
+    # researcher's OWN output is frozen as S1, whatever it says.
+    researcher_record: dict[str, object] | None = None
+    if args.researcher:
+        if args.offline:
+            print("--researcher is live-only (the researcher is a real model)", file=sys.stderr)
+            return 2
+        if not os.environ.get("SIFLOW_API_KEY"):
+            print("missing SIFLOW_API_KEY", file=sys.stderr)
+            return 2
+        import tempfile
+
+        workspace = Path(tempfile.mkdtemp(prefix="ds-agent-"))
+        agent_dir = workspace / "agent"
+        agent_dir.mkdir(parents=True, exist_ok=True)
+        stub = agent_dir / "strategy.py"
+        stub.write_text(_STRATEGY_STUB, encoding="utf-8")
+        feedback = _dev_feedback_bytes(ds_s0_probe)
+        try:
+            changes, usage = _researcher_round(stub, feedback, round_index=0)
+            strategy_text = changes.get("strategy.py")
+            if strategy_text is None or not strategy_text.strip():
+                researcher_record = {
+                    "round_outcome": "no-strategy-file",
+                    "changes": sorted(changes),
+                    "usage": usage,
+                }
+                strategy_text = _STRATEGY_STUB  # S1 = unchanged stub
+            else:
+                researcher_record = {
+                    "round_outcome": "ok",
+                    "changes": sorted(changes),
+                    "usage": usage,
+                }
+        except Exception as exc:
+            # A failed researcher round is a recorded outcome: S1 stays
+            # at the stub (no change), and the failure is named — never
+            # a silent no-improvement.
+            researcher_record = {
+                "round_outcome": f"failed: {type(exc).__name__}: {exc}",
+                "changes": [],
+                "usage": {},
+            }
+            strategy_text = _STRATEGY_STUB
+        ds_state_update = {
+            "notes": [
+                "improvement round ran; see researcher_record for its outcome",
+            ]
+        }
+    else:
+        strategy_text = (
+            "# DS improvement: scope-aware invalidation (world-generic)\n"
+            "STRATEGY_RERVERIFY = True\n"
+            "WORLD_PROFILES = {\n"
+            "  'main': {\n"
+            "    'checks': ['online-cutover', 'replica-lag'],\n"
+            "    'domains': {'aurora': 'finance', 'borealis': 'finance'},\n"
+            "  },\n"
+            "  'orinoco': {\n"
+            "    'checks': ['soak-window', 'retention'],\n"
+            "    'domains': {'kestrel': 'billing', 'lark': 'billing'},\n"
+            "  },\n"
+            "  'parana': {\n"
+            "    'checks': ['checksum-drift', 'acl-audit'],\n"
+            "    'domains': {'basalt': 'archive', 'cobble': 'archive'},\n"
+            "  },\n"
+            "}\n"
+            "PLAN_PREFERENCE = ['aurora', 'kestrel', 'basalt']\n"
+        )
+        ds_state_update = {
+            "notes": [
+                "rule changes invalidate only in-scope verifications",
+                "re-verify in-scope checks under the current revision before commit",
+            ]
+        }
     s1 = _freeze_from_parts(s0, "S1", strategy_text, ds_state_update)
 
     # 4. The three branches per snapshot.
@@ -623,8 +681,10 @@ def main() -> int:
             "snapshot": "S0",
             "dev_totals": ds_dev_totals,
             "improvement": {
+                "authored_by": "researcher" if args.researcher else "harness-script",
                 "strategy_text": strategy_text,
                 "state_update": ds_state_update,
+                "researcher_record": researcher_record,
             },
             "s0_branches": ds_s0_branches,
             "s1_branches": ds_s1_branches,
@@ -657,6 +717,103 @@ def _freeze_from_parts(s0, snapshot_id: str, strategy_text: str, state_update: d
         schema=s0.schema,
         byte_cap=s0.byte_cap,
     )
+
+
+# --- researcher mode: the DS model authors the S1 strategy ----------------------
+
+_RESEARCHER_MODEL = "deepseek-ai/deepseek-v4.1-flash"
+_STRATEGY_STUB = (
+    '"""Migration-commit strategy. The researcher may rewrite this file.\n\n'
+    "The harness executes this file once per stage and reads these names:\n"
+    "  STRATEGY_RERVERIFY  bool — re-verify in-scope checks after a rule change\n"
+    "  WORLD_PROFILES      dict — per-world 'checks' lists and 'domains' maps\n"
+    "  PLAN_PREFERENCE     list — plan names preferred over survey order\n"
+    "  choose_plan(survey_text) -> str — optional full override\n"
+    '"""\n'
+    "STRATEGY_RERVERIFY = False\n"
+    "WORLD_PROFILES = {}\n"
+    "PLAN_PREFERENCE = []\n"
+)
+
+
+def _researcher_round(
+    strategy_stub_path: Path, dev_feedback: bytes, round_index: int
+) -> tuple[dict[str, str], dict[str, object]]:
+    """One REAL improvement round: the DS researcher rewrites the strategy.
+
+    Returns (agent_files_changed, usage_record). Failures raise — the
+    caller records them as the round's outcome (a failed round is a
+    recorded result, never a silent no-change).
+    """
+
+    from rsicontext.participant.api_researcher import (
+        APIResearcherConfig,
+        APIResearcherImprover,
+    )
+    from rsicontext.participant.registration import ImprovementRoundInput
+
+    agent_dir = strategy_stub_path.parent
+    improver = APIResearcherImprover(
+        config=APIResearcherConfig(endpoint=READER_ENDPOINT, model=_RESEARCHER_MODEL)
+    )
+    round_input = ImprovementRoundInput(
+        round_index=round_index,
+        task_text=(
+            "Improve the commit strategy for a five-stage migration-decision "
+            "workflow. The strategy file is executed by the participant "
+            "harness: keep the interface (STRATEGY_RERVERIFY bool, "
+            "WORLD_PROFILES dict with per-world 'checks' and 'domains', "
+            "PLAN_PREFERENCE list, optional choose_plan(survey_text)). The "
+            "known failure mode: after a rule change supersedes specific "
+            "checks, the agent commits verification evidence recorded under "
+            "the OLD protocol revision and the evaluator gate refuses the "
+            "commit. A WORLD-GENERIC policy is required: the strategy runs "
+            "on unseen worlds with different plan names, domains, and check "
+            "names — hardcoding one world's names will fail elsewhere. "
+            "Rewrite strategy.py."
+        ),
+        restricted_feedback_bytes=dev_feedback,
+        current_agent_dir=agent_dir,
+        state_path=None,
+        remaining_slots=1,
+        task_order_seed=11,
+    )
+    output = improver.improve(round_input)
+    usage = {
+        "input_tokens": output.usage.input_tokens,
+        "output_tokens": output.usage.output_tokens,
+        "wall_seconds": output.usage.wall_seconds,
+    }
+    return dict(output.agent_files_changed), usage
+
+
+def _dev_feedback_bytes(ds_branch_record: object) -> bytes:
+    """Restricted feedback from the DS arm's dev session: what failed.
+
+    The F-schema subset the improver consumes: stage-level failures with
+    the named causes (the gate's refusal messages), never gold material.
+    """
+
+    import json as _json
+
+    failures: list[str] = []
+    if isinstance(ds_branch_record, dict):
+        for branch in ("continuation", "new_world", "regression"):
+            for variant in ds_branch_record.get(branch, []):
+                if isinstance(variant, dict):
+                    if variant.get("error"):
+                        failures.append(f"{branch}: {variant['error']}")
+                    for entry in variant.get("final_checks", []):
+                        if isinstance(entry, dict):
+                            failures.extend(
+                                f"{branch}: {failure}" for failure in entry.get("failures", [])
+                            )
+    payload = {
+        "stage": "dev-evaluation",
+        "failures": failures[:32],
+        "instruction": "The commit gate named these failures on the dev worlds.",
+    }
+    return _json.dumps(payload).encode("utf-8")
 
 
 if __name__ == "__main__":
