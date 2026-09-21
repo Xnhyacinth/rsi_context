@@ -181,11 +181,7 @@ class TrajectoryHook:
 
         plan = self.choose_plan()
         actions = self._commit_actions(plan)
-        try:
-            response = StageResponse(pack_text=f"commit {plan}", actions=tuple(actions))
-        except Exception:
-            response = StageResponse(pack_text=f"commit attempt {plan} failed")
-        return response
+        return StageResponse(pack_text=f"commit {plan}", actions=tuple(actions))
 
     def _commit_actions(self, plan: str) -> list[Action]:
         # Verification records: the strategy decides whether the

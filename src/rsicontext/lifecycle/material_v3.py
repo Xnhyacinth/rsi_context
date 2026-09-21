@@ -288,6 +288,16 @@ def build_research_v3_instance(*, instance_id: str = "research-v3-main-0001") ->
                     _COMMIT_RECORD: {"status": "final"},
                 },
                 expected_aliases=(),
+                commit_precondition={
+                    "record_id": _COMMIT_RECORD,
+                    "plan_field": "plan",
+                    "legal_plans": list(_LEGAL_PLANS),
+                    "plan_requirements": {
+                        "aurora": dict(_FINANCE_CONSTRAINT),
+                    },
+                    "current_revision": _PROTOCOL_REVISION_NEW,
+                    "revision_scope": list(_REVISION_SCOPE),
+                },
             ),
         ),
         axes=DescriptionAxes(

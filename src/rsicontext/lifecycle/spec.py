@@ -152,6 +152,7 @@ class StageSpec:
     gold_evidence_ids: tuple[str, ...]
     expected_state_delta: Mapping[str, object] | None = None
     expected_aliases: tuple[str, ...] = ()
+    commit_precondition: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         _require_str(self.stage_id, "stage_id")
@@ -179,6 +180,12 @@ class StageSpec:
             raise ValueError("only act_verify stages carry expected_state_delta")
         if self.kind != "act_verify" and self.expected_aliases:
             raise ValueError("only act_verify stages carry expected_aliases")
+        if self.commit_precondition is not None:
+            if self.kind != "act_verify":
+                raise ValueError("only act_verify stages carry commit_precondition")
+            if not isinstance(self.commit_precondition, Mapping):
+                raise TypeError("commit_precondition must be a mapping or None")
+            object.__setattr__(self, "commit_precondition", dict(self.commit_precondition))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -191,6 +198,9 @@ class StageSpec:
                 None if self.expected_state_delta is None else dict(self.expected_state_delta)
             ),
             "expected_aliases": list(self.expected_aliases),
+            "commit_precondition": (
+                None if self.commit_precondition is None else dict(self.commit_precondition)
+            ),
         }
 
 
@@ -330,6 +340,14 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         expected = dict(raw_delta)
     else:
         raise TypeError("expected_state_delta must be a mapping or null")
+    raw_precondition = d.get("commit_precondition")
+    precondition: Mapping[str, object] | None
+    if raw_precondition is None:
+        precondition = None
+    elif isinstance(raw_precondition, Mapping):
+        precondition = dict(raw_precondition)
+    else:
+        raise TypeError("commit_precondition must be a mapping or null")
     return StageSpec(
         stage_id=_load_str(d, "stage_id"),
         kind=cast(StageKind, _load_choice(d, "kind", _STAGE_KINDS)),
@@ -338,6 +356,7 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         gold_evidence_ids=_load_str_list(d, "gold_evidence_ids"),
         expected_state_delta=expected,
         expected_aliases=_load_str_list(d, "expected_aliases"),
+        commit_precondition=precondition,
     )
 
 

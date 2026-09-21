@@ -23,8 +23,18 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from rsicontext.lifecycle.env import Action, CheckResult, ObjectiveChecker, ProjectState
-from rsicontext.lifecycle.spec import DescriptionAxes, DocumentRef, LifecycleInstance, StageSpec
+from rsicontext.lifecycle.env import (
+    Action,
+    CheckResult,
+    ObjectiveChecker,
+    ProjectState,
+)
+from rsicontext.lifecycle.spec import (
+    DescriptionAxes,
+    DocumentRef,
+    LifecycleInstance,
+    StageSpec,
+)
 
 _DOC_MARKER = re.compile(r"\[\[doc:([^]]+)\]\]")
 
@@ -235,6 +245,13 @@ def run_lifecycle(
     final_check = ObjectiveChecker().check(
         env, expected, aliases=act_verify.expected_aliases or None
     )
+    if act_verify.commit_precondition is not None:
+        gate_failures = _commit_gate_failures(act_verify.commit_precondition, env.snapshot())
+        if gate_failures:
+            final_check = CheckResult(
+                passed=False,
+                failures=(*final_check.failures, *gate_failures),
+            )
     wall_seconds = time.monotonic() - started
     return LifecycleRunRecord(
         instance_id=inst.instance_id,
@@ -245,3 +262,89 @@ def run_lifecycle(
         axes=inst.axes,
         sandbox_final_state=env.snapshot(),
     )
+
+
+def _commit_gate_failures(
+    precondition: Mapping[str, object], records: Mapping[str, dict[str, Any]]
+) -> tuple[str, ...]:
+    """Evaluator-side commit legality over the sandbox's ACTUAL records.
+
+    The participant's finalize ``Action`` preconditions are opt-in and
+    participant-emitted; this gate is the evaluator's own copy, checked
+    after the stages run, so a plain finalize of an illegal plan cannot
+    pass the final check. Recognized keys (all optional):
+
+    - ``record_id`` (str): the commit record whose legality is checked.
+    - ``plan_field`` (str): the field on that record naming the plan.
+    - ``legal_plans`` (list[str]): the derived legal plan set.
+    - ``plan_requirements`` (mapping plan -> {domain, requires_check}):
+      the committed plan's required verification, keyed by the sandbox
+      records the commit references (its ``provenance`` list).
+    - ``current_revision`` (int) + ``revision_scope`` (list[str]):
+      referenced records carrying a ``check`` in the scope must carry
+      ``protocol_revision == current_revision``.
+    """
+
+    failures: list[str] = []
+    record_id = precondition.get("record_id")
+    if not isinstance(record_id, str):
+        return tuple(failures)
+    commit = records.get(record_id)
+    if not isinstance(commit, dict):
+        return (f"commit gate: record {record_id!r} is missing",)
+    plan_field = precondition.get("plan_field")
+    if not isinstance(plan_field, str):
+        return tuple(failures)
+    plan = commit.get(plan_field)
+    if not isinstance(plan, str):
+        return (f"commit gate: record {record_id!r} lacks a {plan_field!r} value",)
+    legal = precondition.get("legal_plans")
+    if isinstance(legal, list) and plan not in legal:
+        failures.append(f"commit gate: plan {plan!r} is not in the legal set")
+    refs = commit.get("provenance")
+    referenced: list[dict[str, Any]] = []
+    if isinstance(refs, list):
+        for ref in refs:
+            record = records.get(ref) if isinstance(ref, str) else None
+            if isinstance(record, dict):
+                referenced.append(record)
+    requirements = precondition.get("plan_requirements")
+    if isinstance(requirements, Mapping):
+        requirement = requirements.get(plan)
+        if isinstance(requirement, Mapping):
+            domain = requirement.get("domain")
+            required_check = requirement.get("requires_check")
+            if isinstance(domain, str) and isinstance(required_check, str):
+                domain_record = next(
+                    (record for record in referenced if record.get("domain") == domain),
+                    None,
+                )
+                if domain_record is not None and not any(
+                    record.get("check") == required_check for record in referenced
+                ):
+                    failures.append(
+                        f"commit gate: plan {plan!r} (domain {domain!r}) lacks a "
+                        f"{required_check!r} verification among its referenced records"
+                    )
+    current_revision = precondition.get("current_revision")
+    scope = precondition.get("revision_scope")
+    if (
+        isinstance(current_revision, int)
+        and not isinstance(current_revision, bool)
+        and isinstance(scope, list)
+    ):
+        scope_set = {entry for entry in scope if isinstance(entry, str)}
+        for record in referenced:
+            check = record.get("check")
+            if (
+                isinstance(check, str)
+                and check in scope_set
+                and record.get("protocol_revision") != current_revision
+            ):
+                failures.append(
+                    f"commit gate: plan {plan!r} relies on a stale "
+                    f"{check!r} verification (revision "
+                    f"{record.get('protocol_revision')!r}, current "
+                    f"{current_revision})"
+                )
+    return tuple(failures)

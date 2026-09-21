@@ -61,6 +61,31 @@ disk-encryption records do NOT block commits), gold-drop analog
 (the reread path works from lost notes; its cost is the caller's
 ledger).
 
+## Post-commit hardening (2026-09-21, self-review round)
+
+Self-review found the commit legality was enforced ONLY by the
+participant's own finalize-Action preconditions (opt-in): a participant
+could finalize an illegal plan (borealis) or stale evidence via a PLAIN
+finalize and still pass the ObjectiveChecker, because the v3
+expected_state_delta only checked `status == "final"`. Fixed by an
+evaluator-owned layer: `StageSpec.commit_precondition` (evaluator-only,
+excluded from `StageView` like the other evaluator fields; serialized
+round-trip) checked by `run_lifecycle` against the sandbox's ACTUAL
+records after the stages run — plan-in-legal-set, per-plan required
+checks over the commit's referenced records, in-scope revision checks —
+with named `commit gate: …` failures appended to the final CheckResult.
+`tests/test_commit_gate.py` (6 tests) pins: illegal plan, stale
+evidence, missing cutover check, unknown plan all FAIL the final check;
+legal current-evidence commit passes; v1/v2 instances (no
+commit_precondition) are unaffected. Also removed a dead try/except in
+`scripts/trajectory_v3.py` (it could never fire and rewrote the response
+unrecorded).
+
+The participant-emitted Action preconditions REMAIN: they make
+refusals observable at apply time (feedback to the participant during
+the run); the evaluator gate makes legality hold even for participants
+that never opt in. Two layers, one rule.
+
 ## What this does NOT claim
 
 - Layer 3 (real-system behavior) is untested here: no real reader has
