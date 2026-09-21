@@ -39,6 +39,7 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
     payload = json.loads(output.read_text(encoding="utf-8"))
     assert payload["mode"] == "offline"
     assert payload["world"] == "research-v3-main-0001"
+    assert payload["seed"] == 0 and payload["rounds"] == 1
 
     # Reference executor: the task is solvable (a capability-free check).
     assert payload["reference_executor"]["final_check_passed"] is True
@@ -64,10 +65,17 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
                 ]
                 assert any("stale" in failure for failure in failures), variant
 
-    # DS arm: S1's branches PASS with the scope-aware strategy; S0's
-    # share the fixed arm's stale-evidence failure signature.
+    # DS arm: S0 (no strategy) shares the fixed arm's failure signature;
+    # S1 (the scope-aware strategy) passes on every branch.
+    snapshot_branches = payload["ds_arm"]["snapshot_branches"]
+    assert set(snapshot_branches) == {"S0", "S1"}
     for branch in ("continuation", "new_world", "regression"):
-        for variant in payload["ds_arm"]["s1_branches"][branch]:
+        for variant in snapshot_branches["S0"][branch]:
+            if variant.get("error"):
+                assert "stale" in variant["error"], variant
+            else:
+                assert not _final_check_passed(variant), variant
+        for variant in snapshot_branches["S1"][branch]:
             assert variant["ran"] is True, variant
             assert _final_check_passed(variant), variant
             # Reviewer 2.2's end-to-end pin: a PASSING S1 must ALSO be
@@ -76,16 +84,13 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
             # "the strategy genuinely did not help" — the exact
             # mis-attribution a researcher-authored run cannot afford.
             assert variant.get("strategy_errors") == [], variant
-        for variant in payload["ds_arm"]["s0_branches"][branch]:
-            if variant.get("error"):
-                assert "stale" in variant["error"], variant
-            else:
-                assert not _final_check_passed(variant), variant
 
-    # The improvement record is inspectable: strategy text + state update.
-    improvement = payload["ds_arm"]["improvement"]
-    assert "STRATEGY_RERVERIFY" in improvement["strategy_text"]
-    assert isinstance(improvement["state_update"], dict)
+    # The improvement round record is inspectable: strategy text + state.
+    rounds = payload["ds_arm"]["rounds"]
+    assert len(rounds) == 1
+    assert rounds[0]["snapshot_id"] == "S1"
+    assert "STRATEGY_RERVERIFY" in rounds[0]["strategy_text"]
+    assert isinstance(rounds[0]["state_update"], dict)
 
     # Evidence classes stay separated in the artifact.
     assert set(payload) >= {

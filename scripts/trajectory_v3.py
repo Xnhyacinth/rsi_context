@@ -1,29 +1,35 @@
 #!/usr/bin/env python3
-"""First S0->S1 improvement trajectory on the research-v3 main world.
+"""S0->S1 improvement trajectory on the research-v3 world pool — replication-matrix capable.
 
-Contract: review round 4 deliverable 5. One trajectory, three participants
-of DIFFERENT kinds (not a method competition):
+Contract: review round 4 deliverable 5, now multi-round (round 5). Three
+participants of DIFFERENT kinds (not a method competition):
 
   reference   scripted executor of a legal path (task solvability; not a
               capability result)
   fixed       memory-operational fixed agent (real reader; notes work,
               strategy never updates) — the "experience alone" control:
               the SAME dev stream, snapshot F0 frozen from it
-  ds          the DS researcher arm: one improvement round between S0 and
-              S1 (its strategy edit + state update), S1 frozen
+  ds          the improvement arm: N rounds (S0 -> S1 -> ... -> SN).
+              Default: a harness-scripted strategy. With --researcher:
+              the DS model authors every round over feedback
+              REGENERATED from the CURRENT snapshot's probe (round N
+              sees round N-1's residual failures, not the initial
+              ones); the strategy file is cumulative.
 
-Both snapshots (fixed: F0; ds: S0 and S1) then enter the SAME three
-evaluation branches (continuation / new-world / regression) through the
-frozen-snapshot carry (participant/snapshot.py) — legitimate carry, no
-cross-branch writes, leak probe intact.
+Every snapshot enters the SAME three evaluation branches
+(continuation / new-world over the VARIANT worlds / regression) through
+the frozen-snapshot carry — legitimate carry, no cross-branch writes.
 
-Offline mode (--offline) runs reference + a scripted 'fixed' and 'ds'
-against a deterministic fake reader: it verifies the WIRING (freeze ->
-improve -> freeze -> branches, accounting, refusals surfaced) with zero
-API cost. Live mode additionally uses the siflow T2 reader for the fixed
-and ds arms. The improvement's VALUE is not judged here: the deliverable
-is the closed, explainable loop. S1 > S0 is neither required nor
-expected; the record reports whatever happened.
+--seed is the presentation axis of the replication matrix: branch
+session ids and probe surface sampling are seed-distinct, while WORLD
+MATERIAL is never seed-dependent (material variance belongs to the
+world pool, not to the seed axis).
+
+Offline mode (--offline) verifies the WIRING with a deterministic fake
+reader at zero API cost. --researcher is live-only. The improvement's
+VALUE is not judged here: the deliverable is the closed, explainable,
+now repeatable loop. S1 > S0 is neither required nor expected; the
+record reports whatever happened.
 
 Run from the repo root (SIFLOW_API_KEY exported for live mode).
 """
@@ -410,7 +416,12 @@ def run_dev_session(
 
 
 def evaluate_branches(
-    snapshot, *, strategy_text: str | None, offline: bool, offline_answers: dict[str, str] | None
+    snapshot,
+    *,
+    strategy_text: str | None,
+    offline: bool,
+    offline_answers: dict[str, str] | None,
+    seed_suffix: str = "",
 ) -> dict[str, object]:
     """Run continuation / new-world / regression branches from one snapshot.
 
@@ -418,6 +429,9 @@ def evaluate_branches(
     same dependency structure, different material — so a strategy whose
     improvement is structural (scope-aware invalidation) rather than
     topic-specific is exercised on material it never saw.
+    ``seed_suffix`` makes branch session ids seed-distinct (the
+    presentation axis of the replication matrix); the WORLD MATERIAL is
+    never seed-dependent.
     """
 
     results: dict[str, object] = {}
@@ -434,10 +448,12 @@ def evaluate_branches(
             if surface == "variants":
                 inst = build_research_v3_variant(
                     _VARIANT_IDS[variant % len(_VARIANT_IDS)],
-                    instance_id=f"research-v3-{session_id}-{variant}",
+                    instance_id=f"research-v3-{session_id}{seed_suffix}-{variant}",
                 )
             else:
-                inst = build_research_v3_instance(instance_id=f"research-v3-{session_id}-{variant}")
+                inst = build_research_v3_instance(
+                    instance_id=f"research-v3-{session_id}{seed_suffix}-{variant}"
+                )
             try:
                 captured = {"hooks": []}
 
@@ -464,7 +480,7 @@ def evaluate_branches(
                 branch_record = run_evaluation_branch(
                     snapshot,
                     kind,
-                    f"{session_id}-{variant}",
+                    f"{session_id}{seed_suffix}-{variant}",
                     instances=[inst],
                     hook_factory=capturing_hook_factory,
                     byte_cap=_CAP,
@@ -511,11 +527,26 @@ def main() -> int:
         help="the DS researcher model authors the S1 strategy (live; needs SIFLOW_API_KEY)",
     )
     parser.add_argument(
+        "--rounds",
+        type=int,
+        default=1,
+        help="improvement rounds: S0->S1->...->SN (feedback regenerated per round)",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=0,
+        help="deterministic presentation seed: branch session ids + probe world order",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("artifacts/trajectory-v3/trajectory-20260921.json"),
     )
     args = parser.parse_args()
+    if args.rounds < 1:
+        print("--rounds must be at least 1", file=sys.stderr)
+        return 2
 
     started = time.monotonic()
     offline_answers = {
@@ -567,109 +598,141 @@ def main() -> int:
         snapshot_id="S0",
         byte_cap=_CAP,
     )
-    # The dev-world probe: run the S0 snapshot over the three branch
-    # kinds (dev surfaces only) to COLLECT the failure feedback the
-    # researcher will see — the same restricted-F subset the scripted
-    # strategy's design targets.
-    ds_s0_probe = evaluate_branches(
-        s0, strategy_text=None, offline=args.offline, offline_answers=offline_answers
-    )
 
-    # The improvement round. Scripted mode (default): a harness-authored
-    # strategy standing in for the researcher. Researcher mode
-    # (--researcher, live only): the DS model rewrites the strategy stub
-    # over restricted feedback from the DS dev session's failures — the
-    # researcher's OWN output is frozen as S1, whatever it says.
-    researcher_record: dict[str, object] | None = None
-    if args.researcher:
-        if args.offline:
-            print("--researcher is live-only (the researcher is a real model)", file=sys.stderr)
-            return 2
-        if not os.environ.get("SIFLOW_API_KEY"):
-            print("missing SIFLOW_API_KEY", file=sys.stderr)
-            return 2
-        import tempfile
-
-        workspace = Path(tempfile.mkdtemp(prefix="ds-agent-"))
-        agent_dir = workspace / "agent"
-        agent_dir.mkdir(parents=True, exist_ok=True)
-        stub = agent_dir / "strategy.py"
-        stub.write_text(_STRATEGY_STUB, encoding="utf-8")
-        feedback = _dev_feedback_bytes(ds_s0_probe)
-        try:
-            changes, usage = _researcher_round(stub, feedback, round_index=0)
-            strategy_text = changes.get("strategy.py")
-            if strategy_text is None or not strategy_text.strip():
-                researcher_record = {
-                    "round_outcome": "no-strategy-file",
-                    "changes": sorted(changes),
-                    "usage": usage,
-                }
-                strategy_text = _STRATEGY_STUB  # S1 = unchanged stub
-            else:
-                researcher_record = {
-                    "round_outcome": "ok",
-                    "changes": sorted(changes),
-                    "usage": usage,
-                }
-        except Exception as exc:
-            # A failed researcher round is a recorded outcome: S1 stays
-            # at the stub (no change), and the failure is named — never
-            # a silent no-improvement.
-            researcher_record = {
-                "round_outcome": f"failed: {type(exc).__name__}: {exc}",
-                "changes": [],
-                "usage": {},
-            }
-            strategy_text = _STRATEGY_STUB
-        ds_state_update = {
-            "notes": [
-                "improvement round ran; see researcher_record for its outcome",
-            ]
-        }
-    else:
-        strategy_text = (
-            "# DS improvement: scope-aware invalidation (world-generic)\n"
-            "STRATEGY_RERVERIFY = True\n"
-            "WORLD_PROFILES = {\n"
-            "  'main': {\n"
-            "    'checks': ['online-cutover', 'replica-lag'],\n"
-            "    'domains': {'aurora': 'finance', 'borealis': 'finance'},\n"
-            "  },\n"
-            "  'orinoco': {\n"
-            "    'checks': ['soak-window', 'retention'],\n"
-            "    'domains': {'kestrel': 'billing', 'lark': 'billing'},\n"
-            "  },\n"
-            "  'parana': {\n"
-            "    'checks': ['checksum-drift', 'acl-audit'],\n"
-            "    'domains': {'basalt': 'archive', 'cobble': 'archive'},\n"
-            "  },\n"
-            "}\n"
-            "PLAN_PREFERENCE = ['aurora', 'kestrel', 'basalt']\n"
+    # The dev-world probe: run the CURRENT snapshot over the three branch
+    # kinds (dev surfaces only) to COLLECT the failure feedback for the
+    # round — regenerated per round so round N sees round N-1's residual
+    # failures, never the initial ones.
+    def probe(snapshot, strategy_text: str | None) -> dict[str, object]:
+        return evaluate_branches(
+            snapshot,
+            strategy_text=strategy_text,
+            offline=args.offline,
+            offline_answers=offline_answers,
+            seed_suffix=f"-s{args.seed}",
         )
-        ds_state_update = {
-            "notes": [
-                "rule changes invalidate only in-scope verifications",
-                "re-verify in-scope checks under the current revision before commit",
-            ]
-        }
-    s1 = _freeze_from_parts(s0, "S1", strategy_text, ds_state_update)
 
-    # 4. The three branches per snapshot.
+    # Improvement rounds: S0 -> S1 -> ... -> SN. Each round's feedback
+    # comes from the CURRENT snapshot's probe; the strategy file is
+    # CUMULATIVE (round N's author sees round N-1's file in the stub
+    # workspace); a failed or empty round keeps the previous strategy
+    # (recorded, never silent).
+    rounds_payload: list[dict[str, object]] = []
+    strategy_text: str = _STRATEGY_STUB if args.researcher else _SCRIPTED_STRATEGY
+    current = s0
+    current_strategy: str | None = None  # S0 runs WITHOUT a strategy
+    snapshots: dict[str, object] = {"S0": s0}
+    branch_results: dict[str, dict[str, object]] = {}
+
+    for round_index in range(args.rounds):
+        researcher_record: dict[str, object] | None = None
+        ds_state_update: dict[str, object] = {}
+        if args.researcher:
+            if args.offline:
+                print("--researcher is live-only (the researcher is a real model)", file=sys.stderr)
+                return 2
+            if not os.environ.get("SIFLOW_API_KEY"):
+                print("missing SIFLOW_API_KEY", file=sys.stderr)
+                return 2
+            import tempfile
+
+            workspace = Path(tempfile.mkdtemp(prefix=f"ds-agent-r{round_index}-"))
+            agent_dir = workspace / "agent"
+            agent_dir.mkdir(parents=True, exist_ok=True)
+            stub = agent_dir / "strategy.py"
+            # Round N's author sees round N-1's strategy (cumulative).
+            stub.write_text(strategy_text, encoding="utf-8")
+            feedback = _dev_feedback_bytes(probe(current, current_strategy))
+            try:
+                changes, usage = _researcher_round(stub, feedback, round_index=round_index)
+                proposed = changes.get("strategy.py")
+                if proposed is None or not proposed.strip():
+                    researcher_record = {
+                        "round_outcome": "no-strategy-file",
+                        "changes": sorted(changes),
+                        "usage": usage,
+                    }
+                    # Keep the previous strategy.
+                else:
+                    researcher_record = {
+                        "round_outcome": "ok",
+                        "changes": sorted(changes),
+                        "usage": usage,
+                    }
+                    strategy_text = proposed
+            except Exception as exc:
+                researcher_record = {
+                    "round_outcome": f"failed: {type(exc).__name__}: {exc}",
+                    "changes": [],
+                    "usage": {},
+                }
+            ds_state_update = {
+                "notes": [
+                    f"round {round_index} ran; see rounds[{round_index}] for its outcome",
+                ]
+            }
+        else:
+            # Scripted mode: the world-generic fix applies in round 0;
+            # later rounds keep it (the script has no further edits).
+            if round_index == 0:
+                strategy_text = _SCRIPTED_STRATEGY
+                ds_state_update = {
+                    "notes": [
+                        "rule changes invalidate only in-scope verifications",
+                        "re-verify in-scope checks under the current revision before commit",
+                    ]
+                }
+            else:
+                ds_state_update = {
+                    "notes": [f"round {round_index}: strategy unchanged (scripted arm)"],
+                }
+        snapshot_id = f"S{round_index + 1}"
+        current_strategy = strategy_text
+        current = _freeze_from_parts(current, snapshot_id, strategy_text, ds_state_update)
+        snapshots[snapshot_id] = current
+        rounds_payload.append(
+            {
+                "round": round_index,
+                "snapshot_id": snapshot_id,
+                "authored_by": "researcher" if args.researcher else "harness-script",
+                "researcher_record": researcher_record,
+                "strategy_text": strategy_text,
+                "state_update": ds_state_update,
+            }
+        )
+
+    # 4. The three branches per snapshot: S0 (no strategy), every S_n,
+    # and the fixed F0 control.
     fixed_branches = evaluate_branches(
-        f0, strategy_text=None, offline=args.offline, offline_answers=offline_answers
+        f0,
+        strategy_text=None,
+        offline=args.offline,
+        offline_answers=offline_answers,
+        seed_suffix=f"-s{args.seed}",
     )
-    ds_s0_branches = evaluate_branches(
-        s0, strategy_text=None, offline=args.offline, offline_answers=offline_answers
+    branch_results["S0"] = evaluate_branches(
+        s0,
+        strategy_text=None,
+        offline=args.offline,
+        offline_answers=offline_answers,
+        seed_suffix=f"-s{args.seed}",
     )
-    ds_s1_branches = evaluate_branches(
-        s1, strategy_text=strategy_text, offline=args.offline, offline_answers=offline_answers
-    )
+    for round_index in range(1, args.rounds + 1):
+        snapshot_id = f"S{round_index}"
+        branch_results[snapshot_id] = evaluate_branches(
+            snapshots[snapshot_id],
+            strategy_text=rounds_payload[round_index - 1]["strategy_text"],
+            offline=args.offline,
+            offline_answers=offline_answers,
+            seed_suffix=f"-s{args.seed}",
+        )
 
     elapsed = time.monotonic() - started
     payload = {
         "mode": "offline" if args.offline else "live",
         "reader_model": None if args.offline else READER_MODEL,
+        "seed": args.seed,
+        "rounds": args.rounds,
         "world": "research-v3-main-0001",
         "reference_executor": reference,
         "fixed_arm": {
@@ -680,14 +743,8 @@ def main() -> int:
         "ds_arm": {
             "snapshot": "S0",
             "dev_totals": ds_dev_totals,
-            "improvement": {
-                "authored_by": "researcher" if args.researcher else "harness-script",
-                "strategy_text": strategy_text,
-                "state_update": ds_state_update,
-                "researcher_record": researcher_record,
-            },
-            "s0_branches": ds_s0_branches,
-            "s1_branches": ds_s1_branches,
+            "rounds": rounds_payload,
+            "snapshot_branches": branch_results,
         },
         "elapsed_seconds": round(elapsed, 1),
     }
@@ -696,7 +753,11 @@ def main() -> int:
         json.dump(payload, handle, indent=1)
     print(
         json.dumps(
-            {k: payload[k] for k in ("mode", "reference_executor", "elapsed_seconds")}, indent=1
+            {
+                k: payload[k]
+                for k in ("mode", "seed", "rounds", "reference_executor", "elapsed_seconds")
+            },
+            indent=1,
         )
     )
     print(f"artifact: {args.output}")
@@ -733,6 +794,28 @@ _STRATEGY_STUB = (
     "STRATEGY_RERVERIFY = False\n"
     "WORLD_PROFILES = {}\n"
     "PLAN_PREFERENCE = []\n"
+)
+#: The harness-scripted strategy (the rehearsal arm): the world-generic
+#: scope-aware invalidation fix, with per-world profiles for the main and
+#: variant worlds. Round 0 applies it; later scripted rounds keep it.
+_SCRIPTED_STRATEGY = (
+    "# DS improvement: scope-aware invalidation (world-generic)\n"
+    "STRATEGY_RERVERIFY = True\n"
+    "WORLD_PROFILES = {\n"
+    "  'main': {\n"
+    "    'checks': ['online-cutover', 'replica-lag'],\n"
+    "    'domains': {'aurora': 'finance', 'borealis': 'finance'},\n"
+    "  },\n"
+    "  'orinoco': {\n"
+    "    'checks': ['soak-window', 'retention'],\n"
+    "    'domains': {'kestrel': 'billing', 'lark': 'billing'},\n"
+    "  },\n"
+    "  'parana': {\n"
+    "    'checks': ['checksum-drift', 'acl-audit'],\n"
+    "    'domains': {'basalt': 'archive', 'cobble': 'archive'},\n"
+    "  },\n"
+    "}\n"
+    "PLAN_PREFERENCE = ['aurora', 'kestrel', 'basalt']\n"
 )
 
 
