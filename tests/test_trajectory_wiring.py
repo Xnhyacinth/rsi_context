@@ -172,3 +172,60 @@ def test_stub_strategy_is_the_fixed_baseline() -> None:
     assert hook.choose_plan()  # fixed fallback; no strategy errors
     assert hook.strategy_errors == []
     assert "STRATEGY_RERVERIFY = False" in _STRATEGY_STUB
+
+
+def test_multi_round_state_update_accumulates(tmp_path: Path) -> None:
+    # The carry contract: legitimate learned material (round notes)
+    # ACCUMULATES across snapshots — S2's memory must contain S1's
+    # notes, not replace them. A per-round overwrite silently discards
+    # earlier rounds' learning from every later branch evaluation.
+    output = tmp_path / "trajectory-r3.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_REPO_ROOT / "scripts" / "trajectory_v3.py"),
+            "--offline",
+            "--rounds",
+            "3",
+            "--output",
+            str(output),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+        timeout=120,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    rounds = payload["ds_arm"]["rounds"]
+    assert len(rounds) == 3
+    all_notes: list[str] = []
+    for round_record in rounds:
+        notes = round_record["state_update"].get("notes", [])
+        all_notes.extend(notes)
+    # Round-0's substantive notes survive into the later rounds'
+    # snapshot memories: S2/S3 must still carry S1's learning.
+    # (The rounds[] entries record what each round ADDED; the frozen
+    # snapshot memory is the union — asserted via strategy carry
+    # below.)
+    # Union check via the S3 snapshot's branches: the S3 strategy is
+    # still the scripted fix (cumulative), and its state carries all
+    # rounds' notes.
+    s3_branches = payload["ds_arm"]["snapshot_branches"]["S3"]
+    assert all(
+        all(entry["passed"] for entry in v.get("final_checks", []))
+        for variants in s3_branches.values()
+        for v in variants
+        if v.get("final_checks")
+    )
+    # STRONG accumulation assertion: round 0's substantive notes are
+    # present in the FINAL snapshot's accumulated memory — later rounds
+    # appended, they did not replace.
+    final_notes = payload["ds_arm"]["rounds"][-1]["memory_notes"]
+    assert any(
+        "invalidate only in-scope" in str(note) for note in final_notes
+    ), final_notes
+    # And every round's own note survives to the end.
+    for round_record in payload["ds_arm"]["rounds"]:
+        for note in round_record["state_update"].get("notes", []):
+            assert str(note) in [str(n) for n in final_notes], note

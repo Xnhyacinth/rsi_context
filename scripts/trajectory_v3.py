@@ -242,7 +242,11 @@ class TrajectoryHook:
         self.tokens_out += tokens_out
         self.calls += 1
         if stage.kind == "survey":
-            self._survey_text = prompt
+            # Only the DOCUMENT BODY (never the working-notes prefix):
+            # carried notes from other worlds mention their own plans,
+            # and PLAN_PREFERENCE/survey derivation must see the CURRENT
+            # world's material only.
+            self._survey_text = docs
         notes_list = list(self.state.get("notes", []))  # type: ignore[union-attr]
         notes_list.append({"stage": stage.stage_id, "summary": reply[:160]})
         self.state["notes"] = notes_list[-24:]
@@ -698,6 +702,9 @@ def main() -> int:
                 "researcher_record": researcher_record,
                 "strategy_text": strategy_text,
                 "state_update": ds_state_update,
+                # The frozen snapshot's ACCUMULATED memory (audit view of
+                # the carry contract: earlier rounds' notes survive).
+                "memory_notes": list(current.memory.get("notes", [])),
             }
         )
 
@@ -765,14 +772,35 @@ def main() -> int:
 
 
 def _freeze_from_parts(s0, snapshot_id: str, strategy_text: str, state_update: dict[str, object]):
-    """Freeze S1 = S0's code/skills + the improver's state update + strategy file."""
+    """Freeze S_n = S_{n-1}'s memory (ACCUMULATED) + this round's additions + strategy file.
+
+    The carry contract: legitimate learned material accumulates across
+    snapshots. The parent snapshot's notes carry forward and this round's
+    notes APPEND (deduplicated, order-preserving); other memory keys from
+    the parent survive unless the round's update names the same key.
+    """
 
     from rsicontext.participant.snapshot import FrozenSnapshot
 
+    memory: dict[str, object] = dict(s0.memory)
+    prior_notes = memory.get("notes")
+    prior_list: list[object] = list(prior_notes) if isinstance(prior_notes, list) else []
+    added_notes = state_update.get("notes")
+    if isinstance(added_notes, list):
+        seen = {json.dumps(note, sort_keys=True) for note in prior_list}
+        for note in added_notes:
+            key = json.dumps(note, sort_keys=True)
+            if key not in seen:
+                prior_list.append(note)
+                seen.add(key)
+    memory["notes"] = prior_list
+    for key, value in state_update.items():
+        if key != "notes":
+            memory[key] = value
     return FrozenSnapshot.from_parts(
         participant_id=s0.participant_id,
         snapshot_id=snapshot_id,
-        memory=dict(state_update),
+        memory=memory,
         code_files={"strategy.py": strategy_text},
         skill_files=dict(s0.skill_files),
         schema=s0.schema,
