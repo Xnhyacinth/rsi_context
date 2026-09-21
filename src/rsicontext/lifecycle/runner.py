@@ -309,23 +309,32 @@ def _commit_gate_failures(
             if isinstance(record, dict):
                 referenced.append(record)
     requirements = precondition.get("plan_requirements")
-    if isinstance(requirements, Mapping):
-        requirement = requirements.get(plan)
-        if isinstance(requirement, Mapping):
-            domain = requirement.get("domain")
-            required_check = requirement.get("requires_check")
-            if isinstance(domain, str) and isinstance(required_check, str):
-                domain_record = next(
-                    (record for record in referenced if record.get("domain") == domain),
-                    None,
+    requirement = requirements.get(plan) if isinstance(requirements, Mapping) else None
+    if isinstance(requirement, Mapping):
+        # A plan named in plan_requirements must cite a NON-EMPTY set of
+        # sandbox records: absence of references is evidence FOR the
+        # failure, never neutral (reviewer 2.1R — a bare create_record
+        # or a provenance-free finalize must not pass by citing
+        # nothing).
+        if not referenced:
+            failures.append(
+                f"commit gate: plan {plan!r} is committed without any referenced "
+                "records; the required verifications are missing"
+            )
+        domain = requirement.get("domain")
+        required_check = requirement.get("requires_check")
+        if isinstance(domain, str) and isinstance(required_check, str):
+            domain_record = next(
+                (record for record in referenced if record.get("domain") == domain),
+                None,
+            )
+            if domain_record is not None and not any(
+                record.get("check") == required_check for record in referenced
+            ):
+                failures.append(
+                    f"commit gate: plan {plan!r} (domain {domain!r}) lacks a "
+                    f"{required_check!r} verification among its referenced records"
                 )
-                if domain_record is not None and not any(
-                    record.get("check") == required_check for record in referenced
-                ):
-                    failures.append(
-                        f"commit gate: plan {plan!r} (domain {domain!r}) lacks a "
-                        f"{required_check!r} verification among its referenced records"
-                    )
     current_revision = precondition.get("current_revision")
     scope = precondition.get("revision_scope")
     if (

@@ -16,6 +16,9 @@ snapshot's own validated payload, which the probe accepts by design
 
 from __future__ import annotations
 
+import contextlib
+import json
+
 import pytest
 
 from rsicontext.participant.registration import (
@@ -231,6 +234,183 @@ def test_branch_state_never_writes_back(tmp_path) -> None:
     # branch-local notes written by the hook — but those notes exist only
     # in their own branch session.
     assert snapshot.memory == {"rule": "R1"}
+
+
+def test_in_place_nested_mutation_does_not_reach_snapshot_or_siblings(tmp_path) -> None:
+    # Reviewer 1.1: dict() is a shallow copy — a hook using the natural
+    # in-place forms (state['nested']['k'] = v, notes.append(...)) must
+    # NOT reach the snapshot's memory or a later sibling branch.
+    store = SessionStateStore(schema=_SCHEMA)
+    store.begin_session(SessionKind.VISIBLE, "dev-1", _CAP)
+    store.write("dev-1", {"rule": "R1", "nested": {"keep": 1}, "notes": ["kept from dev"]})
+    snapshot = freeze_session(
+        store, "dev-1", agent_files_root=None, participant_id="p", snapshot_id="S1", byte_cap=_CAP
+    )
+    frozen_bytes = snapshot.canonical_bytes()
+
+    class _InPlaceHook(_ScriptedHook):
+        def __init__(self, state: dict[str, object], carry: LearningCarry) -> None:
+            super().__init__(state, carry)
+
+        def on_stage(self, stage: object) -> object:
+            # In-place nested mutation — the reviewer's reproduced shape.
+            nested = self.state.setdefault("nested", {})
+            if isinstance(nested, dict):
+                nested["keep"] = 999
+            notes = self.state.setdefault("notes", [])
+            notes.append("branch-A note")
+            from rsicontext.lifecycle.runner import StageResponse
+
+            return StageResponse(pack_text="in-place mutation")
+
+    run_evaluation_branch(
+        snapshot,
+        BranchKind.CONTINUATION,
+        "inplace-1",
+        instances=_build_rows([_popqa_row(1, "q", "a")]),
+        hook_factory=lambda state, carry: _InPlaceHook(state, carry),
+        byte_cap=_CAP,
+    )
+
+    # The snapshot's nested payload is untouched (deep-copied carry).
+    assert snapshot.canonical_bytes() == frozen_bytes
+    assert snapshot.memory["nested"] == {"keep": 1}
+    assert snapshot.memory["notes"] == ["kept from dev"]
+
+    # A SECOND branch starts from the pristine snapshot memory, not
+    # branch 1's mutated state.
+    observed: list[dict[str, object]] = []
+
+    class _ObservingHook(_ScriptedHook):
+        def __init__(self, state: dict[str, object], carry: LearningCarry) -> None:
+            super().__init__(state, carry)
+            # Capture a DEEP copy: the hook's own on_stage appends to
+            # state["notes"] after construction, and a shallow dict()
+            # would alias the very list we are asserting about.
+            observed.append(json.loads(json.dumps(state)))
+
+    run_evaluation_branch(
+        snapshot,
+        BranchKind.NEW_WORLD,
+        "inplace-2",
+        instances=_build_rows([_popqa_row(2, "q2", "a2")]),
+        hook_factory=lambda state, carry: _ObservingHook(state, carry),
+        byte_cap=_CAP,
+    )
+    assert observed[0]["nested"] == {"keep": 1}
+    assert observed[0]["notes"] == ["kept from dev"]
+
+
+def test_carry_survives_a_crash_before_first_save(tmp_path) -> None:
+    # Reviewer 1.2: if the hook raises before the first save, a LATER
+    # load must still receive the carry (the flag may not flip at load
+    # time and read an empty session).
+    store = SessionStateStore(schema=_SCHEMA)
+    store.begin_session(SessionKind.VISIBLE, "dev-1", _CAP)
+    store.write("dev-1", {"rule": "R1"})
+    snapshot = freeze_session(
+        store, "dev-1", agent_files_root=None, participant_id="p", snapshot_id="S1", byte_cap=_CAP
+    )
+
+    loads: list[dict[str, object] | None] = []
+    raised = {"once": False}
+
+    def hook_factory(state: dict[str, object], carry: LearningCarry) -> object:
+        loads.append(json.loads(json.dumps(state)))
+        if not raised["once"]:
+            raised["once"] = True
+            raise RuntimeError("precondition refusal before first save")
+        return _ScriptedHook(state, carry)
+
+    # The crash aborts the first branch attempt (recorded outcome).
+    with contextlib.suppress(RuntimeError):
+        run_evaluation_branch(
+            snapshot,
+            BranchKind.CONTINUATION,
+            "crash-carry-1",
+            instances=_build_rows([_popqa_row(1, "q", "a")]),
+            hook_factory=hook_factory,
+            byte_cap=_CAP,
+        )
+    # The branch store never saved: a fresh adapter load still carries.
+    from rsicontext.participant.snapshot import branch_store_adapters
+    from rsicontext.session.store import SessionStateStore as _Store
+
+    branch_store = _Store(schema=_SCHEMA)
+    branch_store.begin_session(SessionKind.GATE, "crash-carry-2", _CAP)
+    load, _save = branch_store_adapters(snapshot, branch_store, "crash-carry-2")
+    assert load() == {"rule": "R1"}
+
+
+def test_leak_probe_composes_over_branch_store(tmp_path) -> None:
+    # Reviewer 1.3: the branch store is exposed on BranchRecord so the
+    # pre-registered leak probe composes on top of evaluation branches
+    # exactly as over plain sessions — and a leaking branch is caught.
+    from rsicontext.session.probe import LeakProbeError, assert_canary_absent
+
+    store = SessionStateStore(schema=_SCHEMA)
+    store.begin_session(SessionKind.VISIBLE, "dev-1", _CAP)
+    store.write("dev-1", {"rule": "R1"})
+    snapshot = freeze_session(
+        store, "dev-1", agent_files_root=None, participant_id="p", snapshot_id="S1", byte_cap=_CAP
+    )
+
+    record = run_evaluation_branch(
+        snapshot,
+        BranchKind.NEW_WORLD,
+        "probe-branch",
+        instances=_build_rows([_popqa_row(1, "q", "a")]),
+        hook_factory=lambda state, carry: _ScriptedHook(state, carry),
+        byte_cap=_CAP,
+    )
+    assert record.store is not None
+    # The composition path: assert canary tokens absent from the branch's
+    # state (they were never anywhere near it).
+    assert_canary_absent(record.store, "probe-branch", ["GOLDTOKEN-alpha"])
+
+    # And the failure direction: a token that IS in branch state raises.
+    record.store.write("probe-branch", {"notes": ["GOLDTOKEN-alpha"]})
+    with pytest.raises(LeakProbeError):
+        assert_canary_absent(record.store, "probe-branch", ["GOLDTOKEN-alpha"])
+
+
+def test_safe_relative_path_parity_with_registration() -> None:
+    # Reviewer 4.1: snapshot's path validator must be at least as strict
+    # as registration's — everything registration rejects, snapshot
+    # rejects too (it may be stricter: 'C:/x.py' passes registration's
+    # PurePosixPath segments but is refused here by the charset regex,
+    # which is fine — the snapshot is data, not an executable tree).
+    # The dangerous class (dot/dotdot/empty segments, 'a/../b') must be
+    # rejected by BOTH.
+    from rsicontext.participant.registration import _is_safe_relative_path
+    from rsicontext.participant.snapshot import _require_safe_relative
+
+    cases = (
+        "a/../b",
+        "skills/../../etc/passwd",
+        "dir/../..",
+        "a//b",
+        "a/./b",
+        "..",
+        "../x",
+        "C:/Windows/x.py",
+        "strategy.py",
+        "skills/extract.md",
+    )
+    for case in cases:
+        registration_ok = _is_safe_relative_path(case)
+        try:
+            _require_safe_relative(case)
+            snapshot_ok = True
+        except Exception:
+            snapshot_ok = False
+        # One-directional parity: snapshot accepting implies registration
+        # accepting (snapshot is at least as strict).
+        if snapshot_ok:
+            assert registration_ok, case
+        # The dangerous class is rejected by both.
+        if not registration_ok:
+            assert not snapshot_ok, case
 
 
 def test_branches_carry_schema_and_cap_discipline(tmp_path) -> None:

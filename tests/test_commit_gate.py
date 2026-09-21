@@ -19,6 +19,8 @@ failures to the final CheckResult.
 
 from __future__ import annotations
 
+import pytest
+
 from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.material_v3 import build_research_v3_instance
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
@@ -75,6 +77,58 @@ class _PlainCommitHook:
             )
         )
         return StageResponse(pack_text=f"plain commit {self.plan}", actions=tuple(actions))
+
+
+class _NoRefCommitHook:
+    """Commits a legal plan with NO referenced records at all.
+
+    The reviewer's 2.1R shape: either a bare ``create_record`` with
+    ``status="final"`` (no finalize), or a plain finalize whose
+    provenance names no sandbox records. Both must FAIL the gate: a
+    plan under ``plan_requirements`` with an empty referenced set is a
+    missing verification, not a pass.
+    """
+
+    def __init__(self, plan: str, *, bare_create: bool) -> None:
+        self.plan = plan
+        self.bare_create = bare_create
+
+    def on_stage(self, stage: StageView) -> StageResponse:
+        if stage.kind != "act_verify":
+            return StageResponse(pack_text="notes")
+        actions: list[Action] = [
+            Action(
+                kind="create_record",
+                record_id="migration_commit",
+                fields={"plan": self.plan, "status": "final"},
+            )
+        ]
+        if not self.bare_create:
+            actions.append(
+                Action(
+                    kind="finalize",
+                    record_id="migration_commit",
+                    fields={"status": "final"},
+                    provenance=("doc-cand-a",),
+                )
+            )
+        return StageResponse(pack_text=f"no-ref commit {self.plan}", actions=tuple(actions))
+
+
+@pytest.mark.parametrize("bare_create", [True, False], ids=["bare-create", "finalize-no-refs"])
+def test_legal_plan_with_no_referenced_records_fails(bare_create: bool) -> None:
+    # aurora is legal, but committing it with ZERO referenced records
+    # (no verification_run, no candidate_status) must fail: the
+    # finance-domain requirement cannot be satisfied by nothing.
+    record = run_lifecycle(
+        build_research_v3_instance(),
+        _NoRefCommitHook("aurora", bare_create=bare_create),
+        ProjectState(),
+    )
+    assert not record.final_check.passed
+    assert any("commit gate" in failure for failure in record.final_check.failures), (
+        record.final_check.failures
+    )
 
 
 def test_illegal_plan_plain_finalize_fails_final_check() -> None:

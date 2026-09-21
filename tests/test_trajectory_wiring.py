@@ -88,3 +88,38 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
         "ds_arm",
         "elapsed_seconds",
     }
+
+
+def test_crashing_strategy_is_recorded_not_swallowed(tmp_path: Path) -> None:
+    # Reviewer 2.2: a strategy whose body raises on every exec must be
+    # NAMED in the branch records (strategy_errors), never silently
+    # indistinguishable from "no strategy supplied". A broken researcher
+    # edit reports as a crash, not as "the improvement did not transfer".
+    # Exercise the hook directly (same class, same code path) instead
+    # of monkeypatching the CLI's strategy text.
+    import sys
+
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+    from trajectory_v3 import TrajectoryHook
+
+    crashing = "raise ValueError('researcher edit crashed')\n"
+    hook = TrajectoryHook(
+        {}, None, offline=True, offline_answers={"Survey": "x"}, strategy_text=crashing
+    )
+    assert hook.strategy_errors == []
+    assert hook.choose_plan() == "aurora"  # fixed fallback still works
+    assert hook.strategy_errors and "ValueError" in hook.strategy_errors[0]
+
+
+def test_clean_strategy_records_no_errors(tmp_path: Path) -> None:
+    import sys
+
+    sys.path.insert(0, str(_REPO_ROOT / "src"))
+    sys.path.insert(0, str(_REPO_ROOT / "scripts"))
+    from trajectory_v3 import TrajectoryHook
+
+    clean = "STRATEGY_RERVERIFY = True\n"
+    hook = TrajectoryHook({}, None, offline=True, offline_answers={}, strategy_text=clean)
+    hook.choose_plan()
+    assert hook.strategy_errors == []

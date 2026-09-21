@@ -45,7 +45,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -114,7 +114,24 @@ class LearningCarry:
 
 
 def _require_safe_relative(path: str) -> None:
-    if not isinstance(path, str) or not path or _SAFE_RELATIVE.fullmatch(path) is None:
+    """Reject unsafe relative paths, in PARITY with registration.
+
+    The regex alone cannot reject '.'/'..'/'a/../b' segments (reviewer
+    4.1). Validation mirrors ``registration._is_safe_relative_path``
+    exactly — the same ``PurePosixPath`` segment semantics, so the two
+    validators can never disagree on the inputs that matter; parity is
+    pinned by test.
+    """
+
+    from pathlib import PurePosixPath
+
+    if (
+        not isinstance(path, str)
+        or not path
+        or _SAFE_RELATIVE.fullmatch(path) is None
+        or PurePosixPath(path).is_absolute()
+        or any(part in {"", ".", ".."} for part in PurePosixPath(path).parts)
+    ):
         raise SnapshotStateError(f"agent-tree path is not a safe relative path: {path!r}")
 
 
@@ -255,7 +272,7 @@ class FrozenSnapshot:
         return cls(
             participant_id=participant_id,
             snapshot_id=snapshot_id,
-            memory=dict(memory),
+            memory=_fresh_memory(memory),
             code_files=dict(code_files),
             skill_files=dict(skill_files),
             schema=dict(schema),
@@ -312,6 +329,22 @@ def freeze_session(
     )
 
 
+def _fresh_memory(memory: Mapping[str, object]) -> dict[str, object]:
+    """A structurally independent copy of carried memory.
+
+    ``dict(...)`` is a SHALLOW copy: nested containers stay shared by
+    reference, so an in-place participant mutation
+    (``state['nested']['k'] = v``) would reach the snapshot and every
+    sibling branch — exactly the isolation failure the carry boundary
+    exists to prevent (reviewer finding 1.1). Carried memory is
+    JSON-native by construction (it passed canonical-state validation),
+    so a canonical-bytes round trip is a deep, deterministic copy.
+    """
+
+    fresh: dict[str, object] = json.loads(canonical_state_bytes(dict(memory)))
+    return fresh
+
+
 def branch_store_adapters(
     snapshot: FrozenSnapshot,
     store: SessionStateStore,
@@ -319,18 +352,20 @@ def branch_store_adapters(
 ) -> tuple[Callable[[], dict[str, object] | None], Callable[[dict[str, object]], None]]:
     """Snapshot-aware state adapters for one branch session.
 
-    The first ``load_state`` returns the snapshot's memory (the carry);
-    after the first save, loads read the branch's own evolving state.
-    All writes go through the store's full validation — cap, canonical
-    form, schema digest, ledger, transcript.
+    The carry is delivered until the session holds saved state: the
+    FIRST load returns a structurally independent copy of the snapshot's
+    memory, and so does every load BEFORE the first save — not just the
+    first call (reviewer 1.2: flipping the flag at load time loses the
+    carry if the hook raises before the first save, because a later
+    load would read the still-empty session). After the first save,
+    loads read the branch's own evolving state. All writes go through
+    the store's full validation — cap, canonical form, schema digest,
+    ledger, transcript.
     """
 
-    carried = {"__carry_done__": False}
-
     def load_state() -> dict[str, object] | None:
-        if not carried["__carry_done__"]:
-            carried["__carry_done__"] = True
-            return dict(snapshot.memory)
+        if store.current_state_bytes(session_id) is None:
+            return _fresh_memory(snapshot.memory)
         return store.read(session_id)
 
     def save_state(state: dict[str, object]) -> None:
@@ -341,13 +376,22 @@ def branch_store_adapters(
 
 @dataclass(frozen=True, slots=True)
 class BranchRecord:
-    """Auditable outcome of one evaluation branch run."""
+    """Auditable outcome of one evaluation branch run.
+
+    ``store`` exposes the branch's own ``SessionStateStore`` so the leak
+    probe composes on top exactly as it does over plain sessions
+    (reviewer 1.3): ``assert_canary_absent(record.store, session_id,
+    tokens)`` and ``store.ledger``/``store.transcript`` are the audit
+    surface. It is deliberately NOT serializable state — ``to_dict``
+    carries the summary, the store the evidence.
+    """
 
     branch_kind: BranchKind
     session_id: str
     snapshot_digest: str
     run_records: tuple[object, ...]
     transcript_digests: tuple[str | None, ...]
+    store: SessionStateStore | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -403,7 +447,7 @@ def run_evaluation_branch(
     session_kind = SessionKind.REPLAY if kind is BranchKind.REPLAY else SessionKind.GATE
     load_state, save_state = branch_store_adapters(snapshot, store, session_id)
     carry = LearningCarry(
-        memory=dict(snapshot.memory),
+        memory=_fresh_memory(snapshot.memory),
         code_files=dict(snapshot.code_files),
         skill_files=dict(snapshot.skill_files),
     )
@@ -427,4 +471,5 @@ def run_evaluation_branch(
         snapshot_digest=snapshot.digest,
         run_records=record.run_records,
         transcript_digests=record.transcript_digests,
+        store=store,
     )

@@ -37,6 +37,7 @@ import os
 import sys
 import time
 import urllib.request
+from collections.abc import Callable
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -176,6 +177,7 @@ class TrajectoryHook:
         self.tokens_out = 0
         self.calls = 0
         self.rereads: list[str] = []
+        self.strategy_errors: list[str] = []
         self._survey_text = ""
 
     def _strategy_namespace(self) -> dict[str, object]:
@@ -184,7 +186,11 @@ class TrajectoryHook:
         namespace: dict[str, object] = {}
         try:
             exec(self.strategy_text, namespace)
-        except Exception:
+        except Exception as exc:
+            # A crashing strategy is a NAMED outcome, never a silent
+            # fallback: a broken researcher edit must be distinguishable
+            # from "the improvement did not transfer" (reviewer 2.2).
+            self.strategy_errors.append(f"strategy exec raised {type(exc).__name__}: {exc}")
             return {}
         return namespace
 
@@ -195,7 +201,8 @@ class TrajectoryHook:
         survey presented (order-dependent, no constraint tracking — the
         fixed arm's characteristic weakness). A strategy file may
         provide ``choose_plan(survey_text)`` or a ``PLAN_PREFERENCE``
-        list consulted against the survey's candidate names.
+        list consulted against the survey's candidate names. A chooser
+        that raises is recorded, not swallowed.
         """
 
         namespace = self._strategy_namespace()
@@ -205,8 +212,8 @@ class TrajectoryHook:
                 result = chooser(self._survey_text)
                 if isinstance(result, str):
                     return result
-            except Exception:
-                pass
+            except Exception as exc:
+                self.strategy_errors.append(f"choose_plan raised {type(exc).__name__}: {exc}")
         preference = namespace.get("PLAN_PREFERENCE")
         if isinstance(preference, list):
             for name in preference:
@@ -432,18 +439,34 @@ def evaluate_branches(
             else:
                 inst = build_research_v3_instance(instance_id=f"research-v3-{session_id}-{variant}")
             try:
+                captured = {"hooks": []}
+
+                def make_hook_factory(
+                    captured_box: dict[str, list[TrajectoryHook]],
+                ) -> Callable[[dict[str, object], LearningCarry], TrajectoryHook]:
+                    def hook_factory(
+                        state: dict[str, object], carry: LearningCarry
+                    ) -> TrajectoryHook:
+                        hook = TrajectoryHook(
+                            state,
+                            carry,
+                            offline=offline,
+                            offline_answers=offline_answers,
+                            strategy_text=strategy_text,
+                        )
+                        captured_box["hooks"].append(hook)
+                        return hook
+
+                    return hook_factory
+
+                capturing_hook_factory = make_hook_factory(captured)
+
                 branch_record = run_evaluation_branch(
                     snapshot,
                     kind,
                     f"{session_id}-{variant}",
                     instances=[inst],
-                    hook_factory=lambda state, carry: TrajectoryHook(
-                        state,
-                        carry,
-                        offline=offline,
-                        offline_answers=offline_answers,
-                        strategy_text=strategy_text,
-                    ),
+                    hook_factory=capturing_hook_factory,
                     byte_cap=_CAP,
                 )
                 run_records = branch_record.run_records
@@ -454,12 +477,16 @@ def evaluate_branches(
                     }
                     for record in run_records
                 ]
+                strategy_errors = [
+                    error for hook in captured["hooks"] for error in hook.strategy_errors
+                ]
                 records.append(
                     {
                         "variant": variant,
                         "ran": True,
                         "surface": surface,
                         "final_checks": final_checks,
+                        "strategy_errors": strategy_errors,
                     }
                 )
             except Exception as exc:
