@@ -224,7 +224,7 @@ def build_research_v3_zephyr(*, instance_id: str = "research-v3-zephyr-0001") ->
     genre_by_candidate: dict[str, str] = {}
     for candidate in _CANDIDATES:
         row = rows[str(candidate["row_id"])]
-        doc_id, title, text = _gold_passage(row)
+        _doc_id, title, text = _gold_passage(row)
         survey_docs.append(
             _doc(
                 f"doc-cand-{candidate['candidate']}",
