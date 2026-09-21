@@ -70,6 +70,12 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
         for variant in payload["ds_arm"]["s1_branches"][branch]:
             assert variant["ran"] is True, variant
             assert _final_check_passed(variant), variant
+            # Reviewer 2.2's end-to-end pin: a PASSING S1 must ALSO be
+            # crash-free. Without this, "S1 strategy crashed and fell
+            # back to the fixed heuristic" is indistinguishable from
+            # "the strategy genuinely did not help" — the exact
+            # mis-attribution a researcher-authored run cannot afford.
+            assert variant.get("strategy_errors") == [], variant
         for variant in payload["ds_arm"]["s0_branches"][branch]:
             if variant.get("error"):
                 assert "stale" in variant["error"], variant
