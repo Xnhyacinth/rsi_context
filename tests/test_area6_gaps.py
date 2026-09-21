@@ -15,8 +15,6 @@ causes trace to the gate, not to a refusal we chose to interpret.
 
 from __future__ import annotations
 
-import pytest
-
 from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.material_v3 import build_research_v3_instance
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
