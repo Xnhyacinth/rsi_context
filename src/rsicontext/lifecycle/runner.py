@@ -128,6 +128,14 @@ class LifecycleRunRecord:
     ``tokens_out`` are placeholders the hook caller fills; ``wall_seconds``
     is measured. ``sandbox_final_state`` is the deep-copied end state the
     final check was computed against.
+
+    ``stale_references`` (reviewer 6.2, task-card §Scoring
+    "finalized-then-invalidated conclusions still referenced"): the
+    sandbox record ids a FINALIZED commit record references that a
+    LATER record supersedes. Supersession is recorded by the
+    participant itself through the ``supersedes`` field — the runner
+    only reports it; a record never superseded, or a superseding
+    record created but the commit re-pointed away, both report clean.
     """
 
     instance_id: str
@@ -137,6 +145,7 @@ class LifecycleRunRecord:
     cost: Mapping[str, float]
     axes: DescriptionAxes
     sandbox_final_state: Mapping[str, dict[str, Any]] = field(default_factory=dict)
+    stale_references: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -149,6 +158,7 @@ class LifecycleRunRecord:
             "sandbox_final_state": {
                 record_id: dict(record) for record_id, record in self.sandbox_final_state.items()
             },
+            "stale_references": list(self.stale_references),
         }
 
 
@@ -253,6 +263,7 @@ def run_lifecycle(
                 failures=(*final_check.failures, *gate_failures),
             )
     wall_seconds = time.monotonic() - started
+    snapshot = env.snapshot()
     return LifecycleRunRecord(
         instance_id=inst.instance_id,
         family=inst.family,
@@ -260,8 +271,38 @@ def run_lifecycle(
         stage_records=tuple(stage_records),
         cost={"tokens_in": 0.0, "tokens_out": 0.0, "wall_seconds": wall_seconds},
         axes=inst.axes,
-        sandbox_final_state=env.snapshot(),
+        sandbox_final_state=snapshot,
+        stale_references=_stale_references(snapshot),
     )
+
+
+def _stale_references(records: Mapping[str, dict[str, Any]]) -> tuple[str, ...]:
+    """Record ids that a FINALIZED record still references while a later
+    record supersedes them (reviewer 6.2 — the metric definition).
+
+    Supersession is the participant's own ``supersedes`` field (the
+    finalize-lock's sanctioned recovery path: create a NEW record that
+    supersedes the stale one). The metric fires exactly when a
+    finalized commit still points at the superseded record — the
+    "finalized-then-invalidated conclusions still referenced" state the
+    task card's scoring section names.
+    """
+
+    superseded: set[str] = set()
+    for record in records.values():
+        target = record.get("supersedes")
+        if isinstance(target, str) and target in records:
+            superseded.add(target)
+    if not superseded:
+        return ()
+    stale: list[str] = []
+    for record in records.values():
+        if record.get("finalized") is not True:
+            continue
+        refs = record.get("provenance")
+        if isinstance(refs, list):
+            stale.extend(ref for ref in refs if isinstance(ref, str) and ref in superseded)
+    return tuple(stale)
 
 
 def _commit_gate_failures(
