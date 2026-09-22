@@ -861,7 +861,10 @@ def main() -> int:
             stub.write_text(strategy_text, encoding="utf-8")
             feedback = _dev_feedback_bytes(probe(current, current_strategy))
             try:
-                changes, usage = _researcher_round(stub, feedback, round_index=round_index)
+                changes, usage, round_attempts = _researcher_round(
+                    stub, feedback, round_index=round_index
+                )
+                usage = dict(usage, attempts=round_attempts)
                 proposed = changes.get("strategy.py")
                 if proposed is None or not proposed.strip():
                     researcher_record = {
@@ -1019,8 +1022,14 @@ def main() -> int:
                 agent_dir.mkdir(parents=True, exist_ok=True)
                 stub = agent_dir / "strategy.py"
                 stub.write_text(_STRATEGY_STUB, encoding="utf-8")
+                draw_usage: dict[str, object] = {}
+                draw_attempts: list[dict[str, object]] = []
                 try:
-                    changes, usage = _researcher_round(stub, author_feedback, round_index=repeat)
+                    changes, usage, draw_attempt_log = _researcher_round(
+                        stub, author_feedback, round_index=repeat
+                    )
+                    draw_usage = usage
+                    draw_attempts = draw_attempt_log
                     proposed = changes.get("strategy.py")
                     if proposed is None or not proposed.strip():
                         repeat_strategy = _STRATEGY_STUB
@@ -1029,9 +1038,16 @@ def main() -> int:
                         repeat_strategy = proposed
                         outcome = "ok"
                 except Exception as exc:
+                    # A failed draw: usage stays {} (never a stale value
+                    # from a previous draw — the record must not carry
+                    # another draw's numbers).
                     repeat_strategy = _STRATEGY_STUB
                     outcome = f"failed: {type(exc).__name__}: {exc}"
-                usage_record = usage
+                usage_record = draw_usage
+                # Per-attempt reliability evidence: the retry loop's
+                # attempt log distinguishes transport/empty failures
+                # from authoring variance (the floor's de-conflation).
+                usage_record = dict(usage_record, attempts=draw_attempts)
             else:
                 # Scripted arm: the deterministic strategy (sd 0 by
                 # construction — the offline shape pin).
@@ -1207,23 +1223,36 @@ _SCRIPTED_STRATEGY = (
 
 def _researcher_round(
     strategy_stub_path: Path, dev_feedback: bytes, round_index: int
-) -> tuple[dict[str, str], dict[str, object]]:
+) -> tuple[dict[str, str], dict[str, object], list[dict[str, object]]]:
     """One REAL improvement round: the DS researcher rewrites the strategy.
 
-    Returns (agent_files_changed, usage_record). Failures raise — the
-    caller records them as the round's outcome (a failed round is a
-    recorded result, never a silent no-change).
+    Returns (agent_files_changed, usage_record, attempts_log). Failures
+    raise — the caller records them as the round's outcome (a failed
+    round is a recorded result, never a silent no-change). The attempts
+    log is the improver's per-attempt reliability record: the
+    retry-loop's view of transport/empty failures, so the caller can
+    separate endpoint reliability from authoring variance.
     """
 
     from rsicontext.participant.api_researcher import (
         APIResearcherConfig,
         APIResearcherImprover,
+        RetryPolicy,
     )
     from rsicontext.participant.registration import ImprovementRoundInput
 
     agent_dir = strategy_stub_path.parent
+    # The empty-content failure observed in matrix 3 was retry-resistant
+    # at the default 3 attempts: strengthen the policy for trajectory
+    # rounds (5 attempts, longer backoff) so persistent-but-transient
+    # endpoint states recover where the default gave up. Deterministic
+    # protocol failures still pass through on the first attempt.
     improver = APIResearcherImprover(
-        config=APIResearcherConfig(endpoint=READER_ENDPOINT, model=_RESEARCHER_MODEL)
+        config=APIResearcherConfig(
+            endpoint=READER_ENDPOINT,
+            model=_RESEARCHER_MODEL,
+            retry=RetryPolicy(max_attempts=5, backoff_seconds=10.0),
+        )
     )
     round_input = ImprovementRoundInput(
         round_index=round_index,
@@ -1253,7 +1282,8 @@ def _researcher_round(
         "output_tokens": output.usage.output_tokens,
         "wall_seconds": output.usage.wall_seconds,
     }
-    return dict(output.agent_files_changed), usage
+    attempts = [dict(entry) for entry in improver.attempts()]
+    return dict(output.agent_files_changed), usage, attempts
 
 
 def _dev_feedback_bytes(ds_branch_record: object) -> bytes:
