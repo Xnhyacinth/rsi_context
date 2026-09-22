@@ -164,7 +164,14 @@ def _survey_checks(survey_text: str) -> list[str]:
 
 
 def _pass_fraction(branch_results: dict) -> float:
-    """The pass fraction over all final_checks entries in a branch run."""
+    """The pass fraction over ALL branch cells — crashed cells count as 0.
+
+    Rethinking-the-harness-evolution rule (spec Part 2.2):
+    infrastructure failures are SCORED ZERO, never silently dropped from
+    the denominator — a crashed cell used to leave the fraction's
+    denominator, inflating the score (1 crash + 1 pass = 1.0). Now every
+    cell that intended to run counts: ran=False cells contribute 0/1.
+    """
 
     total = 0
     passed = 0
@@ -173,6 +180,9 @@ def _pass_fraction(branch_results: dict) -> float:
             continue
         for variant in variants:
             if not isinstance(variant, dict):
+                continue
+            if variant.get("ran") is False:
+                total += 1
                 continue
             for entry in variant.get("final_checks", []):
                 if isinstance(entry, dict):

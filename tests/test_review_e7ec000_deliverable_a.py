@@ -344,3 +344,15 @@ def test_author_failure_attempt_log_is_preserved() -> None:
     # module's own exception contract.
     exc = t3.ResearcherRoundFailure([{"attempt": 1, "outcome": "empty_content"}])
     assert isinstance(exc.attempts, list) and exc.attempts[0]["outcome"] == "empty_content"
+
+
+def test_pass_fraction_scores_crashed_cells_as_zero() -> None:
+    # P7 / Rethinking rule (spec Part 2.2): a crashed cell must never
+    # silently leave the denominator (1 crash + 1 pass was 1.0 before).
+    results = {
+        "new_world": [
+            {"ran": False, "error": "boom"},
+            {"final_checks": [{"passed": True, "failures": []}]},
+        ]
+    }
+    assert t3._pass_fraction(results) == 0.5

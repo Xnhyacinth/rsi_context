@@ -169,9 +169,16 @@ their meaning.
 
 1. **Task outcome**: per-task pass/fail + task-specific quality (the
    gate); refusals/unverifiable verdicts are failures, never dropped.
+   **Infra failures score ZERO** (Rethinking rule): a crashed cell
+   counts 0/1 in every fraction — implemented in `_pass_fraction`
+   (regression-pinned); a crash inflating the score by leaving the
+   denominator is a measurement bug, not a policy.
 2. **Improvement**: paired deltas (S₀→Sₙ, arms matched) with
    uncertainty; report per branch-kind: continuation / same-family
-   transfer / structural transfer — never merged into one scalar.
+   transfer / structural transfer — never merged into one scalar. The
+   primary delta form (AgentStream convention): with-state minus a
+   matched no-evolution control on the identical backbone — S₁ minus
+   strong-fixed, not S₁ minus weak-fixed.
 3. **Cost & reliability**: B_improve + B_serve + B_maintain per arm;
    valid-artifact rate; failure taxonomy (endpoint, protocol, budget).
    Failures enter system-level results; quality-vs-cost is reported as
@@ -213,25 +220,59 @@ claim and is implemented in v1's successor. Both are always labeled.
 
 ## Part 4 — What each external work contributed (provenance)
 
-- **Recuris** (arXiv 2608.24876, verified): the receipts/turn seam and
-  "working memory tracks, skills gate, validation-gated localized
-  updates" shape of Part 1.3/2.1.
-- **Rethinking the Evaluation of Harness Evolution** (2607.12227,
-  verified): matched-feedback + matched-compute controls (the
-  matched-compute sampling arm), held-out generalization rule.
-- **Evo-Memory** (2511.20857, verified): memory-evolution comparison
-  design; we do NOT claim "experience reuse across task streams" as
-  novel — our delta is the environment responds, and improvement acts.
-- **MemoryArena** (2602.16313, verified): candidate external validation
-  surface for cross-session interdependence, phase after v1.
-- **OpenAI harness engineering** (post 403'd; principles via secondary
-  sources, marked unverified): log/tool-result-driven improvement —
-  mirrored by receipts-as-feedback.
-- **Dream-RSI, MGM, AgentStream, FinEvo-Bench**: NOT independently
-  verified in this round (search tooling failed; names came from
-  reviews). Borrowed ideas are limited to what the reviews attributed;
-  no design decision in this spec rests on them. Verification debt
-  recorded.
+Survey sources (2026-09-22 literature subagent, primary arXiv pages;
+abstract-level reads flagged): full multi-work survey now on file.
+
+- **Recuris** (arXiv 2608.24876, abstract-level): the receipts/turn seam
+  and "working memory tracks, skills gate, validation-gated localized
+  updates" shape of Part 1.3/2.1. NOTE: the repo already carries a
+  fidelity adapter (`src/rsicontext/participant/recuris_arm.py`,
+  in-process, 22 offline tests, never scored on a world) — integrating
+  it as a live arm is Part 5 next-round work, not new construction.
+- **Rethinking the Evaluation of Harness Evolution** (2607.12227, full
+  read): matched-feedback + matched-compute controls (the
+  matched-compute sampling arm), held-out generalization rule, AND
+  **infra-failures-scored-zero** — enforced below in Part 2.2 and in
+  `_pass_fraction` (crashed cells count as 0, never dropped).
+- **Evo-Memory** (2511.20857, full read): streaming test-time-learning
+  protocol, order-effect checks, fixed retrieval-budget fairness; we do
+  NOT claim "experience reuse across task streams" as novel.
+- **MemoryArena** (2602.16313, abstract-level): candidate external
+  validation surface for cross-session interdependence, phase after v1.
+- **Dream-RSI** (2609.14858, full read — VERIFIED this round, correcting
+  the earlier "unverified" label): exploration-policy-only improvement
+  surface over a fixed executor; **replay-simulator** (off-policy
+  scoring of candidate strategies against recorded execution trees +
+  scheduled online revalidation) adopted as the eval-cost amortizer
+  direction for later phases; cumulative-calls as a first-class cost
+  metric.
+- **MGM — Mendel Gödel Machine** (2608.07645, full read — VERIFIED this
+  round): scaffold-code lineage with matched 200-eval/24-expansion
+  budget contract; **freeze-artifact + zero-shot cross-benchmark/
+  cross-model transfer** adopted for the evaluation protocol (the
+  improved SNAPSHOT is the shipped artifact; report its zero-shot
+  transfer, not the search process); lineage/provenance record.
+- **AgentStream** (2608.00155, full read): Isolated/Sequential/
+  Interleaved triad; **evolution-gain = with-state minus matched
+  no-evolution control** as the primary metric form; mandatory
+  cost-multiplier reporting.
+- **FinEvo-Bench** (2608.06144, abstract-level): scene structure (N
+  related tasks sharing one procedure; within-scene position effects as
+  the transfer readout) — input to the main-task spec's A-group design.
+- **PROCTOR / GuardrailLoop / ModularRSI / SIFT / RRSI** (Sep-2026,
+  abstract-level): canary/cheat-trap tasks, hash-pinned eval contracts,
+  named-module improvement-surface registry, two-tier feedback
+  economics — noted for the main-benchmark spec, not yet committed.
+- **OpenAI harness engineering** (post 403'd; mirror retrieval, date
+  unconfirmed): feedback taxonomy (product behavior + telemetry +
+  review), numeric perf budgets as acceptance — designs only.
+
+Correction record: Dream-RSI and MGM were earlier marked "NOT
+independently verified" when search tooling failed; the literature
+subagent's primary-source reads landed after the spec was first
+committed, and this section is corrected accordingly. Remaining
+verification debt: everything is arXiv-preprint or blog (zero peer
+review); Recuris/FinEvo/PROCTOR-family details are abstract-level.
 
 ## Part 5 — Implementation order (this worktree)
 
@@ -259,4 +300,12 @@ claim and is implemented in v1's successor. Both are always labeled.
    trajectory entry integration (next round).
 6. **NEXT** — trajectory entry integration (arms + four-outcome
    reporting), one live smoke on the CALIBRATION pool, then the
-   main-task spec (3-group A/B/C).
+   main-task spec (3-group A/B/C). Inventory reconciliation (the
+   2026-09-22 inventory audit) shapes this step: the matched-compute
+   arm maps to the registered-but-unimplemented `stateful_control` slot
+   (`registration.py`); the external-method arm maps to the existing
+   `recuris_arm.py` fidelity adapter (in-process, 22 offline tests,
+   never scored) — the next round ACTIVATES existing assets rather
+   than building new ones, and the inventory's top-5 undecided list
+   (world distribution, main metrics/statistics, process isolation,
+   frozen F-schema, control arms) is the main-task spec's agenda.
