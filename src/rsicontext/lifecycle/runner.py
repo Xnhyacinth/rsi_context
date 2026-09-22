@@ -28,6 +28,7 @@ from rsicontext.lifecycle.env import (
     CheckResult,
     ObjectiveChecker,
     ProjectState,
+    Receipt,
 )
 from rsicontext.lifecycle.spec import (
     DescriptionAxes,
@@ -54,6 +55,11 @@ class StageView:
     documents: tuple[DocumentRef, ...]
     axes: DescriptionAxes
     remaining_budget: int
+    #: RSI core v1 — the act->observe channel: everything the environment
+    #: said since the participant's last turn (action receipts: verdicts,
+    #: refusals with named causes). Evaluator-only fields stay excluded;
+    #: receipts carry env ANSWERS, never oracle internals.
+    receipts: tuple["Receipt", ...] = ()
 
     def cited_doc_ids(self, pack_text: str) -> tuple[str, ...]:
         """Doc ids referenced by ``[[doc:ID]]`` markers in ``pack_text``."""
@@ -186,12 +192,19 @@ def _stage_notes(stage: StageSpec, cited: tuple[str, ...]) -> tuple[str, ...]:
     return (f"cited unknown doc ids: {unknown}",) if unknown else ()
 
 
-def _build_stage_view(stage: StageSpec, axes: DescriptionAxes, *, remaining: int) -> StageView:
+def _build_stage_view(
+    stage: StageSpec,
+    axes: DescriptionAxes,
+    *,
+    remaining: int,
+    receipts: tuple[Receipt, ...] = (),
+) -> StageView:
     """Build the participant view of one stage — evaluator fields excluded.
 
     ``StageView`` is constructed from ``stage``'s participant-visible fields
-    only; ``gold_evidence_ids`` and ``expected_state_delta`` are never read
-    here, so no view (or serialization of one) can leak them.
+    plus the env's pending receipts; ``gold_evidence_ids`` and
+    ``expected_state_delta`` are never read here, so no view (or
+    serialization of one) can leak them.
     """
 
     return StageView(
@@ -201,6 +214,7 @@ def _build_stage_view(stage: StageSpec, axes: DescriptionAxes, *, remaining: int
         documents=stage.documents,
         axes=axes,
         remaining_budget=remaining,
+        receipts=receipts,
     )
 
 
@@ -232,7 +246,18 @@ def run_lifecycle(
     # is evaluator-only — never surfaced through StageView.
     env.begin_instance(act_verify.verification_oracle)
     for index, stage in enumerate(inst.stages):
-        view = _build_stage_view(stage, inst.axes, remaining=total_stages - index)
+        # RSI core v1 — the act->observe channel: this view carries the
+        # receipts of everything the env said since the participant's
+        # last turn; after the hook responds, its actions go through
+        # ``submit`` (refusals become receipts, not crashes) and their
+        # receipts queue for the NEXT view. The loop is closed: a policy
+        # can see its own consequences.
+        view = _build_stage_view(
+            stage,
+            inst.axes,
+            remaining=total_stages - index,
+            receipts=env.drain_receipts(),
+        )
         response = hook.on_stage(view)
         if not isinstance(response, StageResponse):
             raise TypeError(
@@ -245,7 +270,7 @@ def run_lifecycle(
             # requested from here on carries the new revision.
             env.apply_protocol_revision(stage.rule_change_effect)
         for action in response.actions:
-            env.apply(action)
+            env.submit(action)
         cited = view.cited_doc_ids(response.pack_text)
         available = tuple(document.doc_id for document in stage.documents)
         stage_records.append(

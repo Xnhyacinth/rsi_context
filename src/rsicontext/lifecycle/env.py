@@ -189,6 +189,41 @@ class ProjectStateError(RuntimeError):
     """Raised when an action cannot be applied to the project state."""
 
 
+@dataclass(frozen=True, slots=True)
+class Receipt:
+    """The environment's response to ONE participant action (RSI core v1).
+
+    Every action the runner submits through ``ProjectState.submit`` gets a
+    receipt: applied actions carry the env's answer (for a verification
+    request: check, subject, verdict, protocol revision), refused actions
+    carry the named cause and leave the state untouched. Receipts are
+    DELIVERED to the participant in the next StageView — the act->observe
+    channel the loop was missing. A refusal is a recorded outcome the
+    policy can react to, never a mid-run crash.
+    """
+
+    action_kind: str
+    record_id: str
+    applied: bool
+    cause: str = ""
+    check: str = ""
+    subject: str = ""
+    verdict: str = ""
+    protocol_revision: int = 0
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "action_kind": self.action_kind,
+            "record_id": self.record_id,
+            "applied": self.applied,
+            "cause": self.cause,
+            "check": self.check,
+            "subject": self.subject,
+            "verdict": self.verdict,
+            "protocol_revision": self.protocol_revision,
+        }
+
+
 class ProjectState:
     """The typed record store one lifecycle writes into.
 
@@ -217,6 +252,57 @@ class ProjectState:
         self._verification_oracle: Mapping[str, Mapping[str, bool]] | None = None
         self.verification_record_ids: frozenset[str] = frozenset()
         self.finalized_record_ids: frozenset[str] = frozenset()
+        self.pending_receipts: tuple[Receipt, ...] = ()
+
+    def submit(self, action: Action) -> Receipt:
+        """Apply one action THROUGH the receipt channel (RSI core v1).
+
+        Semantics identical to ``apply`` on success; a refusal becomes a
+        RECEIPT (named cause, state untouched) instead of a raised
+        ``ProjectStateError`` — the participant sees it in the next view
+        and may adapt. Structural type errors (non-Action input, action
+        shape) still raise: those are harness bugs, not participant
+        moves. The receipt is queued for delivery by
+        ``drain_receipts``.
+        """
+
+        try:
+            self.apply(action)
+        except ProjectStateError as exc:
+            receipt = Receipt(
+                action_kind=action.kind,
+                record_id=action.record_id,
+                applied=False,
+                cause=str(exc),
+            )
+            self.pending_receipts = (*self.pending_receipts, receipt)
+            return receipt
+        receipt = Receipt(
+            action_kind=action.kind,
+            record_id=action.record_id,
+            applied=True,
+        )
+        if action.kind == "request_verification":
+            record = self.records.get(action.record_id)
+            if isinstance(record, dict):
+                receipt = Receipt(
+                    action_kind=action.kind,
+                    record_id=action.record_id,
+                    applied=True,
+                    check=str(record.get("check", "")),
+                    subject=str(record.get("subject", "")),
+                    verdict=str(record.get("verdict", "")),
+                    protocol_revision=int(record.get("protocol_revision", 0) or 0),
+                )
+        self.pending_receipts = (*self.pending_receipts, receipt)
+        return receipt
+
+    def drain_receipts(self) -> tuple[Receipt, ...]:
+        """Hand the queued receipts to the runner for the next StageView."""
+
+        out = self.pending_receipts
+        self.pending_receipts = ()
+        return out
 
     def begin_instance(self, oracle: Mapping[str, Mapping[str, bool]] | None) -> None:
         """Install the evaluator-owned verification oracle for one instance.

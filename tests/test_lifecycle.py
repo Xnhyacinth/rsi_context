@@ -274,6 +274,9 @@ def test_stage_view_excludes_evaluator_fields_by_construction() -> None:
         "documents",
         "axes",
         "remaining_budget",
+        # RSI core v1: the act->observe channel — env receipts (verdicts,
+        # refusal causes), never evaluator internals.
+        "receipts",
     }
     assert "gold_evidence_ids" not in view.__dataclass_fields__
 
