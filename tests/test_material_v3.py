@@ -111,12 +111,16 @@ class _PathHook:
         status_domain: str,
     ) -> StageResponse:
         actions: list[Action] = []
-        for record_id, check, revision in verifs:
+        for record_id, check, _revision in verifs:
+            # Env-issued evidence: the check is REQUESTED (the env stamps
+            # the verdict and the CURRENT protocol revision); the path's
+            # timing intent is preserved by requesting at act_verify
+            # (post-rule-change) for the paths that re-verify.
             actions.append(
                 Action(
-                    kind="create_record",
+                    kind="request_verification",
                     record_id=record_id,
-                    fields={"check": check, "protocol_revision": revision},
+                    fields={"check": check, "subject": plan},
                 )
             )
         actions.append(

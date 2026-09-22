@@ -22,9 +22,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-ActionKind = Literal["create_record", "update_record", "finalize"]
+ActionKind = Literal["create_record", "update_record", "finalize", "request_verification"]
 
-_ACTION_KINDS: tuple[str, ...] = ("create_record", "update_record", "finalize")
+_ACTION_KINDS: tuple[str, ...] = (
+    "create_record",
+    "update_record",
+    "finalize",
+    "request_verification",
+)
 _PROVENANCE_FIELD = "provenance"
 _FINALIZED_FIELD = "finalized"
 _ANSWER_FIELD = "answer"
@@ -89,6 +94,16 @@ class Action:
     referenced record carrying the required check. A failed precondition
     is a NAMED refusal at apply time, never a silent zero (task card
     research-v3 §Action semantics).
+
+    ``request_verification`` (v3 verification service): the participant
+    may REQUEST a verification of (check, subject) — it may never WRITE
+    one. The environment consults the instance's verification oracle
+    (installed by ``begin_instance``) and itself writes the record,
+    binding check, subject, verdict, and the CURRENT protocol revision
+    (the env's own clock, advanced by the runner on rule-change stages).
+    The record id is participant-chosen (a name, not a fact); the record
+    body is not writable by the participant at all, so "verification
+    succeeded" can no longer be self-declared.
     """
 
     kind: ActionKind
@@ -137,6 +152,19 @@ class Action:
             or self.precondition_scope_constraint is not None
         ):
             raise ValueError("preconditions apply to finalize actions only")
+        if self.kind == "request_verification":
+            # The request names WHAT to verify, never the outcome: check and
+            # subject are strings; verdict/revision/body are not writable.
+            for key in ("check", "subject"):
+                value = self.fields.get(key)
+                if not isinstance(value, str) or not value:
+                    raise ValueError(f"request_verification requires a {key!r} string")
+            forbidden = set(self.fields) - {"check", "subject"}
+            if forbidden:
+                raise ValueError(
+                    "request_verification fields must be check/subject only "
+                    f"(the environment writes the outcome); got {sorted(forbidden)}"
+                )
         if self.kind == "finalize" and not self.provenance:
             raise ValueError("finalize actions require non-empty provenance")
 
@@ -167,11 +195,45 @@ class ProjectState:
     Mutable by ``apply`` only; every applied action is appended to the
     transcript so a run record can audit the actual end state (contract
     §Protocol semantics: the full state transcript is logged and auditable).
+
+    v3 verification service: the state also owns the environment side of
+    verification. ``begin_instance`` installs the world's verification
+    oracle and protocol clock; ``request_verification`` actions are the
+    participant's only entry point — the ENVIRONMENT writes the record
+    (check, subject, verdict, the CURRENT revision), so a verification
+    result cannot be self-declared, and the evaluator-side gate can
+    distinguish environment-issued evidence from participant-authored
+    records (``verification_record_ids``). ``apply_protocol_revision``
+    advances the clock on rule-change stages; a revision bump
+    supersedes nothing retroactively (records keep the revision they
+    were issued under — currency is judged at gate time against the
+    scope).
     """
 
     def __init__(self) -> None:
         self.records: dict[str, dict[str, Any]] = {}
         self.transcript: tuple[Action, ...] = ()
+        self.protocol_revision: int = 1
+        self._verification_oracle: Mapping[str, Mapping[str, bool]] | None = None
+        self.verification_record_ids: frozenset[str] = frozenset()
+        self.finalized_record_ids: frozenset[str] = frozenset()
+
+    def begin_instance(self, oracle: Mapping[str, Mapping[str, bool]] | None) -> None:
+        """Install the evaluator-owned verification oracle for one instance.
+
+        ``oracle`` maps check name -> {subject -> passed}. Only the
+        evaluator (the runner, from the instance's carried oracle) may
+        install it; participants have no path to this method's argument.
+        """
+
+        self._verification_oracle = dict(oracle) if oracle is not None else None
+
+    def apply_protocol_revision(self, revision: int) -> None:
+        """Advance the env's protocol clock (rule-change stages)."""
+
+        if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
+            raise ValueError("protocol revision must be a positive integer")
+        self.protocol_revision = revision
 
     def apply(self, action: Action) -> None:
         """Apply one typed action; invalid applications raise, never no-op.
@@ -181,7 +243,9 @@ class ProjectState:
         by creating a new record, per the v3 task card), and finalize
         preconditions (see ``Action``) are checked over the CURRENT
         records before any field is written, so a refused precondition
-        leaves the state untouched.
+        leaves the state untouched. ``request_verification`` never
+        touches participant-writable records: the environment itself
+        writes the result record and registers it.
         """
 
         if not isinstance(action, Action):
@@ -209,6 +273,14 @@ class ProjectState:
             for key, value in action.fields.items():
                 target[key] = value
             self._merge_provenance(target, action.provenance)
+        elif action.kind == "request_verification":
+            check = action.fields["check"]
+            subject = action.fields["subject"]
+            record = self._environment_verification(action.record_id, check, subject)
+            self.records[action.record_id] = record
+            self.verification_record_ids = self.verification_record_ids | frozenset(
+                (action.record_id,)
+            )
         else:  # finalize
             if action.record_id not in self.records:
                 raise ProjectStateError(
@@ -223,8 +295,33 @@ class ProjectState:
             for key, value in action.fields.items():
                 target[key] = value
             target[_FINALIZED_FIELD] = True
+            self.finalized_record_ids = self.finalized_record_ids | frozenset((action.record_id,))
             self._merge_provenance(target, action.provenance)
         self.transcript = (*self.transcript, action)
+
+    def _environment_verification(self, record_id: str, check: str, subject: str) -> dict[str, Any]:
+        """The environment's own record for one requested verification.
+
+        A request the oracle cannot execute (no oracle installed, or the
+        (check, subject) pair is not covered) becomes a NAMED non-passing
+        record — never a crash, never a fabricated pass: an unverifiable
+        claim is recorded as unverifiable, and the commit gate treats it
+        as absent evidence. The participant survives a wrong check list
+        as a recorded outcome, not a mid-run abort.
+        """
+
+        verdict = "unverifiable"
+        if self._verification_oracle is not None:
+            known = self._verification_oracle.get(check)
+            if isinstance(known, Mapping) and subject in known:
+                verdict = "pass" if bool(known[subject]) else "fail"
+        return {
+            "check": check,
+            "subject": subject,
+            "verdict": verdict,
+            "protocol_revision": self.protocol_revision,
+            "performed_by": "environment",
+        }
 
     def _check_preconditions(self, action: Action) -> None:
         """Evaluate a finalize action's declared preconditions, named on failure."""

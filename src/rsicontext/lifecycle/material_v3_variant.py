@@ -140,6 +140,22 @@ _VARIANT_SPECS: tuple[dict[str, object], ...] = (
             "verif-retention": "retention",
         },
         "plan_requirements": {"kestrel": {"domain": "billing", "requires_check": "soak-window"}},
+        "verification_oracle": {
+            "soak-window": {
+                "kestrel": True,
+                "lark": True,
+                "merlin": True,
+                "nightjar": False,
+                "osprey": True,
+            },
+            "retention": {
+                "kestrel": True,
+                "lark": True,
+                "merlin": True,
+                "nightjar": True,
+                "osprey": True,
+            },
+        },
         "plan_note": "rollout",
     },
     {
@@ -240,6 +256,22 @@ _VARIANT_SPECS: tuple[dict[str, object], ...] = (
             "verif-acl": "acl-audit",
         },
         "plan_requirements": {"basalt": {"domain": "archive", "requires_check": "checksum-drift"}},
+        "verification_oracle": {
+            "checksum-drift": {
+                "basalt": True,
+                "cobble": True,
+                "dacite": True,
+                "eldorado": False,
+                "flint": True,
+            },
+            "acl-audit": {
+                "basalt": True,
+                "cobble": True,
+                "dacite": True,
+                "eldorado": True,
+                "flint": True,
+            },
+        },
         "plan_note": "storage",
     },
 )
@@ -378,6 +410,7 @@ def _build(spec: Mapping[str, object], instance_id: str) -> LifecycleInstance:
                 ),
                 documents=(rule_change_doc,),
                 gold_evidence_ids=(),
+                rule_change_effect=2,
             ),
             StageSpec(
                 stage_id="s5-act-verify",
@@ -408,6 +441,7 @@ def _build(spec: Mapping[str, object], instance_id: str) -> LifecycleInstance:
                     "current_revision": 2,
                     "revision_scope": list(scope),
                 },
+                verification_oracle=spec["verification_oracle"],
             ),
         ),
         axes=DescriptionAxes(
@@ -420,7 +454,12 @@ def _build(spec: Mapping[str, object], instance_id: str) -> LifecycleInstance:
         answer_norm=legal_plans[0],
         sandbox_spec={
             "records": [_COMMIT_RECORD, _STATUS_RECORD, _VERIF_RECORD],
-            "action_kinds": ["create_record", "update_record", "finalize"],
+            "action_kinds": [
+                "create_record",
+                "update_record",
+                "finalize",
+                "request_verification",
+            ],
         },
         answer_aliases=legal_plans,
     )

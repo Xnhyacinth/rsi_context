@@ -29,51 +29,98 @@ from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
 class _PlainCommitHook:
     """Commits a named plan via a PLAIN finalize (no Action preconditions).
 
-    This is the adversarial shape the evaluator-side gate must catch:
-    the participant's finalize carries no opt-in preconditions, so only
-    the evaluator's own check over the sandbox records can fail it.
+    The verification records come from the env's service: the hook
+    REQUESTS them (``request_verification``), so their revision and
+    verdict are the environment's, and the adversarial axis is WHEN the
+    request is made — "early" requests age past the rule change; the
+    default requests at commit time (current revision). A
+    ``fabricate=True`` hook writes its own records instead: those are
+    the adversarial "self-declared evidence" shapes the gate must catch.
     """
 
-    def __init__(self, plan: str, verif_revision: int = 1, with_cutover: bool = True) -> None:
+    def __init__(
+        self,
+        plan: str,
+        verif_revision: int = 1,
+        with_cutover: bool = True,
+        early: bool = False,
+        fabricate: bool = False,
+    ) -> None:
         self.plan = plan
         self.verif_revision = verif_revision
         self.with_cutover = with_cutover
+        self.early = early
+        self.fabricate = fabricate
+        self._early_refs: list[str] = []
+
+    def _requests(self) -> list[Action]:
+        checks = []
+        if self.with_cutover:
+            checks.append(("verif-cutover", "online-cutover"))
+        checks.append(("verif-lag", "replica-lag"))
+        return [
+            Action(
+                kind="request_verification",
+                record_id=record_id,
+                fields={"check": check, "subject": self.plan},
+            )
+            for record_id, check in checks
+        ]
 
     def on_stage(self, stage: StageView) -> StageResponse:
+        if self.early and stage.kind == "constraint_injection":
+            requests = self._requests()
+            self._early_refs = [action.record_id for action in requests]
+            return StageResponse(pack_text="notes", actions=tuple(requests))
         if stage.kind != "act_verify":
             return StageResponse(pack_text="notes")
         domain = "finance" if self.plan in ("aurora", "borealis") else "other"
         actions: list[Action] = []
-        if self.with_cutover:
-            actions.append(
-                Action(
-                    kind="create_record",
-                    record_id="verif-cutover",
-                    fields={"check": "online-cutover", "protocol_revision": 2},
+        refs: list[str] = list(self._early_refs)
+        if self.fabricate:
+            if self.with_cutover:
+                actions.append(
+                    Action(
+                        kind="create_record",
+                        record_id="verif-cutover",
+                        fields={"check": "online-cutover", "protocol_revision": 2},
+                    )
                 )
-            )
-        actions.extend(
-            (
+                refs.append("verif-cutover")
+            actions.append(
                 Action(
                     kind="create_record",
                     record_id="verif-lag",
                     fields={"check": "replica-lag", "protocol_revision": self.verif_revision},
-                ),
-                Action(
-                    kind="create_record",
-                    record_id=f"candidate_status-{self.plan}",
-                    fields={"plan": self.plan, "domain": domain},
-                ),
-                Action(
-                    kind="create_record", record_id="migration_commit", fields={"plan": self.plan}
-                ),
-                Action(
-                    kind="finalize",
-                    record_id="migration_commit",
-                    fields={"status": "final"},
-                    provenance=("verif-lag", f"candidate_status-{self.plan}")
-                    + (("verif-cutover",) if self.with_cutover else ()),
-                ),
+                )
+            )
+            refs.append("verif-lag")
+        else:
+            if not self.early:
+                # The default path verifies at commit time (current
+                # revision). An EARLY hook does NOT re-request — citing
+                # aged evidence is the adversarial point of early=.
+                actions.extend(self._requests())
+                refs.extend(
+                    action.record_id for action in actions if action.kind == "request_verification"
+                )
+        actions.append(
+            Action(
+                kind="create_record",
+                record_id=f"candidate_status-{self.plan}",
+                fields={"plan": self.plan, "domain": domain},
+            )
+        )
+        refs.append(f"candidate_status-{self.plan}")
+        actions.append(
+            Action(kind="create_record", record_id="migration_commit", fields={"plan": self.plan})
+        )
+        actions.append(
+            Action(
+                kind="finalize",
+                record_id="migration_commit",
+                fields={"status": "final"},
+                provenance=tuple(refs),
             )
         )
         return StageResponse(pack_text=f"plain commit {self.plan}", actions=tuple(actions))
@@ -148,11 +195,14 @@ def test_illegal_plan_plain_finalize_fails_final_check() -> None:
 
 
 def test_legal_plan_with_stale_evidence_fails_final_check() -> None:
-    # aurora (legal plan) but the replica-lag verification is revision 1
-    # (stale after the rule change): the evaluator gate must fail it.
+    # aurora (legal plan) but the replica-lag verification was requested
+    # EARLY (before the rule change: the env stamped revision 1, and the
+    # scoped check is stale for the commit): the evaluator gate must fail
+    # it. Staleness is the environment's own clock, not a self-declared
+    # revision label.
     record = run_lifecycle(
         build_research_v3_instance(),
-        _PlainCommitHook("aurora", verif_revision=1),
+        _PlainCommitHook("aurora", early=True),
         ProjectState(),
     )
     assert not record.final_check.passed

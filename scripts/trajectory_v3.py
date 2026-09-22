@@ -75,6 +75,13 @@ _COMMIT = "migration_commit"
 _STATUS = "candidate_status"
 _VARIANT_IDS = ("orinoco", "parana")
 _OPTION2_IDS = ("zephyr", "quill", "atlas", "lumen", "swift", "mirror")
+#: The DEV new-instance pool (external review 2.3/4.3: development feedback
+#: must not flow through the evaluation pool's worlds — the probe that
+#: regenerates the researcher's feedback runs DEV-DISTRIBUTION new instances,
+#: disjoint from the held-out evaluation set). The authored variants serve
+#: as the dev surface: transfer probes in the loop, never final-evaluation
+#: worlds.
+_DEV_UNSEEN_POOL: tuple[str, ...] = ()
 
 #: T2 variance-floor ceiling (design-t2floor): the minimal reportable
 #: contrast is 0.20 (hy3 precedent); the rejection ceiling sits at a
@@ -133,10 +140,27 @@ def _rebind_instance_id(inst, instance_id: str):
 
 
 def _survey_checks(survey_text: str) -> list[str]:
-    """The check names the survey's protocol document mentioned, in order."""
+    """The check names the survey's protocol document mentioned, in order.
+
+    World-generic: the authored worlds name their checks from
+    ``_KNOWN_CHECKS``; the Option-2 real-document worlds name their check
+    in their own protocol doc as "the <name> check" (genre, occupation,
+    site, …), so the fallback derives the vocabulary from the material
+    itself rather than a fixed list.
+    """
 
     lowered = survey_text.lower()
-    return [check for check in _KNOWN_CHECKS if check in lowered]
+    known = [check for check in _KNOWN_CHECKS if check in lowered]
+    if known:
+        return known
+    import re
+
+    names: list[str] = []
+    for match in re.finditer(r"the ([a-z][a-z0-9\- ]{1,30}?) check\b", lowered):
+        name = match.group(1).strip()
+        if name and name not in names:
+            names.append(name)
+    return names
 
 
 def _pass_fraction(branch_results: dict) -> float:
@@ -303,6 +327,14 @@ class TrajectoryHook:
         # the READER's replies feed plan/check decisions, not only notes).
         self._reader_survey_reply = ""
         self._reader_protocol_reply = ""
+        # The verification-request channel (env-owned evidence): every
+        # request this hook emits, by record id -> (check, subject). The
+        # commit cites these — a record the env did not issue does not
+        # exist as evidence.
+        self._verification_requests: dict[str, tuple[str, str]] = {}
+        # The subject plan fixed at the constraint stage (early/reread
+        # requests share it so evidence stays subject-bound).
+        self._request_subject: str | None = None
 
     def _strategy_namespace(self) -> dict[str, object]:
         if self.strategy_text is None:
@@ -369,6 +401,29 @@ class TrajectoryHook:
             return validated
         return survey_checks
 
+    def _request_checks(self) -> list[str]:
+        """The checks to request from the environment's verification service.
+
+        The strategy's WORLD_PROFILES (when one exists) names the checks
+        per world; otherwise the check vocabulary is the world's own
+        survey material. Requests are validated by the environment
+        against its oracle — an uncovered (check, subject) pair is a
+        NAMED refusal, never a fabricated pass.
+        """
+
+        namespace = self._strategy_namespace()
+        profile = namespace.get("WORLD_PROFILES")
+        checks: list[str] = []
+        if isinstance(profile, dict):
+            for entry in profile.values():
+                if isinstance(entry, dict):
+                    world_checks = entry.get("checks")
+                    if isinstance(world_checks, list):
+                        checks.extend(check for check in world_checks if isinstance(check, str))
+        if not checks:
+            checks = self._derived_checks()
+        return checks
+
     def on_stage(self, stage: StageView) -> StageResponse:
         docs = "\n\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
         notes = "\n".join(str(n) for n in self.state.get("notes", []))  # type: ignore[union-attr]
@@ -400,10 +455,57 @@ class TrajectoryHook:
         notes_list.append({"stage": stage.stage_id, "summary": reply[:160]})
         self.state["notes"] = notes_list[-24:]
 
+        # The verification service: verifications are REQUESTED from the
+        # environment (env-issued, subject-bound, revision-timed); the
+        # participant can no longer write an evidence record itself. The
+        # fixed arm requests once, EARLY (constraint stage — evidence ages
+        # with the protocol clock); the strategy decides whether to
+        # RE-REQUEST after the rule change (STRATEGY_RERVERIFY: the env
+        # re-executes at the current revision — a real re-verification,
+        # not a rewritten label).
+        stage_actions: tuple[Action, ...] = ()
+        if stage.kind == "constraint_injection":
+            checks = self._request_checks()
+            subject = self.choose_plan()
+            self._request_subject = subject
+            for index, check in enumerate(checks):
+                self._verification_requests[f"verif-early-{index}"] = (check, subject)
+            stage_actions = tuple(
+                Action(
+                    kind="request_verification",
+                    record_id=f"verif-early-{index}",
+                    fields={"check": check, "subject": subject},
+                )
+                for index, check in enumerate(checks)
+            )
         if stage.kind == "rule_change":
-            # The reread path: re-consult the protocol document.
-            self.rereads.append("doc-verif-db")
+            namespace = self._strategy_namespace()
+            if bool(namespace.get("STRATEGY_RERVERIFY", False)):
+                # A REAL re-verification: the environment re-executes the
+                # checks under the current revision. The reread
+                # bookkeeping now records what was actually re-requested.
+                checks = self._request_checks()
+                subject = self._request_subject or self.choose_plan()
+                for index, check in enumerate(checks):
+                    self._verification_requests[f"verif-reread-{index}"] = (check, subject)
+                rerequests = tuple(
+                    Action(
+                        kind="request_verification",
+                        record_id=f"verif-reread-{index}",
+                        fields={"check": check, "subject": subject},
+                    )
+                    for index, check in enumerate(checks)
+                )
+                stage_actions = rerequests
+                self.rereads.append(f"reverify:{len(rerequests)}")
+            else:
+                # The reread path: re-consult the protocol document.
+                self.rereads.append("doc-verif-db")
 
+        if stage_actions:
+            return StageResponse(
+                pack_text=f"{stage.stage_id} [[doc:anchor]]", actions=stage_actions
+            )
         if stage.kind != "act_verify":
             return StageResponse(pack_text=f"{stage.stage_id} [[doc:anchor]]")
 
@@ -412,26 +514,24 @@ class TrajectoryHook:
         return StageResponse(pack_text=f"commit {plan}", actions=tuple(actions))
 
     def _commit_actions(self, plan: str) -> list[Action]:
-        """World-generic commit records.
+        """World-generic commit over ENVIRONMENT-ISSUED evidence.
 
-        The checks and domains come from the world's own survey material
-        (which the participant read at stage 1) via the strategy's
-        declared profile, or from the survey text directly. The strategy
-        decides ONE thing: whether in-scope checks are re-verified
-        post-rule-change (STRATEGY_RERVERIFY). The fixed arm does not.
+        Verification records exist only through ``request_verification``
+        (issued by the environment, subject-bound, revision-timed — the
+        fixed arm's early requests and the strategy's post-rule-change
+        re-requests land in the sandbox before this stage runs). The
+        commit cites those records; it never writes an evidence record.
+        The strategy decides ONE thing: whether to re-request after the
+        rule change (STRATEGY_RERVERIFY — a real re-verification, not a
+        rewritten revision label).
         """
 
         namespace = self._strategy_namespace()
-        rereverify = bool(namespace.get("STRATEGY_RERVERIFY", False))
         profile = namespace.get("WORLD_PROFILES")
-        checks: list[str] = []
         domain_by_plan: dict[str, str] = {}
         if isinstance(profile, dict):
             for entry in profile.values():
                 if isinstance(entry, dict):
-                    world_checks = entry.get("checks")
-                    if isinstance(world_checks, list):
-                        checks.extend(check for check in world_checks if isinstance(check, str))
                     domains = entry.get("domains")
                     if isinstance(domains, dict):
                         domain_by_plan.update(
@@ -441,24 +541,50 @@ class TrajectoryHook:
                                 if isinstance(plan_name, str) and isinstance(domain, str)
                             }
                         )
-        if not checks:
-            # Reader channel first (the reply is the extraction surface),
-            # survey text second (the stage-1 source).
-            checks = self._derived_checks()
         domain = domain_by_plan.get(plan, "other")
         actions: list[Action] = []
-        refs: list[str] = []
-        for index, check in enumerate(checks):
-            record_id = f"verif-{index}"
-            revision = 2 if rereverify else 1
+        # Commit-time requests are the DEFERRED-VERIFICATION baseline: a
+        # participant may verify everything at the end (the env stamps the
+        # current revision; a fail verdict fails). But a pair already
+        # requested earlier is NOT re-requested here — re-requesting is
+        # exactly the STRATEGY's move (STRATEGY_RERVERIFY); the fixed arm
+        # cites its early, aged evidence by design.
+        requested_pairs = set(self._verification_requests.values())
+        new_index = 0
+        for check in self._request_checks():
+            if (check, plan) in requested_pairs:
+                continue
+            record_id = f"verif-commit-{new_index}"
+            new_index += 1
+            self._verification_requests[record_id] = (check, plan)
             actions.append(
                 Action(
-                    kind="create_record",
+                    kind="request_verification",
                     record_id=record_id,
-                    fields={"check": check, "protocol_revision": revision},
+                    fields={"check": check, "subject": plan},
                 )
             )
-            refs.append(record_id)
+        # Cite the plan's own evidence: every request whose subject IS the
+        # committed plan (early requests may have used the stage-2 plan
+        # choice; subject binding is what the evaluator's gate checks).
+        # Per check, the FRESHEST record wins: a post-rule-change
+        # re-request supersedes the early one for citation purposes
+        # (the early record still exists — supersession is cite-side,
+        # the env's revision clock is truth-side).
+        by_check_early: dict[str, str] = {}
+        by_check_fresh: dict[str, str] = {}
+        for record_id, (check, subject) in self._verification_requests.items():
+            if subject != plan:
+                continue
+            if record_id.startswith("verif-early-"):
+                by_check_early.setdefault(check, record_id)
+            else:
+                by_check_fresh[check] = record_id
+        refs: list[str] = [
+            by_check_fresh.get(check, by_check_early.get(check, ""))
+            for check in dict.fromkeys(check for check, _ in self._verification_requests.values())
+        ]
+        refs = [ref for ref in refs if ref]
         actions.append(
             Action(
                 kind="create_record",
@@ -484,7 +610,9 @@ class ReferenceHook:
 
     World-generic: the plan and checks come from the instance's own
     survey material via the module helpers, so the reference path runs
-    on any v3 world (main or variant).
+    on any v3 world (main or variant). Verifications are REQUESTED from
+    the environment after the rule change (current-revision evidence);
+    the commit cites the env-issued records.
     """
 
     def __init__(self) -> None:
@@ -494,24 +622,31 @@ class ReferenceHook:
     def on_stage(self, stage: StageView) -> StageResponse:
         self.calls += 1
         docs = "\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
+        if stage.kind == "survey":
+            self._survey_text = docs
+            return StageResponse(pack_text="reference working notes")
+        if stage.kind == "rule_change":
+            # The reference path re-verifies after the rule change: env-issued,
+            # subject-bound, current-revision evidence.
+            checks = _survey_checks(self._survey_text)
+            plan = _reference_plan(self._survey_text)
+            return StageResponse(
+                pack_text="reference re-verification",
+                actions=tuple(
+                    Action(
+                        kind="request_verification",
+                        record_id=f"verif-ref-{index}",
+                        fields={"check": check, "subject": plan},
+                    )
+                    for index, check in enumerate(checks)
+                ),
+            )
         if stage.kind != "act_verify":
-            if stage.kind == "survey":
-                self._survey_text = docs
             return StageResponse(pack_text="reference working notes")
         checks = _survey_checks(self._survey_text)
         plan = _reference_plan(self._survey_text)
         actions: list[Action] = []
-        refs: list[str] = []
-        for index, check in enumerate(checks):
-            record_id = f"verif-ref-{index}"
-            actions.append(
-                Action(
-                    kind="create_record",
-                    record_id=record_id,
-                    fields={"check": check, "protocol_revision": 2},
-                )
-            )
-            refs.append(record_id)
+        refs: list[str] = [f"verif-ref-{index}" for index in range(len(checks))]
         actions.append(
             Action(
                 kind="create_record",
@@ -570,6 +705,26 @@ def run_dev_session(
     return store, totals
 
 
+def _world_identity(inst) -> dict[str, str]:
+    """The reproducibility record for one world instance (external review
+    4.1: the artifact must state WHICH world ran, not just a seed).
+
+    The instance id and a sha256 over the canonical to_dict of the
+    instance's stages — the material hash. Two runs with the same world
+    identity ran the same material; the seed axis alone proves nothing.
+    """
+
+    import hashlib
+
+    payload = [stage.to_dict() for stage in inst.stages]
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return {
+        "instance_id": inst.instance_id,
+        "family": inst.family,
+        "material_sha256": hashlib.sha256(blob).hexdigest()[:16],
+    }
+
+
 def evaluate_branches(
     snapshot,
     *,
@@ -578,18 +733,24 @@ def evaluate_branches(
     offline_answers: dict[str, str] | None,
     seed_suffix: str = "",
     unseen_rotation: int = 0,
+    unseen_pool: tuple[str, ...] | None = None,
 ) -> dict[str, object]:
     """Run continuation / new-world / regression branches from one snapshot.
 
     The new-world branch runs over the UNSEEN-WORLD pool — the two
-    authored variant worlds (orinoco/parana) PLUS the three Option-2
-    real-document worlds (zephyr/quill/atlas), round-robin over the two
-    variant slots so every run exercises two different unseen worlds.
-    A strategy whose improvement is structural (scope-aware
-    invalidation) rather than topic-specific is thereby exercised on
-    authored AND real material it never saw.
+    authored variant worlds (orinoco/parana) PLUS the Option-2
+    real-document worlds, round-robin over the two variant slots so
+    every run exercises two different unseen worlds. A strategy whose
+    improvement is structural (scope-aware invalidation) rather than
+    topic-specific is thereby exercised on authored AND real material it
+    never saw.
     ``seed_suffix`` makes branch session ids seed-distinct; the WORLD
-    MATERIAL is never seed-dependent.
+    MATERIAL is never seed-dependent, and each branch record states the
+    world identity + material hash it actually ran (reproducibility).
+    ``unseen_pool`` selects between the DEV distribution (feedback
+    probes — dev-distribution new instances, disjoint from the held-out
+    set) and the EVALUATION distribution (the default: the held-out
+    unseen pool).
     """
 
     results: dict[str, object] = {}
@@ -601,6 +762,9 @@ def evaluate_branches(
     from rsicontext.lifecycle.material_v3_segment import build_option2_world
     from rsicontext.lifecycle.material_v3_variant import build_research_v3_variant
 
+    variant_ids = _VARIANT_IDS
+    option2_ids = _OPTION2_IDS if unseen_pool is None else unseen_pool
+
     def _unseen_world(slot: int):
         # Slot 0 runs one AUTHORED variant world; slot 1 runs one
         # OPTION-2 real-document world — both indexed by the rotation
@@ -608,8 +772,10 @@ def evaluate_branches(
         # run, distinct across seeds). Every run exercises unseen
         # material from both pools.
         if slot == 0:
-            return build_research_v3_variant(_VARIANT_IDS[unseen_rotation % len(_VARIANT_IDS)])
-        return build_option2_world(_OPTION2_IDS[unseen_rotation % len(_OPTION2_IDS)])
+            return build_research_v3_variant(variant_ids[unseen_rotation % len(variant_ids)])
+        if option2_ids:
+            return build_option2_world(option2_ids[unseen_rotation % len(option2_ids)])
+        return build_research_v3_instance()
 
     for kind, session_id, surface in branch_specs:
         records: list[dict[str, object]] = []
@@ -623,6 +789,7 @@ def evaluate_branches(
                 inst = build_research_v3_instance(
                     instance_id=f"research-v3-{session_id}{seed_suffix}-{variant}"
                 )
+            world_identity = _world_identity(inst)
             try:
                 captured = {"hooks": []}
 
@@ -677,14 +844,21 @@ def evaluate_branches(
                 strategy_errors = [
                     error for hook in captured["hooks"] for error in hook.strategy_errors
                 ]
+                hook_totals = {
+                    "reader_calls": sum(hook.calls for hook in captured["hooks"]),
+                    "tokens_in": sum(hook.tokens_in for hook in captured["hooks"]),
+                    "tokens_out": sum(hook.tokens_out for hook in captured["hooks"]),
+                }
                 records.append(
                     {
                         "variant": variant,
                         "ran": True,
                         "surface": surface,
+                        "world": world_identity,
                         "final_checks": final_checks,
                         "gate_failure_counts": gate_failure_counts,
                         "strategy_errors": strategy_errors,
+                        "hook_totals": hook_totals,
                     }
                 )
             except Exception as exc:
@@ -693,6 +867,7 @@ def evaluate_branches(
                         "variant": variant,
                         "ran": False,
                         "surface": surface,
+                        "world": world_identity,
                         "error": f"{type(exc).__name__}: {exc}",
                     }
                 )
@@ -819,7 +994,11 @@ def main() -> int:
     # The dev-world probe: run the CURRENT snapshot over the three branch
     # kinds (dev surfaces only) to COLLECT the failure feedback for the
     # round — regenerated per round so round N sees round N-1's residual
-    # failures, never the initial ones.
+    # failures, never the initial ones. FEEDBACK ISOLATION (external review
+    # 2.3): the probe's new-world branch runs the DEV unseen pool (the
+    # authored variants — transfer probes inside the loop), NEVER the
+    # held-out Option-2 evaluation worlds, so evaluation-pool failures
+    # cannot enter the improver's input.
     def probe(snapshot, strategy_text: str | None) -> dict[str, object]:
         return evaluate_branches(
             snapshot,
@@ -827,6 +1006,8 @@ def main() -> int:
             offline=args.offline,
             offline_answers=offline_answers,
             seed_suffix=f"-s{args.seed}",
+            unseen_rotation=args.seed,
+            unseen_pool=_DEV_UNSEEN_POOL,
         )
 
     # Improvement rounds: S0 -> S1 -> ... -> SN. Each round's feedback
@@ -939,6 +1120,7 @@ def main() -> int:
         offline=args.offline,
         offline_answers=offline_answers,
         seed_suffix=f"-s{args.seed}",
+        unseen_rotation=args.seed,
     )
     branch_results["S0"] = evaluate_branches(
         s0,
@@ -946,6 +1128,7 @@ def main() -> int:
         offline=args.offline,
         offline_answers=offline_answers,
         seed_suffix=f"-s{args.seed}",
+        unseen_rotation=args.seed,
     )
     for round_index in range(1, args.rounds + 1):
         snapshot_id = f"S{round_index}"
@@ -955,6 +1138,7 @@ def main() -> int:
             offline=args.offline,
             offline_answers=offline_answers,
             seed_suffix=f"-s{args.seed}",
+            unseen_rotation=args.seed,
         )
 
     # 5. T2 variance floor (optional, per docs/research/design-t2floor-20260921.md):
@@ -983,6 +1167,7 @@ def main() -> int:
                 offline=args.offline,
                 offline_answers=offline_answers,
                 seed_suffix=f"-s{args.seed}-vr{repeat}",
+                unseen_rotation=args.seed,
             )
             scores.append(_pass_fraction(repeat_results))
         sd = _sample_sd(scores)
@@ -1007,6 +1192,8 @@ def main() -> int:
     # effect rather than a re-draw.
     author_variance: dict[str, object] | None = None
     if args.author_repeats:
+        # DEV pool again (feedback isolation: the author-draw feedback is
+        # regenerated from dev-distribution surfaces, never the eval pool).
         author_feedback = _dev_feedback_bytes(
             evaluate_branches(
                 s0,
@@ -1014,6 +1201,8 @@ def main() -> int:
                 offline=args.offline,
                 offline_answers=offline_answers,
                 seed_suffix=f"-s{args.seed}-probe",
+                unseen_rotation=args.seed,
+                unseen_pool=_DEV_UNSEEN_POOL,
             )
         )
         variant_scores: list[float] = []
@@ -1047,9 +1236,16 @@ def main() -> int:
                 except Exception as exc:
                     # A failed draw: usage stays {} (never a stale value
                     # from a previous draw — the record must not carry
-                    # another draw's numbers).
+                    # another draw's numbers). The exception's attempt log
+                    # (ResearcherRoundFailure.attempts) IS the draw's own
+                    # reliability evidence: copy it (external review 4.3 —
+                    # the failure path loses the per-attempt record when it
+                    # is not carried over).
                     repeat_strategy = _STRATEGY_STUB
                     outcome = f"failed: {type(exc).__name__}: {exc}"
+                    failure_attempts = getattr(exc, "attempts", None)
+                    if isinstance(failure_attempts, list):
+                        draw_attempts = [dict(entry) for entry in failure_attempts]
                 usage_record = draw_usage
                 # Per-attempt reliability evidence: the retry loop's
                 # attempt log distinguishes transport/empty failures
@@ -1070,6 +1266,7 @@ def main() -> int:
                 offline=args.offline,
                 offline_answers=offline_answers,
                 seed_suffix=f"-s{args.seed}-ar{repeat}",
+                unseen_rotation=args.seed,
             )
             variant_scores.append(_pass_fraction(variant_results))
             variant_records.append(

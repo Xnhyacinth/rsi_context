@@ -429,6 +429,18 @@ def run_evaluation_branch(
 
     if not isinstance(snapshot, FrozenSnapshot):
         raise TypeError("snapshot must be a FrozenSnapshot")
+    # Freeze integrity (external review 4.4): the digest was computed once
+    # at __post_init__ over the payload the object carries; a snapshot
+    # whose memory/file dicts were mutated IN PLACE since (``frozen=True``
+    # blocks re-assignment, not ``dict['k'] = v``) must not silently serve
+    # tampered carry into every branch — recompute and refuse on drift.
+    current_digest = hashlib.sha256(snapshot.canonical_bytes()).hexdigest()
+    if current_digest != snapshot.digest:
+        raise SnapshotStateError(
+            f"snapshot {snapshot.snapshot_id!r} fails its own digest: the "
+            "frozen payload changed after freeze (in-place mutation); "
+            f"expected {snapshot.digest!r}, recomputed {current_digest!r}"
+        )
     if not isinstance(kind, BranchKind):
         raise TypeError("kind must be a BranchKind")
     if not isinstance(session_id, str) or not session_id:

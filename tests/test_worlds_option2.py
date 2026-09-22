@@ -109,26 +109,40 @@ def test_option2_grammar(world_id: str) -> None:
 
 
 class _Option2Hook:
-    """Commits a named candidate with a check record at a given revision."""
+    """Commits a named candidate with the check verified at a given revision.
+
+    ``revision`` is WHEN the verification is requested (the env stamps the
+    revision it executes under): 1 = early (before the rule change — aged
+    evidence), 2 = current (after it). The environment issues the record;
+    the commit cites it.
+    """
 
     def __init__(self, candidate: str, check: str, *, revision: int) -> None:
         self.candidate = candidate
         self.check = check
         self.revision = revision
+        self._requested = False
+
+    def _request(self) -> Action:
+        return Action(
+            kind="request_verification",
+            record_id="verif-a",
+            fields={"check": self.check, "subject": self.candidate},
+        )
 
     def on_stage(self, stage: StageView) -> StageResponse:
+        if self.revision == 1 and stage.kind == "constraint_injection" and not self._requested:
+            self._requested = True
+            return StageResponse(pack_text="notes", actions=(self._request(),))
         if stage.kind != "act_verify":
             return StageResponse(pack_text="notes")
         actions: list[Action] = []
         refs: list[str] = []
-        actions.append(
-            Action(
-                kind="create_record",
-                record_id="verif-a",
-                fields={"check": self.check, "protocol_revision": self.revision},
-            )
-        )
-        refs.append("verif-a")
+        if self._requested:
+            refs.append("verif-a")
+        else:
+            actions.append(self._request())
+            refs.append("verif-a")
         actions.append(
             Action(
                 kind="create_record",

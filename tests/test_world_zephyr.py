@@ -127,25 +127,43 @@ def _CANDIDANTS() -> tuple[dict[str, object], ...]:
 
 
 class _ZephyrHook:
-    """Commits a named candidate with genre verifications at given revisions."""
+    """Commits a named candidate with genre verified at a given revision.
+
+    ``genre_revision`` is WHEN the verification is requested (the env
+    stamps the revision it executes under): 1 = early (pre-rule-change —
+    aged evidence), 2 = current (post-rule-change).
+    """
 
     def __init__(self, candidate: str, *, genre_revision: int) -> None:
         self.candidate = candidate
         self.genre_revision = genre_revision
+        self._requested = False
 
     def on_stage(self, stage: StageView) -> StageResponse:
+        if self.genre_revision == 1 and stage.kind == "constraint_injection" and not self._requested:
+            self._requested = True
+            return StageResponse(
+                pack_text="zephyr notes",
+                actions=(
+                    Action(
+                        kind="request_verification",
+                        record_id="verif-genre",
+                        fields={"check": "genre", "subject": self.candidate},
+                    ),
+                ),
+            )
         if stage.kind != "act_verify":
             return StageResponse(pack_text="zephyr notes")
         actions: list[Action] = []
-        refs: list[str] = []
-        actions.append(
-            Action(
-                kind="create_record",
-                record_id="verif-genre",
-                fields={"check": "genre", "protocol_revision": self.genre_revision},
+        refs: list[str] = ["verif-genre"]
+        if not self._requested:
+            actions.append(
+                Action(
+                    kind="request_verification",
+                    record_id="verif-genre",
+                    fields={"check": "genre", "subject": self.candidate},
+                )
             )
-        )
-        refs.append("verif-genre")
         actions.append(
             Action(
                 kind="create_record",

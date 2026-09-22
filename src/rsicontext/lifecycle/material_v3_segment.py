@@ -49,13 +49,17 @@ WORLD_DEFS: dict[str, dict[str, object]] = {
         ),
         "permitted": ("rock music", "pop music", "pop rock", "documentary film"),
         "revision_scope_properties": ("documentary film",),
+        # Constraint-evaluator correspondence (external review 3.4): every
+        # sentence here has exactly ONE implemented check. The earlier
+        # "post-1990 releases only" clause had no evaluator counterpart
+        # (legal_plans derives from genre alone, and play-the-game — a 1980
+        # Queen single — sat in the legal set), so the clause is removed
+        # rather than half-enforced: a constraint the task does not grade
+        # is a lie the evaluator tells the participant.
         "constraint_text": (
             "Scope: this constraint applies to the licensing decision only. "
             "The permitted genres are rock music, pop music, pop rock, and "
-            "documentary film; candidates in any other genre are ineligible. "
-            "Additionally, the licence covers post-1990 releases only — the "
-            "candidate's release must be from 1990 or later, as stated in its "
-            "own passage."
+            "documentary film; candidates in any other genre are ineligible."
         ),
         "rule_change_text": (
             "Scope: this revision supersedes genre verifications for FILM-CATEGORY "
@@ -325,6 +329,18 @@ def build_option2_world(world_id: str, *, instance_id: str | None = None) -> Lif
         for candidate in candidates
         if str(candidate["property"]) in permitted
     )
+    # The evaluator-owned verification oracle: the environment can execute
+    # the world's check for every candidate, with a verdict derived from the
+    # SAME properties the legal set derives from (permitted -> pass). The
+    # evidence record therefore cannot disagree with the world's own
+    # semantics, and a participant cannot write one at all — only request
+    # it (env-side ``request_verification``).
+    verification_oracle: dict[str, dict[str, bool]] = {
+        check_name: {
+            str(candidate["candidate"]): str(candidate["property"]) in permitted
+            for candidate in candidates
+        }
+    }
     # plan_requirements: the revision-scoped plans need the check at the
     # current revision; the domain label is the scope property (the
     # requirement is keyed by the COMMITTED PLAN, evaluator-side).
@@ -457,6 +473,7 @@ def build_option2_world(world_id: str, *, instance_id: str | None = None) -> Lif
                 ),
                 documents=(rule_change_doc,),
                 gold_evidence_ids=(),
+                rule_change_effect=2,
             ),
             StageSpec(
                 stage_id="s5-act-verify",
@@ -485,6 +502,7 @@ def build_option2_world(world_id: str, *, instance_id: str | None = None) -> Lif
                     "current_revision": 2,
                     "revision_scope": [check_name],
                 },
+                verification_oracle=verification_oracle,
             ),
         ),
         axes=DescriptionAxes(
@@ -497,7 +515,12 @@ def build_option2_world(world_id: str, *, instance_id: str | None = None) -> Lif
         answer_norm=legal_plans[0],
         sandbox_spec={
             "records": [_COMMIT_RECORD, _STATUS_RECORD, _VERIF_RECORD],
-            "action_kinds": ["create_record", "update_record", "finalize"],
+            "action_kinds": [
+                "create_record",
+                "update_record",
+                "finalize",
+                "request_verification",
+            ],
         },
         answer_aliases=legal_plans,
     )

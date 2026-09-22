@@ -59,6 +59,31 @@ _REVISION_SCOPE = ("replica-lag",)
 _FINANCE_CONSTRAINT = {"domain": "finance", "requires_check": "online-cutover"}
 _LEGAL_PLANS = ("aurora", "cumulus", "ember")
 
+#: The evaluator-owned verification oracle: which (check, subject) pairs the
+#: environment can execute, and their verdicts. Evidence records exist ONLY
+#: through ``request_verification`` against this table, so "verified" can no
+#: longer be self-declared. The in-scope check (replica-lag) passes for every
+#: plan except draco (its thin margin fails the tightened revision-2
+#: threshold — the world's designed failure class 2); online-cutover passes
+#: exactly for the plans whose documents say it is supported (all but
+#: borealis).
+_VERIFICATION_ORACLE: dict[str, dict[str, bool]] = {
+    "replica-lag": {
+        "aurora": True,
+        "borealis": True,
+        "cumulus": True,
+        "draco": False,
+        "ember": True,
+    },
+    "online-cutover": {
+        "aurora": True,
+        "borealis": False,
+        "cumulus": True,
+        "draco": True,
+        "ember": True,
+    },
+}
+
 _CANDIDATES: tuple[dict[str, object], ...] = (
     {
         "plan": "aurora",
@@ -268,6 +293,7 @@ def build_research_v3_instance(*, instance_id: str = "research-v3-main-0001") ->
                 ),
                 documents=(rule_change_doc,),
                 gold_evidence_ids=(),
+                rule_change_effect=_PROTOCOL_REVISION_NEW,
             ),
             StageSpec(
                 stage_id="s5-act-verify",
@@ -298,6 +324,7 @@ def build_research_v3_instance(*, instance_id: str = "research-v3-main-0001") ->
                     "current_revision": _PROTOCOL_REVISION_NEW,
                     "revision_scope": list(_REVISION_SCOPE),
                 },
+                verification_oracle=_VERIFICATION_ORACLE,
             ),
         ),
         axes=DescriptionAxes(
@@ -310,7 +337,12 @@ def build_research_v3_instance(*, instance_id: str = "research-v3-main-0001") ->
         answer_norm=_LEGAL_PLANS[0],
         sandbox_spec={
             "records": [_COMMIT_RECORD, _STATUS_RECORD, _VERIF_RECORD],
-            "action_kinds": ["create_record", "update_record", "finalize"],
+            "action_kinds": [
+                "create_record",
+                "update_record",
+                "finalize",
+                "request_verification",
+            ],
         },
         answer_aliases=_LEGAL_PLANS,
     )

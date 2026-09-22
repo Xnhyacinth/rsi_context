@@ -223,6 +223,14 @@ def run_lifecycle(
     started = time.monotonic()
     stage_records: list[StageRecord] = []
     total_stages = len(inst.stages)
+    act_verify = inst.stages[-1]
+    # The evaluator-owned verification service: the act_verify stage's
+    # oracle is installed BEFORE the first stage runs, so
+    # request_verification actions are live from stage 1 (a fixed-arm
+    # hook may pre-request verifications; a strategy that re-requests
+    # after the rule change gets current-revision evidence). The oracle
+    # is evaluator-only — never surfaced through StageView.
+    env.begin_instance(act_verify.verification_oracle)
     for index, stage in enumerate(inst.stages):
         view = _build_stage_view(stage, inst.axes, remaining=total_stages - index)
         response = hook.on_stage(view)
@@ -231,6 +239,11 @@ def run_lifecycle(
                 f"hook returned {type(response).__name__} for stage "
                 f"{stage.stage_id!r}; expected StageResponse"
             )
+        if stage.kind == "rule_change" and stage.rule_change_effect is not None:
+            # The rule change is an ENVIRONMENT event: the protocol clock
+            # advances before this stage's actions apply, so evidence
+            # requested from here on carries the new revision.
+            env.apply_protocol_revision(stage.rule_change_effect)
         for action in response.actions:
             env.apply(action)
         cited = view.cited_doc_ids(response.pack_text)
@@ -248,7 +261,6 @@ def run_lifecycle(
                 notes=_stage_notes(stage, cited),
             )
         )
-    act_verify = inst.stages[-1]
     expected = act_verify.expected_state_delta
     if expected is None:  # guarded by StageSpec.__post_init__; kept for mypy
         raise ValueError("act_verify stage lacks expected_state_delta")
@@ -256,7 +268,7 @@ def run_lifecycle(
         env, expected, aliases=act_verify.expected_aliases or None
     )
     if act_verify.commit_precondition is not None:
-        gate_failures = _commit_gate_failures(act_verify.commit_precondition, env.snapshot())
+        gate_failures = _commit_gate_failures(act_verify.commit_precondition, env.snapshot(), env)
         if gate_failures:
             final_check = CheckResult(
                 passed=False,
@@ -306,7 +318,9 @@ def _stale_references(records: Mapping[str, dict[str, Any]]) -> tuple[str, ...]:
 
 
 def _commit_gate_failures(
-    precondition: Mapping[str, object], records: Mapping[str, dict[str, Any]]
+    precondition: Mapping[str, object],
+    records: Mapping[str, dict[str, Any]],
+    env: ProjectState,
 ) -> tuple[str, ...]:
     """Evaluator-side commit legality over the sandbox's ACTUAL records.
 
@@ -324,6 +338,15 @@ def _commit_gate_failures(
     - ``current_revision`` (int) + ``revision_scope`` (list[str]):
       referenced records carrying a ``check`` in the scope must carry
       ``protocol_revision == current_revision``.
+
+    Evidence truthfulness (external review 2026-09-22, deliverable A):
+    a required verification counts ONLY when the ENVIRONMENT issued it
+    (``env.verification_record_ids``), its ``subject`` names the
+    committed plan, and its ``verdict`` is "pass". A participant-written
+    record that merely carries ``check``/``protocol_revision`` is data,
+    not evidence. Likewise the commit record must have been genuinely
+    finalized through the env (``env.finalized_record_ids``) — a bare
+    ``create_record`` with ``status="final"`` is a claim, not a state.
     """
 
     failures: list[str] = []
@@ -339,16 +362,30 @@ def _commit_gate_failures(
     plan = commit.get(plan_field)
     if not isinstance(plan, str):
         return (f"commit gate: record {record_id!r} lacks a {plan_field!r} value",)
+    if record_id not in env.finalized_record_ids:
+        failures.append(
+            f"commit gate: record {record_id!r} was never finalized through the "
+            "environment (a self-declared status is not a finalized state)"
+        )
     legal = precondition.get("legal_plans")
     if isinstance(legal, list) and plan not in legal:
         failures.append(f"commit gate: plan {plan!r} is not in the legal set")
     refs = commit.get("provenance")
     referenced: list[dict[str, Any]] = []
+    referenced_ids: list[str] = []
     if isinstance(refs, list):
         for ref in refs:
             record = records.get(ref) if isinstance(ref, str) else None
             if isinstance(record, dict):
                 referenced.append(record)
+                referenced_ids.append(ref)
+            elif isinstance(ref, str):
+                # A named reference that does not exist: evidence FOR
+                # failure, never neutral (a garbage ref must not pass).
+                failures.append(
+                    f"commit gate: plan {plan!r} cites record {ref!r} which does "
+                    "not exist in the sandbox"
+                )
     requirements = precondition.get("plan_requirements")
     requirement = requirements.get(plan) if isinstance(requirements, Mapping) else None
     if isinstance(requirement, Mapping):
@@ -363,17 +400,35 @@ def _commit_gate_failures(
                 "records; the required verifications are missing"
             )
         required_check = requirement.get("requires_check")
-        if isinstance(required_check, str) and not any(
-            record.get("check") == required_check for record in referenced
-        ):
-            # Keyed by the COMMITTED PLAN, never by a participant-supplied
-            # domain field: the requirement applies because the world's
-            # precondition names this plan, not because the participant
-            # labeled it.
-            failures.append(
-                f"commit gate: plan {plan!r} lacks a "
-                f"{required_check!r} verification among its referenced records"
-            )
+        if isinstance(required_check, str):
+            environment_evidence = [
+                (ref, record)
+                for ref, record in zip(referenced_ids, referenced)
+                if ref in env.verification_record_ids
+            ]
+            qualifying = [
+                record
+                for _ref, record in environment_evidence
+                if record.get("check") == required_check
+                and record.get("subject") == plan
+                and record.get("verdict") == "pass"
+            ]
+            if not qualifying:
+                if environment_evidence:
+                    failures.append(
+                        f"commit gate: plan {plan!r} lacks an environment-issued "
+                        f"{required_check!r} verification for subject {plan!r} "
+                        "with a passing verdict among its referenced records"
+                    )
+                else:
+                    # Keyed by the COMMITTED PLAN, never by a participant-supplied
+                    # domain field: the requirement applies because the world's
+                    # precondition names this plan, not because the participant
+                    # labeled it.
+                    failures.append(
+                        f"commit gate: plan {plan!r} lacks a "
+                        f"{required_check!r} verification among its referenced records"
+                    )
     current_revision = precondition.get("current_revision")
     scope = precondition.get("revision_scope")
     if (

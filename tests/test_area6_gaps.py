@@ -91,11 +91,14 @@ class _GoldDropInstance:
         refs: list[str] = []
         for index, check in enumerate(checks):
             record_id = f"verif-{index}"
+            # Env-issued evidence (request channel): the recovery derives
+            # the checks and REQUESTS them; the env stamps verdict +
+            # current revision.
             actions.append(
                 Action(
-                    kind="create_record",
+                    kind="request_verification",
                     record_id=record_id,
-                    fields={"check": check, "protocol_revision": 2},
+                    fields={"check": check, "subject": plan},
                 )
             )
             refs.append(record_id)
@@ -188,39 +191,58 @@ def test_lost_notes_meaningfully_change_the_trajectory() -> None:
 class _StaleRefHook:
     """The finalized-then-invalidated shape (6.2) in both variants.
 
-    Both variants create the supersession (a new revision-2 record that
-    supersedes the stale revision-1 one); they differ ONLY in which
-    record the finalized commit references — the unrepaired variant
-    still references the superseded record (the metric's firing
-    condition), the repaired one references the superseding record.
+    The early replica-lag verification is requested BEFORE the rule
+    change (the env stamps revision 1 — genuinely issued evidence that
+    aged past the revision); the new one is requested AFTER it (revision
+    2) and carries the participant-authored ``supersedes`` pointing at
+    the early record. The two variants differ ONLY in which record the
+    finalized commit's provenance names — the unrepaired one still
+    references the superseded early record (the metric's firing
+    condition, and gate staleness), the repaired one the new record.
     """
 
     def __init__(self, *, repair: bool) -> None:
         self.repair = repair
 
     def on_stage(self, stage: StageView) -> StageResponse:
+        if stage.kind == "constraint_injection":
+            # The early, now-superseded verification (env-issued at rev 1).
+            return StageResponse(
+                pack_text="notes",
+                actions=(
+                    Action(
+                        kind="request_verification",
+                        record_id="verif-lag-old",
+                        fields={"check": "replica-lag", "subject": "aurora"},
+                    ),
+                ),
+            )
+        if stage.kind == "rule_change":
+            # The re-verification (env-issued at rev 2) superseding the old
+            # one; the supersedes annotation is the 6.2 metric's material.
+            return StageResponse(
+                pack_text="notes",
+                actions=(
+                    Action(
+                        kind="request_verification",
+                        record_id="verif-lag-new",
+                        fields={"check": "replica-lag", "subject": "aurora"},
+                    ),
+                    Action(
+                        kind="create_record",
+                        record_id="supersession-note",
+                        fields={"supersedes": "verif-lag-old", "by": "verif-lag-new"},
+                    ),
+                ),
+            )
         if stage.kind != "act_verify":
             return StageResponse(pack_text="notes")
         lag_ref = "verif-lag-new" if self.repair else "verif-lag-old"
         actions: list[Action] = [
             Action(
-                kind="create_record",
-                record_id="verif-lag-old",
-                fields={"check": "replica-lag", "protocol_revision": 1},
-            ),
-            Action(
-                kind="create_record",
-                record_id="verif-lag-new",
-                fields={
-                    "check": "replica-lag",
-                    "protocol_revision": 2,
-                    "supersedes": "verif-lag-old",
-                },
-            ),
-            Action(
-                kind="create_record",
+                kind="request_verification",
                 record_id="verif-cutover",
-                fields={"check": "online-cutover", "protocol_revision": 2},
+                fields={"check": "online-cutover", "subject": "aurora"},
             ),
             Action(
                 kind="create_record",

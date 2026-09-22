@@ -153,6 +153,8 @@ class StageSpec:
     expected_state_delta: Mapping[str, object] | None = None
     expected_aliases: tuple[str, ...] = ()
     commit_precondition: Mapping[str, object] | None = None
+    verification_oracle: Mapping[str, Mapping[str, bool]] | None = None
+    rule_change_effect: int | None = None
 
     def __post_init__(self) -> None:
         _require_str(self.stage_id, "stage_id")
@@ -167,6 +169,21 @@ class StageSpec:
         known_doc_ids = frozenset(document.doc_id for document in self.documents)
         if any(evidence_id not in known_doc_ids for evidence_id in self.gold_evidence_ids):
             raise ValueError("gold evidence ids must reference stage documents")
+        if self.verification_oracle is not None:
+            if self.kind != "act_verify":
+                raise ValueError("only act_verify stages carry verification_oracle")
+            if not isinstance(self.verification_oracle, Mapping):
+                raise TypeError("verification_oracle must be a mapping or None")
+            object.__setattr__(self, "verification_oracle", self._copy_oracle())
+        if self.rule_change_effect is not None:
+            if self.kind != "rule_change":
+                raise ValueError("only rule_change stages carry rule_change_effect")
+            if not isinstance(self.rule_change_effect, int) or isinstance(
+                self.rule_change_effect, bool
+            ):
+                raise TypeError("rule_change_effect must be an int or None")
+            if self.rule_change_effect < 1:
+                raise ValueError("rule_change_effect must be a positive revision")
         if self.expected_state_delta is not None:
             if not isinstance(self.expected_state_delta, Mapping):
                 raise TypeError("expected_state_delta must be a mapping or None")
@@ -201,6 +218,21 @@ class StageSpec:
             "commit_precondition": (
                 None if self.commit_precondition is None else dict(self.commit_precondition)
             ),
+            "verification_oracle": (
+                None
+                if self.verification_oracle is None
+                else {check: dict(subjects) for check, subjects in self.verification_oracle.items()}
+            ),
+            "rule_change_effect": self.rule_change_effect,
+        }
+
+    def _copy_oracle(self) -> dict[str, dict[str, bool]]:
+        """A structurally independent copy of a JSON-native oracle."""
+
+        return {
+            check: dict(subjects)
+            for check, subjects in self.verification_oracle.items()  # type: ignore[union-attr]
+            if isinstance(subjects, Mapping)
         }
 
 
@@ -348,6 +380,25 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         precondition = dict(raw_precondition)
     else:
         raise TypeError("commit_precondition must be a mapping or null")
+    raw_oracle = d.get("verification_oracle")
+    oracle: Mapping[str, Mapping[str, bool]] | None
+    if raw_oracle is None:
+        oracle = None
+    elif isinstance(raw_oracle, Mapping):
+        oracle = {
+            check: dict(subjects)
+            for check, subjects in raw_oracle.items()  # type: ignore[union-attr]
+        }
+    else:
+        raise TypeError("verification_oracle must be a mapping or null")
+    raw_effect = d.get("rule_change_effect")
+    effect: int | None
+    if raw_effect is None:
+        effect = None
+    elif isinstance(raw_effect, int) and not isinstance(raw_effect, bool) and raw_effect >= 1:
+        effect = raw_effect
+    else:
+        raise TypeError("rule_change_effect must be a positive integer or null")
     return StageSpec(
         stage_id=_load_str(d, "stage_id"),
         kind=cast(StageKind, _load_choice(d, "kind", _STAGE_KINDS)),
@@ -357,6 +408,8 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         expected_state_delta=expected,
         expected_aliases=_load_str_list(d, "expected_aliases"),
         commit_precondition=precondition,
+        verification_oracle=oracle,
+        rule_change_effect=effect,
     )
 
 

@@ -24,32 +24,56 @@ _COMMIT = "migration_commit"
 
 
 class _LegalPathHook:
-    """Executes a named plan's legal path (records + plain finalize)."""
+    """Executes a named plan's legal path over the env verification service.
+
+    ``request_at`` controls WHEN each check is requested: "early" (before
+    the rule change — evidence ages with the protocol clock) or "current"
+    (after it — current-revision evidence). The environment issues the
+    records; the commit only cites them.
+    """
 
     def __init__(
-        self, plan: str, *, verif_revisions: dict[str, int], checks: dict[str, tuple[str, ...]]
+        self,
+        plan: str,
+        *,
+        request_at: dict[str, str],
+        checks: dict[str, tuple[str, ...]],
     ) -> None:
         self.plan = plan
-        self.verif_revisions = verif_revisions
+        self.request_at = request_at
         self.checks = checks
+        self._early_refs: list[str] = []
+        self._current_refs: list[str] = []
 
     def on_stage(self, stage: StageView) -> StageResponse:
+        if stage.kind == "constraint_injection":
+            early = [
+                Action(
+                    kind="request_verification",
+                    record_id=record_id,
+                    fields={"check": check, "subject": self.plan},
+                )
+                for record_id, check in self.checks.items()
+                if self.request_at.get(record_id) == "early"
+            ]
+            self._early_refs = [action.record_id for action in early]
+            return StageResponse(pack_text="variant notes", actions=tuple(early))
+        if stage.kind == "rule_change":
+            current = [
+                Action(
+                    kind="request_verification",
+                    record_id=record_id,
+                    fields={"check": check, "subject": self.plan},
+                )
+                for record_id, check in self.checks.items()
+                if self.request_at.get(record_id) != "early"
+            ]
+            self._current_refs = [action.record_id for action in current]
+            return StageResponse(pack_text="variant re-verify", actions=tuple(current))
         if stage.kind != "act_verify":
             return StageResponse(pack_text="variant notes")
+        refs = [*self._current_refs, *self._early_refs]
         actions: list[Action] = []
-        refs: list[str] = []
-        for record_id, check in self.checks.items():
-            actions.append(
-                Action(
-                    kind="create_record",
-                    record_id=record_id,
-                    fields={
-                        "check": check,
-                        "protocol_revision": self.verif_revisions.get(record_id, 2),
-                    },
-                )
-            )
-            refs.append(record_id)
         actions.append(
             Action(
                 kind="create_record",
@@ -125,12 +149,12 @@ def test_variant_legal_path_passes_the_gate() -> None:
     plan = precondition["legal_plans"][0]
     hook = _LegalPathHook(
         plan,
-        verif_revisions={record: 2 for record in spec["required_checks"]},
+        request_at={record: "current" for record in spec["required_checks"]},
         checks=dict(spec["required_checks"]),
     )
     record = run_lifecycle(inst, hook, ProjectState())
     # The finalize itself is plain; the EVALUATOR gate must pass the
-    # legal plan with current-revision in-scope checks.
+    # legal plan with env-issued current-revision evidence.
     assert record.final_check.passed, record.final_check.failures
 
 
@@ -142,12 +166,16 @@ def test_variant_stale_evidence_fails_the_gate() -> None:
     assert isinstance(precondition, dict)
     plan = precondition["legal_plans"][0]
     scope_checks = set(precondition["revision_scope"])
-    stale_revisions = {}
+    request_at = {}
     for record_id, check in spec["required_checks"].items():
-        stale_revisions[record_id] = 1 if check in scope_checks else 2
+        # The in-scope check is requested EARLY (the env stamps revision 1
+        # — evidence that aged past the rule change); out-of-scope checks
+        # stay current. A revision label can no longer be self-declared:
+        # the staleness is the environment's own clock.
+        request_at[record_id] = "early" if check in scope_checks else "current"
     hook = _LegalPathHook(
         plan,
-        verif_revisions=stale_revisions,
+        request_at=request_at,
         checks=dict(spec["required_checks"]),
     )
     record = run_lifecycle(inst, hook, ProjectState())
@@ -163,7 +191,7 @@ def test_variant_illegal_plan_fails_the_gate() -> None:
     inst = build_research_v3_variant(spec["spec_id"])
     hook = _LegalPathHook(
         "not-a-plan",
-        verif_revisions={record: 2 for record in spec["required_checks"]},
+        request_at={record: "current" for record in spec["required_checks"]},
         checks=dict(spec["required_checks"]),
     )
     record = run_lifecycle(inst, hook, ProjectState())
