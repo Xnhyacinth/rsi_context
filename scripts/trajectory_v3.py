@@ -733,6 +733,17 @@ def main() -> int:
         help="the snapshot whose branch cells the variance floor measures",
     )
     parser.add_argument(
+        "--author-repeats",
+        type=int,
+        default=0,
+        help=(
+            "researcher-in-the-loop variance floor: N independent authoring "
+            "rounds from the same S0 (0=off; >=2 required; live researcher "
+            "mode measures real re-authoring, offline is the deterministic "
+            "sd-0 shape)"
+        ),
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=Path("artifacts/trajectory-v3/trajectory-20260921.json"),
@@ -746,6 +757,12 @@ def main() -> int:
             f"--variance-repeats must be at least {_MIN_VARIANCE_REPEATS} (T2 gate)",
             file=sys.stderr,
         )
+        return 2
+    if args.author_repeats and args.author_repeats < 2:
+        print("--author-repeats must be at least 2", file=sys.stderr)
+        return 2
+    if args.author_repeats and args.rounds != 1:
+        print("--author-repeats runs alongside --rounds 1 only", file=sys.stderr)
         return 2
 
     started = time.monotonic()
@@ -970,6 +987,86 @@ def main() -> int:
             "within_ceiling": sd <= _VARIANCE_CEILING,
         }
 
+    # 6. Researcher-in-the-loop variance floor (optional): N INDEPENDENT
+    # authoring rounds from the SAME S0 with the SAME feedback (round 0's
+    # probe) — each variant S1_k is a fresh authoring draw, evaluated on
+    # the branch cells. In researcher mode this measures the model's
+    # re-authoring variance (the source the T2 floor cannot cover); in
+    # scripted mode it is the deterministic sd-0 shape. The comparison
+    # S1 vs S0 must exceed max(2*sd_author, floor) to be an authoring
+    # effect rather than a re-draw.
+    author_variance: dict[str, object] | None = None
+    if args.author_repeats:
+        author_feedback = _dev_feedback_bytes(
+            evaluate_branches(
+                s0,
+                strategy_text=None,
+                offline=args.offline,
+                offline_answers=offline_answers,
+                seed_suffix=f"-s{args.seed}-probe",
+            )
+        )
+        variant_scores: list[float] = []
+        variant_records: list[dict[str, object]] = []
+        for repeat in range(args.author_repeats):
+            # Independent authoring draw from the SAME S0 + feedback.
+            repeat_strategy: str
+            if args.researcher:
+                import tempfile
+
+                workspace = Path(tempfile.mkdtemp(prefix=f"ds-author-r{repeat}-"))
+                agent_dir = workspace / "agent"
+                agent_dir.mkdir(parents=True, exist_ok=True)
+                stub = agent_dir / "strategy.py"
+                stub.write_text(_STRATEGY_STUB, encoding="utf-8")
+                try:
+                    changes, usage = _researcher_round(stub, author_feedback, round_index=repeat)
+                    proposed = changes.get("strategy.py")
+                    if proposed is None or not proposed.strip():
+                        repeat_strategy = _STRATEGY_STUB
+                        outcome = "no-strategy-file"
+                    else:
+                        repeat_strategy = proposed
+                        outcome = "ok"
+                except Exception as exc:
+                    repeat_strategy = _STRATEGY_STUB
+                    outcome = f"failed: {type(exc).__name__}: {exc}"
+                usage_record = usage
+            else:
+                # Scripted arm: the deterministic strategy (sd 0 by
+                # construction — the offline shape pin).
+                repeat_strategy = _SCRIPTED_STRATEGY
+                outcome = "scripted"
+                usage_record = {}
+            variant_snapshot = _freeze_from_parts(
+                s0, f"S1a{repeat}", repeat_strategy, {"notes": [f"author draw {repeat}"]}
+            )
+            variant_results = evaluate_branches(
+                variant_snapshot,
+                strategy_text=repeat_strategy,
+                offline=args.offline,
+                offline_answers=offline_answers,
+                seed_suffix=f"-s{args.seed}-ar{repeat}",
+            )
+            variant_scores.append(_pass_fraction(variant_results))
+            variant_records.append(
+                {
+                    "repeat": repeat,
+                    "outcome": outcome,
+                    "strategy_head": repeat_strategy[:200],
+                    "score": variant_scores[-1],
+                    "usage": usage_record,
+                }
+            )
+        author_sd = _sample_sd(variant_scores)
+        author_variance = {
+            "repeats": args.author_repeats,
+            "variant_scores": variant_scores,
+            "sd": author_sd,
+            "flip_rate": 1.0 - (_modal_share(variant_scores) if variant_scores else 0.0),
+            "variants": variant_records,
+        }
+
     elapsed = time.monotonic() - started
     failed_rounds = [
         round_record["round"]
@@ -984,6 +1081,7 @@ def main() -> int:
         "rounds": args.rounds,
         "failed_rounds": failed_rounds,
         "variance_floor": variance_floor,
+        "author_variance": author_variance,
         "world": "research-v3-main-0001",
         "reference_executor": reference,
         "fixed_arm": {

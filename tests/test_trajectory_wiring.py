@@ -463,3 +463,51 @@ def test_variance_floor_and_gate_failure_counts(tmp_path: Path) -> None:
     )
     assert refused.returncode == 2
     assert "at least 5" in refused.stderr
+
+
+def test_researcher_variance_floor_offline_shape(tmp_path: Path) -> None:
+    # Researcher-in-the-loop variance floor: N independent scripted
+    # "authoring" rounds from the same S0 (offline: identical strategy —
+    # sd 0 by construction), each S1_k evaluated on branches. The
+    # payload carries author_variants with per-variant scores + the
+    # aggregated sd/flip_rate. (Live runs measure real re-authoring.)
+    output = tmp_path / "rvf.json"
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(_REPO_ROOT / "scripts" / "trajectory_v3.py"),
+            "--offline",
+            "--author-repeats",
+            "3",
+            "--output",
+            str(output),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+        timeout=180,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    av = payload["author_variance"]
+    assert av["repeats"] == 3
+    assert len(av["variant_scores"]) == 3
+    assert av["sd"] == 0.0  # offline scripted authoring is deterministic
+    assert av["flip_rate"] == 0.0
+
+    refused = subprocess.run(
+        [
+            sys.executable,
+            str(_REPO_ROOT / "scripts" / "trajectory_v3.py"),
+            "--offline",
+            "--author-repeats",
+            "1",
+            "--output",
+            str(tmp_path / "never.json"),
+        ],
+        capture_output=True,
+        text=True,
+        cwd=_REPO_ROOT,
+        timeout=60,
+    )
+    assert refused.returncode == 2
