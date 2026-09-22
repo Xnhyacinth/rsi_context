@@ -74,6 +74,7 @@ _SCHEMA: dict[str, object] = {"type": "object", "properties": {"notes": {"type":
 _COMMIT = "migration_commit"
 _STATUS = "candidate_status"
 _VARIANT_IDS = ("orinoco", "parana")
+_OPTION2_IDS = ("zephyr", "quill", "atlas")
 
 #: T2 variance-floor ceiling (design-t2floor): the minimal reportable
 #: contrast is 0.20 (hy3 precedent); the rejection ceiling sits at a
@@ -94,23 +95,41 @@ _KNOWN_CHECKS = (
 def _first_plan_name(survey_text: str) -> str:
     """The first candidate plan's name from the survey's doc markers.
 
-    The v3 survey docs are ``[[doc:...]] Title\nText`` blocks; the
-    candidate doc ids carry the plan name (``doc-cand-a`` -> aurora via
-    the title's first word). The FIRST title line ending in 'plan'
-    yields the plan name: its first word (the plan name in every v3
-    world's material convention: 'Aurora migration plan' -> 'aurora').
+    Every v3 world's candidate documents share the ``doc-cand-<key>``
+    doc-id convention (authored worlds AND Option-2 real-document
+    worlds), so the FIRST ``[[doc:doc-cand-<key>]]`` marker yields the
+    plan key directly — no reliance on title text, which real KILT
+    titles ('Play the Game (song)') do not follow. Falls back to the
+    legacy title heuristic, then 'aurora'.
     """
 
+    import re
+
+    marker = re.search(r"\[\[doc:doc-cand-([a-z0-9_-]+)\]\]", survey_text)
+    if marker and len(marker.group(1)) > 2:
+        # Option-2 worlds key their candidate docs by the plan name
+        # ('doc-cand-play-the-game'). Single-letter keys are the authored
+        # worlds' doc order (doc-cand-a), not plan names — fall through
+        # to the title heuristic there.
+        return marker.group(1)
+    # Legacy heuristic for material without the doc-cand convention.
     for line in survey_text.splitlines():
         stripped = line.strip()
         lowered = stripped.lower()
         if lowered.endswith("plan") and " " in stripped:
             words = stripped.split()
-            # Skip the '[[doc:...]]' marker prefix when present.
-            rest = words[1:] if words[0].startswith("[[doc:") else words
+            rest = words[1:] if words and words[0].startswith("[[doc:") else words
             if rest:
                 return rest[0].lower()
     return "aurora"
+
+
+def _rebind_instance_id(inst, instance_id: str):
+    """A copy of the instance with a fresh instance id (branch-distinct)."""
+
+    from dataclasses import replace
+
+    return replace(inst, instance_id=instance_id)
 
 
 def _survey_checks(survey_text: str) -> list[str]:
@@ -177,13 +196,20 @@ def _reply_plan_name(reply: str, survey_text: str) -> str | None:
 
 
 def _reply_plan_tokens(survey_text: str) -> set[str]:
-    """The candidate-name token pool: first words of the survey's title
-    lines (the v3 material convention — 'Aurora migration plan' etc.)."""
+    """The candidate-name token pool: the doc-cand keys (every v3 world
+    shares the ``doc-cand-<key>`` doc-id convention), plus the legacy
+    title-first-word heuristic for material without it."""
 
-    tokens: set[str] = set()
+    import re
+
+    tokens = {
+        marker.group(1)
+        for marker in re.finditer(r"\[\[doc:doc-cand-([a-z0-9_-]+)\]\]", survey_text)
+        if len(marker.group(1)) > 2
+    }
     for line in survey_text.splitlines():
         stripped = line.strip()
-        if stripped.lower().endswith("plan") or " candidate " in stripped.lower():
+        if stripped.lower().endswith("plan"):
             words = stripped.split()
             rest = words[1:] if words and words[0].startswith("[[doc:") else words
             if rest:
@@ -551,33 +577,47 @@ def evaluate_branches(
     offline: bool,
     offline_answers: dict[str, str] | None,
     seed_suffix: str = "",
+    unseen_rotation: int = 0,
 ) -> dict[str, object]:
     """Run continuation / new-world / regression branches from one snapshot.
 
-    The new-world branch runs over the VARIANT worlds (orinoco/parana) —
-    same dependency structure, different material — so a strategy whose
-    improvement is structural (scope-aware invalidation) rather than
-    topic-specific is exercised on material it never saw.
-    ``seed_suffix`` makes branch session ids seed-distinct (the
-    presentation axis of the replication matrix); the WORLD MATERIAL is
-    never seed-dependent.
+    The new-world branch runs over the UNSEEN-WORLD pool — the two
+    authored variant worlds (orinoco/parana) PLUS the three Option-2
+    real-document worlds (zephyr/quill/atlas), round-robin over the two
+    variant slots so every run exercises two different unseen worlds.
+    A strategy whose improvement is structural (scope-aware
+    invalidation) rather than topic-specific is thereby exercised on
+    authored AND real material it never saw.
+    ``seed_suffix`` makes branch session ids seed-distinct; the WORLD
+    MATERIAL is never seed-dependent.
     """
 
     results: dict[str, object] = {}
     branch_specs = (
         (BranchKind.CONTINUATION, "branch-cont", "main"),
-        (BranchKind.NEW_WORLD, "branch-new", "variants"),
+        (BranchKind.NEW_WORLD, "branch-new", "unseen"),
         (BranchKind.REGRESSION, "branch-reg", "main"),
     )
+    from rsicontext.lifecycle.material_v3_segment import build_option2_world
     from rsicontext.lifecycle.material_v3_variant import build_research_v3_variant
+
+    def _unseen_world(slot: int):
+        # Slot 0 runs one AUTHORED variant world; slot 1 runs one
+        # OPTION-2 real-document world — both indexed by the rotation
+        # counter (derived from the run's seed, deterministic within a
+        # run, distinct across seeds). Every run exercises unseen
+        # material from both pools.
+        if slot == 0:
+            return build_research_v3_variant(_VARIANT_IDS[unseen_rotation % len(_VARIANT_IDS)])
+        return build_option2_world(_OPTION2_IDS[unseen_rotation % len(_OPTION2_IDS)])
 
     for kind, session_id, surface in branch_specs:
         records: list[dict[str, object]] = []
         for variant in range(2):
-            if surface == "variants":
-                inst = build_research_v3_variant(
-                    _VARIANT_IDS[variant % len(_VARIANT_IDS)],
-                    instance_id=f"research-v3-{session_id}{seed_suffix}-{variant}",
+            if surface == "unseen":
+                inst = _rebind_instance_id(
+                    _unseen_world(variant),
+                    f"research-v3-{session_id}{seed_suffix}-{variant}",
                 )
             else:
                 inst = build_research_v3_instance(

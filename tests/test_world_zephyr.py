@@ -90,7 +90,7 @@ def test_double_solve_card_matches_corpus() -> None:
     for candidate in _CANDIDATES:
         row = rows[str(candidate["row_id"])]
         answers = json.loads(str(row["possible_answers"]))
-        assert str(candidate["genre"]) == str(answers[0])
+        assert str(candidate["property"]) == str(answers[0])
     zephyr = build_research_v3_zephyr()  # build asserts the legal-set derivation
     assert set(zephyr.answer_aliases) == {
         "play-the-game",
@@ -205,7 +205,7 @@ def test_zephyr_structure_matches_v3_grammar() -> None:
         "act_verify",
     ]
     assert inst.stages[4].documents == ()
-    assert inst.stages[3].documents[0].superseded_by == "doc-z-verif-db"
+    assert inst.stages[3].documents[0].superseded_by == "doc-zephyr-verif-db"
     precondition = inst.stages[4].commit_precondition
     assert isinstance(precondition, dict)
     assert precondition["revision_scope"] == ["genre"]  # PARTIAL: only film-category

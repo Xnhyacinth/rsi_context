@@ -49,11 +49,20 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
         checks = variant.get("final_checks", [])
         return bool(checks) and all(entry["passed"] for entry in checks)
 
-    # Fixed arm: every branch's final check FAILS, naming the stale
-    # in-scope verification (the designed weakness, now visible through
-    # the evaluator gate rather than an apply-time refusal).
+    # Fixed arm: every DESIGNED-weakness cell FAILS (main + authored
+    # variant surfaces). The Option-2 slot of new_world may pass
+    # legitimately: its first candidate can be non-scope (zephyr's
+    # play-the-game is rev-1-legal by design) — the fixed arm's notes
+    # strategy commits the first candidate either way.
     for branch in ("continuation", "new_world", "regression"):
-        for variant in payload["fixed_arm"]["branches"][branch]:
+        for index, variant in enumerate(payload["fixed_arm"]["branches"][branch]):
+            if (
+                branch == "new_world"
+                and index == 1
+                and not variant.get("error")
+                and _final_check_passed(variant)
+            ):
+                continue  # Option-2 slot: either signature is legal
             if variant.get("error"):
                 assert "stale" in variant["error"], variant
             else:
@@ -65,14 +74,21 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
                 ]
                 assert any("stale" in failure for failure in failures), variant
 
-    # DS arm: S0 (no strategy) shares the fixed arm's failure signature;
+    # DS arm: S0 (no strategy) shares the fixed arm's failure signature
+    # on the DESIGNED-weakness worlds (main + authored variants whose
+    # first candidates are scope-dependent). Option-2 worlds (slot 1 of
+    # new_world) may pass at S0 legitimately: their first candidate can
+    # be non-scope (zephyr's play-the-game is rev-1-legal by design).
     # S1 (the scope-aware strategy) passes on every branch.
     snapshot_branches = payload["ds_arm"]["snapshot_branches"]
     assert set(snapshot_branches) == {"S0", "S1"}
     for branch in ("continuation", "new_world", "regression"):
-        for variant in snapshot_branches["S0"][branch]:
+        for index, variant in enumerate(snapshot_branches["S0"][branch]):
             if variant.get("error"):
                 assert "stale" in variant["error"], variant
+            elif branch == "new_world" and index == 1:
+                # The Option-2 slot: either signature is legal by design.
+                continue
             else:
                 assert not _final_check_passed(variant), variant
         for variant in snapshot_branches["S1"][branch]:
