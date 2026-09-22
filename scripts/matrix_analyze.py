@@ -38,6 +38,18 @@ def summarize(path: Path) -> None:
             f"sd={vf.get('sd')} flip={vf.get('flip_rate')} "
             f"within_ceiling={vf.get('within_ceiling')}"
         )
+    av = payload.get("author_variance")
+    if isinstance(av, dict):
+        print(
+            f"  author-variance: repeats={av.get('repeats')} scores={av.get('variant_scores')} "
+            f"sd={av.get('sd')} flip={av.get('flip_rate')}"
+        )
+        for variant in av.get("variants", []):
+            if isinstance(variant, dict):
+                print(
+                    f"    draw {variant.get('repeat')}: {variant.get('outcome')} "
+                    f"score={variant.get('score')}"
+                )
     failed = payload.get("failed_rounds")
     if failed:
         print(f"  FAILED ROUNDS: {failed}")
