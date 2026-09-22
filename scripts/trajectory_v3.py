@@ -74,7 +74,7 @@ _SCHEMA: dict[str, object] = {"type": "object", "properties": {"notes": {"type":
 _COMMIT = "migration_commit"
 _STATUS = "candidate_status"
 _VARIANT_IDS = ("orinoco", "parana")
-_OPTION2_IDS = ("zephyr", "quill", "atlas")
+_OPTION2_IDS = ("zephyr", "quill", "atlas", "lumen", "swift", "mirror")
 
 #: T2 variance-floor ceiling (design-t2floor): the minimal reportable
 #: contrast is 0.20 (hy3 precedent); the rejection ceiling sits at a

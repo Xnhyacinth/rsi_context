@@ -116,6 +116,84 @@ WORLD_DEFS: dict[str, dict[str, object]] = {
             "(France) are unaffected."
         ),
     },
+    "lumen": {
+        "task": "Narrative-work licensing round",
+        "check": "genre",
+        "candidates": (
+            {"row_id": "1577066", "candidate": "creatures", "property": "platform game"},
+            {"row_id": "1827971", "candidate": "sublime", "property": "horror film"},
+            {"row_id": "1830615", "candidate": "the-experts", "property": "comedy film"},
+            {"row_id": "2075682", "candidate": "satanic-slaughter", "property": "black metal"},
+        ),
+        "permitted": ("platform game", "horror film", "comedy film"),
+        "revision_scope_properties": ("platform game",),
+        "constraint_text": (
+            "Scope: this constraint applies to the narrative-work licensing "
+            "round only. The permitted genres are platform game, horror film, "
+            "and comedy film; music-category candidates (black metal) are "
+            "ineligible — the round covers narrative and screen works only."
+        ),
+        "rule_change_text": (
+            "Scope: this revision supersedes genre verifications for GAME-"
+            "CATEGORY candidates only (platform game). Protocol revision 2 "
+            "tightens the verification standard; genre evidence recorded under "
+            "revision 1 is stale for game-category commits. Film categories "
+            "(horror film, comedy film) are unaffected."
+        ),
+    },
+    "swift": {
+        "task": "Invitational registration",
+        "check": "sport",
+        "candidates": (
+            {"row_id": "136686", "candidate": "bednarik", "property": "American football"},
+            {"row_id": "1841625", "candidate": "racicot", "property": "ice hockey"},
+            {"row_id": "211746", "candidate": "era", "property": "baseball"},
+            {"row_id": "2225185", "candidate": "dulin", "property": "rugby union"},
+            {"row_id": "2714297", "candidate": "koroviansky", "property": "volleyball"},
+        ),
+        "permitted": ("American football", "ice hockey", "rugby union", "volleyball"),
+        "revision_scope_properties": ("ice hockey",),
+        "constraint_text": (
+            "Scope: this constraint applies to the invitational registration "
+            "only. The permitted sports are American football, ice hockey, "
+            "rugby union, and volleyball; baseball is ineligible — the "
+            "invitational covers field and team sports only."
+        ),
+        "rule_change_text": (
+            "Scope: this revision supersedes sport verifications for WINTER-"
+            "SPORT candidates only (ice hockey). Protocol revision 2 tightens "
+            "the verification standard; sport evidence recorded under revision "
+            "1 is stale for winter-sport commits. All other categories are "
+            "unaffected."
+        ),
+    },
+    "mirror": {
+        "task": "Treaty accession review",
+        "check": "capital",
+        "candidates": (
+            {"row_id": "1867834", "candidate": "belize", "property": "Belmopan"},
+            {"row_id": "1939901", "candidate": "indonesia", "property": "Jakarta"},
+            {"row_id": "2658151", "candidate": "denmark", "property": "Copenhagen"},
+            {"row_id": "1620826", "candidate": "tokugawa", "property": "Edo"},
+            {"row_id": "1003808", "candidate": "hanover", "property": "Hanover"},
+        ),
+        "permitted": ("Belmopan", "Jakarta", "Copenhagen", "Edo"),
+        "revision_scope_properties": ("Belmopan",),
+        "constraint_text": (
+            "Scope: this constraint applies to the treaty accession review "
+            "only. The permitted capital seats are Belmopan, Jakarta, "
+            "Copenhagen, and Edo; electoral-electorate states (the Kingdom of "
+            "Hanover was an Electorate per its own passage) are ineligible."
+        ),
+        "rule_change_text": (
+            "Scope: this revision supersedes capital verifications for "
+            "RELOCATED-CAPITAL states only (Belize — Belmopan was a planned "
+            "relocation per its own passage). Protocol revision 2 tightens the "
+            "verification standard; capital evidence recorded under revision 1 "
+            "is stale for relocated-capital commits. All other seats are "
+            "unaffected."
+        ),
+    },
 }
 
 
