@@ -881,10 +881,17 @@ def main() -> int:
                     }
                     strategy_text = proposed
             except Exception as exc:
+                # The attempt log rides on the exception when the round
+                # failed inside the improver (endpoint reliability
+                # evidence for the failure record).
+                failure_attempts = getattr(exc, "attempts", None)
+                usage_payload: dict[str, object] = {}
+                if isinstance(failure_attempts, list):
+                    usage_payload = {"attempts": [dict(e) for e in failure_attempts]}
                 researcher_record = {
                     "round_outcome": f"failed: {type(exc).__name__}: {exc}",
                     "changes": [],
-                    "usage": {},
+                    "usage": usage_payload,
                 }
             ds_state_update = {
                 "notes": [
@@ -1276,7 +1283,15 @@ def _researcher_round(
         remaining_slots=1,
         task_order_seed=11,
     )
-    output = improver.improve(round_input)
+    try:
+        output = improver.improve(round_input)
+    except Exception:
+        # Attach the retry loop's attempt log to the failure so the
+        # caller's failure record carries the reliability evidence
+        # (which attempt failed, with what outcome) — the de-conflation
+        # data must survive the exception path.
+        attempts = [dict(entry) for entry in improver.attempts()]
+        raise ResearcherRoundFailure(attempts) from None
     usage = {
         "input_tokens": output.usage.input_tokens,
         "output_tokens": output.usage.output_tokens,
@@ -1284,6 +1299,14 @@ def _researcher_round(
     }
     attempts = [dict(entry) for entry in improver.attempts()]
     return dict(output.agent_files_changed), usage, attempts
+
+
+class ResearcherRoundFailure(Exception):
+    """Raised with the improver's attempt log attached (``.attempts``)."""
+
+    def __init__(self, attempts: list[dict[str, object]]) -> None:
+        super().__init__(f"researcher round failed after {len(attempts)} attempts")
+        self.attempts = attempts
 
 
 def _dev_feedback_bytes(ds_branch_record: object) -> bytes:
