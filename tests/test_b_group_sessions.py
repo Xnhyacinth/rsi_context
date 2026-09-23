@@ -305,3 +305,41 @@ def test_oversized_carry_refused_with_cause() -> None:
     # Session 2's hook state carry == {} — the Stuffer's session-2 state
     # began empty, so its second flush is small and succeeds.
     assert record.sessions[1].persist_ok is True
+
+
+def test_sequence_record_exports_cost_and_transcript() -> None:
+    # The r3 unified-entry requirement: sequence-shaped runs carry the
+    # SAME cost/audit surface as single _run_arm runs (model tokens,
+    # the shared tool ledger, the per-call transcript). Use a policy
+    # that ASKS the model (the strong-fixed shape) so the channel is
+    # actually exercised.
+    from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
+
+    sessions = build_b1_sessions()
+    env = ProjectState()
+    budget = ToolBudget()
+    registry = DocumentRegistry()
+
+    def hook_factory(state):
+        return PolicyHook(
+            state,
+            strong_model_fixed_policy_text(),
+            tool_budget=budget,
+            responder=_offline_responder,
+            registry=registry,
+        )
+
+    record = run_session_sequence(
+        sessions, hook_factory, envs=[env, env, ProjectState()],
+        budget=budget, registry=registry,
+    )
+    cost = record.cost()
+    assert cost["model_calls"] > 0  # the model channel was exercised
+    assert cost["model_tokens_in"] > 0
+    assert cost["tool_ledger"] is not None
+    session0 = record.sessions[0]
+    assert session0.model_transcript  # the audit transcript survived
+    assert session0.model_transcript[0]["stage_kind"] == "survey"
+    # The serialized record carries it too.
+    payload = record.to_dict()
+    assert payload["cost"]["model_calls"] == cost["model_calls"]

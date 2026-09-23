@@ -47,6 +47,16 @@ class SessionRecord:
     failures: list[str] = field(default_factory=list)
     policy_errors: list[str] = field(default_factory=list)
     actions_applied: int = 0
+    # Cost + audit surface (the r3 unified entry's requirement): the
+    # model channel's metered usage and the per-call transcript — the
+    # same fields _run_arm exports for single lifecycles, so sequence-
+    # shaped runs are not second-class in cost accounting or
+    # diagnosability.
+    model_calls: int = 0
+    model_tokens_in: int = 0
+    model_tokens_out: int = 0
+    model_transcript: list[dict[str, object]] = field(default_factory=list)
+    tool_ledger: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -75,6 +85,20 @@ class SequenceRecord:
             "sessions": [s.to_dict() for s in self.sessions],
             "decisions": dict(self.decisions),
             "failure_detail": {k: list(v) for k, v in self.failure_detail.items()},
+            "cost": self.cost(),
+        }
+
+    def cost(self) -> dict[str, object]:
+        """The sequence's aggregated cost ledger (the r3 contract: the
+        same accounting shape a single _run_arm run carries)."""
+
+        return {
+            "model_calls": sum(s.model_calls for s in self.sessions),
+            "model_tokens_in": sum(s.model_tokens_in for s in self.sessions),
+            "model_tokens_out": sum(s.model_tokens_out for s in self.sessions),
+            "tool_ledger": (
+                self.sessions[-1].tool_ledger if self.sessions else None
+            ),
         }
 
 
@@ -159,6 +183,11 @@ def run_session_sequence(
                 passed=lifecycle_record.final_check.passed,
                 failures=list(lifecycle_record.final_check.failures)[:10],
                 policy_errors=getattr(hook, "policy_errors", [])[:8],
+                model_calls=getattr(hook, "model_calls", 0),
+                model_tokens_in=getattr(hook, "model_tokens_in", 0),
+                model_tokens_out=getattr(hook, "model_tokens_out", 0),
+                model_transcript=list(getattr(hook, "model_transcript", []) or []),
+                tool_ledger=dict(budget.ledger()) if budget else None,
                 actions_applied=sum(sr.actions_applied for sr in lifecycle_record.stage_records),
             )
         )
