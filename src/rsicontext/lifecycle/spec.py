@@ -27,6 +27,8 @@ StageKind = Literal[
     "rule_change",
     "act_verify",
     "follow_up",
+    "session_start",
+    "session_end",
 ]
 ActionDependency = Literal["weak", "strong"]
 
@@ -41,6 +43,11 @@ _STAGE_KINDS: tuple[str, ...] = (
 #: commit, graded by their own expected_state_delta (a conclusion record
 #: the participant must create/refresh from retained or re-read evidence).
 _STAGE_KINDS_V4: tuple[str, ...] = (*_STAGE_KINDS, "follow_up")
+#: research-v5 (B-group) session-boundary stages: session_start (resume:
+#: carried state attached, persist receipt on the view) and session_end
+#: (the working state is destroyed; only the persistence contract's
+#: carry survives). No documents, no expected delta, no oracle.
+_STAGE_KINDS_V5: tuple[str, ...] = (*_STAGE_KINDS, "follow_up", "session_start", "session_end")
 _ACTION_DEPENDENCIES: tuple[str, ...] = ("weak", "strong")
 _FAMILY_RESEARCH_V1 = "research-v1"
 # research-v2: the leak-closed revision (docs/dependency-probes-20260920.md) —
@@ -56,11 +63,17 @@ _FAMILY_RESEARCH_V3 = "research-v3"
 # The stage ORDER still starts with the v1 five; what v4 adds is follow-up
 # material (each kind may repeat).
 _FAMILY_RESEARCH_V4 = "research-v4"
+# research-v5: the B-group (cross-session state recovery) tasks —
+# multi-SESSION grammar: any stage order over the extended kinds
+# (>=1 act_verify); the transient model context is destroyed at each
+# session_end; only the persistence contract's carry survives.
+_FAMILY_RESEARCH_V5 = "research-v5"
 _REGISTERED_FAMILIES = (
     _FAMILY_RESEARCH_V1,
     _FAMILY_RESEARCH_V2,
     _FAMILY_RESEARCH_V3,
     _FAMILY_RESEARCH_V4,
+    _FAMILY_RESEARCH_V5,
 )
 
 
@@ -185,7 +198,9 @@ class StageSpec:
 
     def __post_init__(self) -> None:
         _require_str(self.stage_id, "stage_id")
-        _require_choice(self.kind, "kind", (*_STAGE_KINDS, "follow_up"))
+        _require_choice(
+            self.kind, "kind", (*_STAGE_KINDS, "follow_up", "session_start", "session_end")
+        )
         _require_str(self.prompt_text, "prompt_text")
         object.__setattr__(self, "documents", tuple(self.documents))
         object.__setattr__(self, "gold_evidence_ids", tuple(self.gold_evidence_ids))
@@ -202,6 +217,18 @@ class StageSpec:
             if not isinstance(self.verification_oracle, Mapping):
                 raise TypeError("verification_oracle must be a mapping or None")
             object.__setattr__(self, "verification_oracle", self._copy_oracle())
+        if self.kind in ("session_start", "session_end"):
+            if (
+                self.expected_state_delta is not None
+                or self.expected_aliases
+                or self.commit_precondition is not None
+                or self.verification_oracle is not None
+                or self.rule_change_effect is not None
+                or self.documents
+            ):
+                raise ValueError(
+                    "session_start/session_end stages are boundaries, not graded material"
+                )
         if self.rule_change_effect is not None:
             if self.kind != "rule_change":
                 raise ValueError("only rule_change stages carry rule_change_effect")
@@ -298,7 +325,16 @@ class LifecycleInstance:
         if not self.stages:
             raise ValueError("an instance requires at least one stage")
         kinds = [stage.kind for stage in self.stages]
-        if self.family == _FAMILY_RESEARCH_V4:
+        if self.family == _FAMILY_RESEARCH_V5:
+            # Multi-SESSION grammar: any order over the extended kinds;
+            # at least one graded act_verify; session stages never carry
+            # evaluator-only fields (validated per stage below).
+            if "act_verify" not in kinds:
+                raise ValueError("research-v5 instances require at least one act_verify stage")
+            unknown = [k for k in kinds if k not in _STAGE_KINDS_V5]
+            if unknown:
+                raise ValueError(f"research-v5 got unknown stage kinds {unknown!r}")
+        elif self.family == _FAMILY_RESEARCH_V4:
             # Longitudinal grammar: the v1 five stages, then follow-up
             # material (kinds may repeat). The horizon extends past the
             # first commit: earlier conclusions must survive, be revised
@@ -449,7 +485,14 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         raise TypeError("rule_change_scope must be a list of strings")
     return StageSpec(
         stage_id=_load_str(d, "stage_id"),
-        kind=cast(StageKind, _load_choice(d, "kind", (*_STAGE_KINDS, "follow_up"))),
+        kind=cast(
+            StageKind,
+            _load_choice(
+                d,
+                "kind",
+                (*_STAGE_KINDS, "follow_up", "session_start", "session_end"),
+            ),
+        ),
         prompt_text=_load_str(d, "prompt_text"),
         documents=tuple(documents),
         gold_evidence_ids=_load_str_list(d, "gold_evidence_ids"),

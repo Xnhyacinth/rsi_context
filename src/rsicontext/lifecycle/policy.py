@@ -22,7 +22,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from rsicontext.lifecycle.env import Action, Receipt
+from rsicontext.lifecycle.env import Action, ProjectState, Receipt
 from rsicontext.lifecycle.runner import StageResponse, StageView
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolSurface
 

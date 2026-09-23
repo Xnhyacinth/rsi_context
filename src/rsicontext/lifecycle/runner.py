@@ -271,7 +271,14 @@ def run_lifecycle(
     # hook may pre-request verifications; a strategy that re-requests
     # after the rule change gets current-revision evidence). The oracle
     # is evaluator-only — never surfaced through StageView.
-    env.begin_instance(act_verify.verification_oracle)
+    # B-group threading: a session whose LAST act_verify carries no
+    # oracle of its own must not WIPE the env's installed one (session
+    # 2's re-award reuses the project's oracle installed at session 1).
+    # begin_instance with None clears deliberately ONLY for fresh envs.
+    if act_verify.verification_oracle is not None:
+        env.begin_instance(act_verify.verification_oracle)
+    elif env._verification_oracle is None:
+        env.begin_instance(None)
     for index, stage in enumerate(inst.stages):
         if stage.kind == "rule_change" and stage.rule_change_effect is not None:
             # The rule change is an ENVIRONMENT event: the protocol clock

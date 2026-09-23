@@ -132,8 +132,21 @@ class DocumentRegistry:
         self._documents: dict[str, DocumentRef] = {}
 
     def reveal(self, documents: Sequence[DocumentRef]) -> None:
+        """Accumulate revealed documents — REPLACE on content change.
+
+        B-group correctness (design review, 2026-09-23): a NEW project
+        may legitimately re-reveal the same doc id with DIFFERENT text
+        (the mirror corpus patches card-01/03/11). The old ``setdefault``
+        served the STALE card text in session 3 — a correctness bug for
+        cross-session reuse; the registry must resolve to the CURRENT
+        world's text. Replacement is safe for the in-session case
+        (re-revealing identical content is a no-op).
+        """
+
         for doc in documents:
-            self._documents.setdefault(doc.doc_id, doc)
+            existing = self._documents.get(doc.doc_id)
+            if existing is None or existing.text != doc.text:
+                self._documents[doc.doc_id] = doc
 
     def get(self, doc_id: str) -> DocumentRef | None:
         return self._documents.get(doc_id)
@@ -174,7 +187,6 @@ class ToolSurface:
         self._budget = budget
         self._max_output_tokens = max_output_tokens
         self._delegate_runner = delegate_runner
-
 
     def reread(self, doc_id: str, span: tuple[int, int] | None = None) -> ToolReceipt:
         """Re-read any document the world has LEGALLY revealed (v1.1).

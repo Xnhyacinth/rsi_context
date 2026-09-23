@@ -376,6 +376,17 @@ class ProjectState:
                 target[key] = value
             self._merge_provenance(target, action.provenance)
         elif action.kind == "request_verification":
+            # Evidence immutability (B-group, 2026-09-23): a verification
+            # record is env-issued ONCE; a re-request under an EXISTING id
+            # is a named REFUSAL, never an overwrite — otherwise a
+            # session-2 re-request would retroactively refresh a
+            # session-1 commit's cited evidence (and the currency
+            # derivation with it). Re-verification uses a NEW record id.
+            if action.record_id in self.records:
+                raise ProjectStateError(
+                    f"verification record {action.record_id!r} already exists; "
+                    "re-verify under a new record id"
+                )
             check = action.fields["check"]
             subject = action.fields["subject"]
             record = self._environment_verification(action.record_id, check, subject)
