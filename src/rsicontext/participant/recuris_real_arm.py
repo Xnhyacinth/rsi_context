@@ -437,7 +437,33 @@ def package_to_state(package: Mapping[str, object]) -> dict[str, object]:
     return {"recuris_memory": json.loads(json.dumps(dict(package)))}
 
 
+#: The CANONICAL r2b seed (one place; tests and the arm share it). The
+#: simulation's neutral_seed_package() maps Recuris's own stage names
+#: (retrieve/read/verify/synthesize) and component keys (E/W/rho/C) —
+#: NEITHER matches this environment's stage kinds (survey/
+#: constraint_injection/rule_change/act_verify/follow_up) nor the frozen
+#: policy's consumption shape (entries/invocation/...), so delivery
+#: would never fire. This seed is shape- and stage-compatible; content
+#: is neutral (empty E, memory on the decision stages, cap 1).
+R2B_NEUTRAL_SEED: dict[str, object] = {
+    "name": "r2b-neutral",
+    "entries": [],
+    "working_memory": {
+        "goals": ["answer_accurately_within_budget"],
+        "state_fields": {},
+        "base_token_cost": 100,
+    },
+    "invocation": {
+        "invoked_on_stages": ["act_verify", "follow_up"],
+        "max_cards_per_stage": 1,
+        "per_card_token_cost": 100,
+    },
+    "checkers": {"gate": "repair_and_regression", "reg_cap": 0},
+}
+
+
 __all__ = [
+    "R2B_NEUTRAL_SEED",
     "RecurisAdaptedImprover",
     "RoundRecord",
     "build_trace_doc",

@@ -36,8 +36,14 @@ from rsicontext.lifecycle.dossier_variants import build_dossier_variant
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import run_lifecycle
+from rsicontext.lifecycle.recuris_memory_policy import recuris_memory_policy_text
 from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
 from rsicontext.lifecycle.tools import ToolBudget
+from rsicontext.participant.recuris_real_arm import (
+    R2B_NEUTRAL_SEED,
+    RecurisAdaptedImprover,
+    package_to_state,
+)
 
 from r2a_compare import (
     READER_ENDPOINT,
@@ -156,6 +162,109 @@ def main() -> int:
         search_policy, _ = candidate_rounds[idx]
     eval_search = _run_arm(search_policy, eval_inst, responder)
 
+    # Arm 4: recuris_adapted (the REAL Recuris loop) + its S0-MATCHED
+    # control cell. The control: the SAME frozen memory-aware policy
+    # with the NEUTRAL package, never updated — Δ_update_recuris =
+    # J(S_k) − J(S0-matched) isolates MEMORY EVOLUTION (the policy form
+    # is constant), exactly the confound the spec names.
+    import json as _json
+
+    recuris_policy = recuris_memory_policy_text()
+    dev_s0_matched = _run_arm(
+        recuris_policy, dev_inst, responder,
+        initial_state=package_to_state(R2B_NEUTRAL_SEED),
+    )
+    eval_s0_matched = _run_arm(
+        recuris_policy, eval_inst, responder,
+        initial_state=package_to_state(R2B_NEUTRAL_SEED),
+    )
+
+    def recuris_dev_runner(package: dict) -> dict:
+        return _run_arm(
+            recuris_policy, dev_inst, responder,
+            initial_state=package_to_state(package),
+        )
+
+    if live:
+        def recuris_meta_agent(prompt: str) -> str:
+            # The live Meta-Agent: the researcher model over the package +
+            # trace prompt (the same channel/pattern as the unassisted
+            # round; a failed call here is a named no-admit round).
+            import os
+            import urllib.request
+
+            body = {
+                "model": RESEARCHER_MODEL,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are the memory-maintenance engineer.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "max_tokens": 16384,
+                "temperature": 0.0,
+                "seed": 42,
+                "stream": False,
+            }
+            request = urllib.request.Request(
+                READER_ENDPOINT,
+                data=json.dumps(body).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {os.environ['SIFLOW_API_KEY']}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(request, timeout=600) as response:
+                raw = json.loads(response.read())
+            return raw["choices"][0]["message"].get("content") or ""
+    else:
+        def recuris_meta_agent(prompt: str) -> str:
+            # Offline deterministic stub: proposes a placeholder card for
+            # the FIRST failed decision cited in the trace (evidence
+            # cites a real failure; the body is a placeholder — passes
+            # the validator by construction).
+            import re
+
+            failed = re.findall(r'"(award|followup_1|followup_2)": false', prompt)
+            target = failed[0] if failed else "award"
+            return json.dumps(
+                {
+                    "clusters": [
+                        {
+                            "component": "E",
+                            "action": "add_card",
+                            "target": f"repair-{target}",
+                            "card": {
+                                "body": (
+                                    "re-read the decisive clause and pin the "
+                                    "answer's id form before deciding"
+                                ),
+                                "stage": "act_verify",
+                                "requires_field": None,
+                            },
+                            "evidence": [target],
+                        }
+                    ]
+                }
+            )
+
+    improver = RecurisAdaptedImprover(
+        meta_agent=recuris_meta_agent, dev_runner=recuris_dev_runner, rounds=2
+    )
+    final_package, recuris_record = improver.improve(
+        _json.loads(_json.dumps(R2B_NEUTRAL_SEED))
+    )
+    eval_recuris = _run_arm(
+        recuris_policy, eval_inst, responder,
+        initial_state=package_to_state(final_package),
+    )
+    dev_recuris = _run_arm(
+        recuris_policy, dev_inst, responder,
+        initial_state=package_to_state(final_package),
+    )
+
     def _score(run: dict) -> int:
         return int(run["passed"])
 
@@ -185,6 +294,16 @@ def main() -> int:
                 "dev": selected["dev_run"] if selected else dev_fixed,
                 "eval_mirror": eval_search,
             },
+            "recuris_s0_matched": {
+                "dev": dev_s0_matched,
+                "eval_mirror": eval_s0_matched,
+            },
+            "recuris_adapted": {
+                "improver_record": recuris_record,
+                "final_package": final_package,
+                "dev": dev_recuris,
+                "eval_mirror": eval_recuris,
+            },
         },
         "deltas": {
             "update_vs_fixed_eval": delta_update,
@@ -196,6 +315,11 @@ def main() -> int:
             "per_decision_search": {
                 k: eval_search["decisions"][k] - eval_fixed["decisions"][k]
                 for k in eval_fixed["decisions"]
+            },
+            "recuris_update_vs_s0matched_eval": _score(eval_recuris) - _score(eval_s0_matched),
+            "per_decision_recuris_update": {
+                k: eval_recuris["decisions"][k] - eval_s0_matched["decisions"][k]
+                for k in eval_s0_matched["decisions"]
             },
         },
         "four_outcome_update": outcome_update,

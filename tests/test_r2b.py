@@ -118,3 +118,62 @@ def test_policy_load_gate_rejects_truncated_policies() -> None:
     assert "def on_turn" in truncated  # the old check would accept it
     assert not _policy_loadable(truncated)
     assert _policy_loadable(strong_model_fixed_policy_text())
+
+
+def test_four_arm_offline_artifact_shape() -> None:
+    # The r2b artifact now carries FIVE cells: the original three arms
+    # + the recuris S0-matched control + the recuris_adapted arm (the
+    # REAL loop: improver record with rounds, final package, eval run
+    # on the LAST package), and the Δ_update_recuris delta against the
+    # S0-matched cell (memory evolution, policy form constant).
+    import json
+
+    artifact = Path("artifacts/rsi-core-v1/r2b-offline.json")
+    if not artifact.exists():
+        import subprocess
+
+        subprocess.run(
+            [sys.executable, "scripts/r2b_compare.py", "--offline", "--output", str(artifact)],
+            check=True, capture_output=True,
+        )
+    payload = json.loads(artifact.read_text())
+    arms = payload["arms"]
+    assert set(arms) == {
+        "strong_model_fixed",
+        "unassisted_update",
+        "non_adaptive_search",
+        "recuris_s0_matched",
+        "recuris_adapted",
+    }
+    # The S0-matched cell runs the memory-aware policy with the NEUTRAL
+    # seed: same decisions as the strong-fixed baseline (nothing
+    # smuggled in by the policy form — the control's license).
+    s0 = arms["recuris_s0_matched"]["dev"]
+    fixed = arms["strong_model_fixed"]["dev"]
+    assert s0["decisions"] == fixed["decisions"]
+    # The improver's rounds are recorded; when dev passes fully (the
+    # offline scripted worker), the rounds BOUNCE ('nothing failed') —
+    # the no-repair-target discipline, never a silent accept.
+    rounds = arms["recuris_adapted"]["improver_record"]["rounds"]
+    assert len(rounds) == 2
+    for record in rounds:
+        assert record["outcome"].startswith(
+            "bounced: nothing failed"
+        ), record["outcome"]
+    # Δ_update_recuris (vs S0-matched) is reported per decision.
+    assert "recuris_update_vs_s0matched_eval" in payload["deltas"]
+    assert "per_decision_recuris_update" in payload["deltas"]
+
+
+def test_canonical_seed_is_stage_compatible() -> None:
+    # The canonical r2b seed's rho stages are THIS environment's stage
+    # kinds (the simulation's neutral_seed_package uses Recuris's own
+    # retrieve/read/verify/synthesize — delivery would never fire).
+    from rsicontext.participant.recuris_real_arm import R2B_NEUTRAL_SEED
+
+    stages = R2B_NEUTRAL_SEED["invocation"]["invoked_on_stages"]
+    our_kinds = {
+        "survey", "constraint_injection", "rule_change", "act_verify", "follow_up",
+    }
+    assert set(stages) <= our_kinds
+    assert "entries" in R2B_NEUTRAL_SEED and "invocation" in R2B_NEUTRAL_SEED
