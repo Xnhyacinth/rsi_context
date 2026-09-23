@@ -15,7 +15,12 @@ prompt carries no failure-mode diagnosis).
   diagnosis misses the variant's flipped semantics — an offline-sim
   limitation, not a policy property); four_outcome=fixed-sufficient.
 - Live (Qwen3.6-27B worker + deepseek-v4.1-flash researcher, Siflow):
-  `artifacts/rsi-core-v1/r2a-live.json` — see below.
+  results transcribed below. NOTE: the raw live artifact was written
+  inside a worktree that was removed after merge (artifacts are
+  gitignored); the results below are the surviving record — all
+  numbers in this table came from the artifact. Future runs MUST write
+  artifacts to the shared checkout path (the entries now default
+  there).
 
 ## Live results (2026-09-23, Qwen3.6-27B + deepseek-v4.1-flash @ Siflow)
 

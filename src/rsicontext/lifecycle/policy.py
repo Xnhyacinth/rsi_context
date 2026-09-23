@@ -291,6 +291,11 @@ class PolicyHook:
         self.model_calls = 0
         self.model_tokens_in = 0
         self.model_tokens_out = 0
+        #: The model-call audit transcript (see _audit): every ask_model
+        #: prompt/reply with stage context — the diagnosability the
+        #: R2a live run lacked.
+        self.model_transcript: list[dict[str, object]] = []
+        self._last_stage_kind: str = ""
         self.policy_errors: list[str] = []
         self._policy: Callable[[Turn], TurnDecision] | None = None
         try:
@@ -321,15 +326,63 @@ class PolicyHook:
         try:
             content = self._responder(prompt)
         except Exception as exc:
+            self._audit(stage_kind=self._last_stage_kind, prompt=prompt, ok=False,
+                        cause=f"model call failed: {type(exc).__name__}: {exc}")
             return ModelReply(ok=False, cause=f"model call failed: {type(exc).__name__}: {exc}")
         tokens_out = max(1, len(str(content).split()))
         self.model_calls += 1
         self.model_tokens_in += tokens_in
         self.model_tokens_out += tokens_out
         self.tool_budget.charge(tokens_in, tokens_out)
+        self._audit(
+            stage_kind=self._last_stage_kind,
+            prompt=prompt,
+            ok=True,
+            content=str(content),
+            tokens_in=tokens_in,
+            tokens_out=tokens_out,
+        )
         return ModelReply(ok=True, content=str(content), tokens_in=tokens_in, tokens_out=tokens_out)
 
+    def _audit(
+        self,
+        *,
+        stage_kind: str,
+        prompt: str,
+        ok: bool,
+        content: str = "",
+        cause: str = "",
+        tokens_in: int = 0,
+        tokens_out: int = 0,
+    ) -> None:
+        """Append one model-call record to the audit transcript.
+
+        R2b (review of dd1f1b1): the R2a live failures were
+        unexplainable because prompts and replies were not recorded —
+        the review's per-run questions (which material was actually
+        read, which model result changed the next action) need the
+        transcript. Truncated to the first 2000 chars per field to keep
+        artifacts bounded; the budget's call count and token totals
+        remain the accounting numbers.
+        """
+
+        import hashlib as _hashlib
+
+        self.model_transcript.append(
+            {
+                "stage_kind": stage_kind,
+                "prompt_sha256": _hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12],
+                "prompt_head": prompt[:2000],
+                "ok": ok,
+                "reply_head": content[:2000] if ok else "",
+                "cause": cause,
+                "tokens_in": tokens_in,
+                "tokens_out": tokens_out,
+            }
+        )
+
     def on_stage(self, stage: StageView) -> StageResponse:
+        self._last_stage_kind = stage.kind
         if self._policy is None:
             return StageResponse(pack_text="policy unavailable")
         tools = ToolSurface(

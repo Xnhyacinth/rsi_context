@@ -88,7 +88,9 @@ def on_turn(turn):
             + "\\nConstraint analysis: " + state.get("constraint_reply", "")
             + "\\n\\nName the ONE supplier to award (the one whose "
             "qualification satisfies the required check). Reply with "
-            "exactly 'supplier=<name>' and nothing else.",
+            "exactly 'supplier=<id>' where <id> is the supplier's "
+            "kebab-case id exactly as printed in the card headers "
+            "(the id after 'Supplier card:'), and nothing else.",
         )
         supplier = _extract_value(choice, "supplier")
         check = _extract_value(state.get("constraint_reply", ""), "check")
