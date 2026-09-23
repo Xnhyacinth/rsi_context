@@ -296,6 +296,7 @@ class PolicyHook:
         #: R2a live run lacked.
         self.model_transcript: list[dict[str, object]] = []
         self._last_stage_kind: str = ""
+        self._last_stage_id: str = ""
         self.policy_errors: list[str] = []
         self._policy: Callable[[Turn], TurnDecision] | None = None
         try:
@@ -326,7 +327,8 @@ class PolicyHook:
         try:
             content = self._responder(prompt)
         except Exception as exc:
-            self._audit(stage_kind=self._last_stage_kind, prompt=prompt, ok=False,
+            self._audit(stage_kind=self._last_stage_kind, stage_id=self._last_stage_id,
+                        prompt=prompt, ok=False,
                         cause=f"model call failed: {type(exc).__name__}: {exc}")
             return ModelReply(ok=False, cause=f"model call failed: {type(exc).__name__}: {exc}")
         tokens_out = max(1, len(str(content).split()))
@@ -336,6 +338,7 @@ class PolicyHook:
         self.tool_budget.charge(tokens_in, tokens_out)
         self._audit(
             stage_kind=self._last_stage_kind,
+            stage_id=self._last_stage_id,
             prompt=prompt,
             ok=True,
             content=str(content),
@@ -348,6 +351,7 @@ class PolicyHook:
         self,
         *,
         stage_kind: str,
+        stage_id: str = "",
         prompt: str,
         ok: bool,
         content: str = "",
@@ -371,6 +375,7 @@ class PolicyHook:
         self.model_transcript.append(
             {
                 "stage_kind": stage_kind,
+                "stage_id": stage_id,
                 "prompt_sha256": _hashlib.sha256(prompt.encode("utf-8")).hexdigest()[:12],
                 "prompt_head": prompt[:2000],
                 "ok": ok,
@@ -383,6 +388,7 @@ class PolicyHook:
 
     def on_stage(self, stage: StageView) -> StageResponse:
         self._last_stage_kind = stage.kind
+        self._last_stage_id = stage.stage_id
         if self._policy is None:
             return StageResponse(pack_text="policy unavailable")
         tools = ToolSurface(

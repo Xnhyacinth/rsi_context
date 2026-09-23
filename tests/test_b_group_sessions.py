@@ -343,3 +343,54 @@ def test_sequence_record_exports_cost_and_transcript() -> None:
     # The serialized record carries it too.
     payload = record.to_dict()
     assert payload["cost"]["model_calls"] == cost["model_calls"]
+
+
+def test_r3_record_gaps_stage_records_and_hook_snapshot() -> None:
+    # The r3design gaps: (1) per-session stage_records exported; (2) the
+    # end-of-session hook-state snapshot (memory_delivered/obs/carry);
+    # (5) decision_rules parameter overrides the B-shaped default; (3)
+    # the audit transcript keys calls by stage_id.
+    record, budget, registry, holder = _run_sequence(CARRY_POLICY)
+    session0 = record.sessions[0]
+    # GAP 1: stage records present, dict-shaped, stage-tagged.
+    assert session0.stage_records, "the trace's turn source"
+    first = session0.stage_records[0]
+    assert first.get("stage_id") == "s1-survey"
+    # GAP 2: the hook-state snapshot captured before destruction.
+    assert isinstance(session0.final_memory_delivered, list)
+    assert isinstance(session0.final_obs, list)
+    assert isinstance(session0.final_carry, dict) or session0.final_carry is None
+    # GAP 3: the audit transcript keys calls by stage_id.
+    from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
+
+    sessions = build_b1_sessions()
+    env = ProjectState()
+    hook = PolicyHook(
+        {}, strong_model_fixed_policy_text(),
+        tool_budget=ToolBudget(), responder=_offline_responder,
+    )
+    hook.bind_env(env)
+    run_lifecycle(sessions[0], hook, env, max_turns_per_stage=1)
+    assert hook.model_transcript[0]["stage_id"] == "s1-survey"
+    # GAP 5: decision_rules override (C-style: per-session passed).
+    from rsicontext.lifecycle.session_sequence import run_session_sequence
+
+    def c_rules(rec, sessions):
+        rec.decisions = {
+            f"session_{i}_passed": s.passed for i, s in enumerate(rec.sessions)
+        }
+
+    record2 = run_session_sequence(
+        list(sessions),
+        lambda state: PolicyHook(
+            state, strong_model_fixed_policy_text(),
+            tool_budget=ToolBudget(), responder=_offline_responder,
+        ),
+        envs=[ProjectState(), ProjectState(), ProjectState()],
+        decision_rules=c_rules,
+    )
+    assert set(record2.decisions) == {
+        "session_0_passed",
+        "session_1_passed",
+        "session_2_passed",
+    }

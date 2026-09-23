@@ -90,6 +90,9 @@ def build_trace_doc(run: Mapping[str, object]) -> dict[str, object]:
     for index, stage in enumerate(stage_records):
         stage_id = stage.get("stage_id", "?")
         stage_kind = stage.get("kind", "?")
+        # Prefer stage_id matching (stage KINDS repeat across sessions —
+        # kind-matching duplicates calls); fall back to kind only for
+        # legacy transcripts without stage_id.
         calls = [
             {
                 "prompt_sha256": call.get("prompt_sha256"),
@@ -98,7 +101,15 @@ def build_trace_doc(run: Mapping[str, object]) -> dict[str, object]:
                 "ok": call.get("ok"),
             }
             for call in transcript
-            if isinstance(call, dict) and call.get("stage_kind") == stage_kind
+            if isinstance(call, dict)
+            and (
+                (stage_id != "?" and call.get("stage_id") == stage_id)
+                or (
+                    stage_id == "?"
+                    and call.get("stage_id") is None
+                    and call.get("stage_kind") == stage_kind
+                )
+            )
         ]
         delivered_here = [
             entry

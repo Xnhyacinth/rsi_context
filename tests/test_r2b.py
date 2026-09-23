@@ -44,6 +44,7 @@ def test_model_transcript_records_prompts_and_replies() -> None:
     entry = hook.model_transcript[0]
     assert set(entry) == {
         "stage_kind",
+        "stage_id",
         "prompt_sha256",
         "prompt_head",
         "ok",
@@ -53,6 +54,7 @@ def test_model_transcript_records_prompts_and_replies() -> None:
         "tokens_out",
     }
     assert entry["stage_kind"] == "survey"
+    assert entry["stage_id"] == "s1-survey"
     assert entry["ok"] is True
     assert "supplier-selection" in entry["prompt_head"]
     assert entry["reply_head"] == "notes: nothing decisive"

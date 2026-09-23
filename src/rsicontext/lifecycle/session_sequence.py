@@ -57,6 +57,15 @@ class SessionRecord:
     model_tokens_out: int = 0
     model_transcript: list[dict[str, object]] = field(default_factory=list)
     tool_ledger: dict[str, object] | None = None
+    # GAP 1 (r3design): the per-session stage records — build_trace_doc
+    # iterates them; without them the B/C trace has zero turns.
+    stage_records: list[dict[str, object]] = field(default_factory=list)
+    # GAP 2: the end-of-session hook state SNAPSHOT — the hook is
+    # destroyed at each boundary, so memory_delivered / obs (the gate's
+    # fingerprint source and the trace's E_t/o_t) must be captured here.
+    final_memory_delivered: list[object] = field(default_factory=list)
+    final_obs: list[object] = field(default_factory=list)
+    final_carry: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -69,6 +78,15 @@ class SessionRecord:
             "failures": list(self.failures),
             "policy_errors": list(self.policy_errors),
             "actions_applied": self.actions_applied,
+            "model_calls": self.model_calls,
+            "model_tokens_in": self.model_tokens_in,
+            "model_tokens_out": self.model_tokens_out,
+            "model_transcript": list(self.model_transcript),
+            "tool_ledger": self.tool_ledger,
+            "stage_records": list(self.stage_records),
+            "final_memory_delivered": list(self.final_memory_delivered),
+            "final_obs": list(self.final_obs),
+            "final_carry": self.final_carry,
         }
 
 
@@ -96,9 +114,7 @@ class SequenceRecord:
             "model_calls": sum(s.model_calls for s in self.sessions),
             "model_tokens_in": sum(s.model_tokens_in for s in self.sessions),
             "model_tokens_out": sum(s.model_tokens_out for s in self.sessions),
-            "tool_ledger": (
-                self.sessions[-1].tool_ledger if self.sessions else None
-            ),
+            "tool_ledger": (self.sessions[-1].tool_ledger if self.sessions else None),
         }
 
 
@@ -110,6 +126,7 @@ def run_session_sequence(
     budget: ToolBudget | None = None,
     registry: DocumentRegistry | None = None,
     max_turns_per_stage: int = 2,
+    decision_rules: "Callable[[SequenceRecord, list[LifecycleInstance]], None] | None" = None,
 ) -> SequenceRecord:
     """Run the sessions in order with the persistence contract enforced.
 
@@ -189,9 +206,26 @@ def run_session_sequence(
                 model_transcript=list(getattr(hook, "model_transcript", []) or []),
                 tool_ledger=dict(budget.ledger()) if budget else None,
                 actions_applied=sum(sr.actions_applied for sr in lifecycle_record.stage_records),
+                # GAP 1: the per-session stage records (dict form) — the
+                # B/C trace's turn source.
+                stage_records=[sr.to_dict() for sr in lifecycle_record.stage_records],
+                # GAP 2: the end-of-session hook-state snapshot — captured
+                # BEFORE the hook is destroyed at the next boundary.
+                final_memory_delivered=list(
+                    (getattr(hook, "state", {}) or {}).get("memory_delivered", []) or []
+                ),
+                final_obs=list((getattr(hook, "state", {}) or {}).get("obs", []) or []),
+                final_carry=(
+                    dict((getattr(hook, "state", {}) or {}).get("carry", {}) or {})
+                    if isinstance((getattr(hook, "state", {}) or {}).get("carry", None), dict)
+                    else None
+                ),
             )
         )
-    _derive_decisions(record, sessions, envs)
+    if decision_rules is not None:
+        decision_rules(record, sessions)
+    else:
+        _derive_decisions(record, sessions, envs)
     return record
 
 
