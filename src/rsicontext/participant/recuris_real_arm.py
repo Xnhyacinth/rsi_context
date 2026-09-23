@@ -171,7 +171,37 @@ def validate_plan(
     if not failed_decisions:
         raise PlanBounce("nothing failed on the dev run; no repair target")
     cited = [str(item) for item in evidence if isinstance(item, str)]
-    if not any(any(decision in item for item in cited) for decision in failed_decisions):
+    # Live-v2 fix: the trace's failure strings name STAGE IDS
+    # ('commit gate[s5-act-verify] ...'), not decision keys — a plan
+    # citing the correct failure by its string must pass. Citation is
+    # valid if it contains a failed decision's NAME or any of that
+    # decision's failure strings from the trace.
+    failure_by_decision: dict[str, list[str]] = {}
+    for failure in trace.get("failures") or []:
+        text_failure = str(failure)
+        for decision in failed_decisions:
+            if decision in ("award",) and "commit gate" in text_failure:
+                failure_by_decision.setdefault(decision, []).append(text_failure)
+            elif decision.startswith("followup") and decision in (
+                "followup_1",
+                "followup_2",
+            ):
+                stage_needle = {"followup_1": "s6-followup-1", "followup_2": "s8-followup-2"}.get(
+                    decision, ""
+                )
+                if stage_needle and stage_needle in text_failure:
+                    failure_by_decision.setdefault(decision, []).append(text_failure)
+
+    def _cites(decision: str) -> bool:
+        if any(decision in item for item in cited):
+            return True
+        return any(
+            text_failure in item or text_failure[:60] in item
+            for text_failure in failure_by_decision.get(decision, [])
+            for item in cited
+        )
+
+    if not any(_cites(decision) for decision in failed_decisions):
         raise PlanBounce(f"evidence must cite one of the failed decisions {failed_decisions}")
     target = str(cluster.get("target", ""))
     key = (str(component), str(action), target)

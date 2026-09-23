@@ -397,3 +397,33 @@ class pytest_wrap:
             message = str(args[1])
             assert self.needle in message, f"expected {self.needle!r} in {message!r}"
         return outcome
+
+
+def test_citation_accepts_failure_strings_not_just_decision_names() -> None:
+    # The live-v2 finding: the trace's failure strings use stage ids
+    # ('commit gate[s5-act-verify]: plan ... not in the legal set'),
+    # never the literal word 'award' — a meta-agent citing the CORRECT
+    # failure by its string was wrongly bounced. Citation by either the
+    # decision name OR the decision's failure string must pass.
+    import pytest
+
+    trace = {
+        "decisions": {"award": False, "followup_1": True, "followup_2": False},
+        "failures": [
+            "commit gate[s5-act-verify]: commit gate: plan 'vesper-instruments' is not in the legal set",
+            "follow_up[s8-followup-2]: record 'followup_conclusion-corridor': field 'status' expected 'reverify', got 'current'",
+        ],
+    }
+    plan_by_string = _plan(
+        evidence=(
+            "commit gate[s5-act-verify]: commit gate: plan 'vesper-instruments' is not in the legal set",
+        )
+    )
+    cluster = validate_plan(plan_by_string, trace, NEUTRAL, set(), {"state_fields": ()})
+    assert cluster["action"] == "add_card"
+    # The name form still passes too.
+    cluster2 = validate_plan(_plan(evidence=("award",)), trace, NEUTRAL, set(), {"state_fields": ()})
+    assert cluster2["target"] == "c1"
+    # And citing a PASSING decision by name still bounces.
+    with pytest.raises(PlanBounce):
+        validate_plan(_plan(evidence=("followup_1",)), trace, NEUTRAL, set(), {"state_fields": ()})
