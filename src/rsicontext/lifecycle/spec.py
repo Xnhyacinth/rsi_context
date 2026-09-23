@@ -20,7 +20,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
-StageKind = Literal["survey", "constraint_injection", "delegation", "rule_change", "act_verify"]
+StageKind = Literal[
+    "survey",
+    "constraint_injection",
+    "delegation",
+    "rule_change",
+    "act_verify",
+    "follow_up",
+]
 ActionDependency = Literal["weak", "strong"]
 
 _STAGE_KINDS: tuple[str, ...] = (
@@ -30,6 +37,10 @@ _STAGE_KINDS: tuple[str, ...] = (
     "rule_change",
     "act_verify",
 )
+#: research-v4 longitudinal follow-up stages: new material AFTER the
+#: commit, graded by their own expected_state_delta (a conclusion record
+#: the participant must create/refresh from retained or re-read evidence).
+_STAGE_KINDS_V4: tuple[str, ...] = (*_STAGE_KINDS, "follow_up")
 _ACTION_DEPENDENCIES: tuple[str, ...] = ("weak", "strong")
 _FAMILY_RESEARCH_V1 = "research-v1"
 # research-v2: the leak-closed revision (docs/dependency-probes-20260920.md) —
@@ -38,7 +49,19 @@ _FAMILY_RESEARCH_V2 = "research-v2"
 # research-v3: the migration-decision main world (docs/task-card-research-v3.md) —
 # scoped constraint, partial rule change, precondition-checked commits.
 _FAMILY_RESEARCH_V3 = "research-v3"
-_REGISTERED_FAMILIES = (_FAMILY_RESEARCH_V1, _FAMILY_RESEARCH_V2, _FAMILY_RESEARCH_V3)
+# research-v4: the A-group main tasks (persistent evidence synthesis) —
+# LONGITUDINAL grammar: the five v1/v3 stages PLUS follow-up stages after
+# the commit. The horizon is longer than one commit: earlier conclusions
+# must survive, be revised when superseded, and still drive later answers.
+# The stage ORDER still starts with the v1 five; what v4 adds is follow-up
+# material (each kind may repeat).
+_FAMILY_RESEARCH_V4 = "research-v4"
+_REGISTERED_FAMILIES = (
+    _FAMILY_RESEARCH_V1,
+    _FAMILY_RESEARCH_V2,
+    _FAMILY_RESEARCH_V3,
+    _FAMILY_RESEARCH_V4,
+)
 
 
 def _require_str(value: object, field: str, *, allow_empty: bool = False) -> None:
@@ -158,7 +181,7 @@ class StageSpec:
 
     def __post_init__(self) -> None:
         _require_str(self.stage_id, "stage_id")
-        _require_choice(self.kind, "kind", _STAGE_KINDS)
+        _require_choice(self.kind, "kind", (*_STAGE_KINDS, "follow_up"))
         _require_str(self.prompt_text, "prompt_text")
         object.__setattr__(self, "documents", tuple(self.documents))
         object.__setattr__(self, "gold_evidence_ids", tuple(self.gold_evidence_ids))
@@ -193,10 +216,10 @@ class StageSpec:
             _require_str(alias, "expected_aliases entry")
         if self.kind == "act_verify" and self.expected_state_delta is None:
             raise ValueError("act_verify stages require expected_state_delta")
-        if self.kind != "act_verify" and self.expected_state_delta is not None:
-            raise ValueError("only act_verify stages carry expected_state_delta")
-        if self.kind != "act_verify" and self.expected_aliases:
-            raise ValueError("only act_verify stages carry expected_aliases")
+        if self.kind not in ("act_verify", "follow_up") and self.expected_state_delta is not None:
+            raise ValueError("only act_verify/follow_up stages carry expected_state_delta")
+        if self.kind not in ("act_verify", "follow_up") and self.expected_aliases:
+            raise ValueError("only act_verify/follow_up stages carry expected_aliases")
         if self.commit_precondition is not None:
             if self.kind != "act_verify":
                 raise ValueError("only act_verify stages carry commit_precondition")
@@ -265,10 +288,22 @@ class LifecycleInstance:
         if not self.stages:
             raise ValueError("an instance requires at least one stage")
         kinds = [stage.kind for stage in self.stages]
-        if kinds != list(_STAGE_KINDS):
+        if self.family == _FAMILY_RESEARCH_V4:
+            # Longitudinal grammar: the v1 five stages, then follow-up
+            # material (kinds may repeat). The horizon extends past the
+            # first commit: earlier conclusions must survive, be revised
+            # when superseded, and still drive later answers.
+            if kinds[:5] != list(_STAGE_KINDS):
+                raise ValueError(
+                    "research-v4 instances begin with the five v1 stages "
+                    f"(survey, constraint_injection, delegation, rule_change, act_verify); got {kinds[:5]}"
+                )
+            if len(kinds) <= 5:
+                raise ValueError("research-v4 instances carry follow-up stages after act_verify")
+        elif kinds != list(_STAGE_KINDS):
             raise ValueError(
                 "research-v1 instances run the five stages in order (survey, "
-                f"constraint_injection, delegation, rule_change, act_verify); got {kinds}"
+                "constraint_injection, delegation, rule_change, act_verify); got {kinds}"
             )
         stage_ids = [stage.stage_id for stage in self.stages]
         if len(stage_ids) != len(set(stage_ids)):
@@ -401,7 +436,7 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         raise TypeError("rule_change_effect must be a positive integer or null")
     return StageSpec(
         stage_id=_load_str(d, "stage_id"),
-        kind=cast(StageKind, _load_choice(d, "kind", _STAGE_KINDS)),
+        kind=cast(StageKind, _load_choice(d, "kind", (*_STAGE_KINDS, "follow_up"))),
         prompt_text=_load_str(d, "prompt_text"),
         documents=tuple(documents),
         gold_evidence_ids=_load_str_list(d, "gold_evidence_ids"),

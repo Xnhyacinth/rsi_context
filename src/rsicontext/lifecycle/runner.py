@@ -258,7 +258,12 @@ def run_lifecycle(
     started = time.monotonic()
     stage_records: list[StageRecord] = []
     total_stages = len(inst.stages)
-    act_verify = inst.stages[-1]
+    # The commit stage is the LAST act_verify (longitudinal v4 instances
+    # carry follow_up stages after it); the oracle comes from it.
+    act_verify = next(
+        (stage for stage in reversed(inst.stages) if stage.kind == "act_verify"),
+        inst.stages[-1],
+    )
     # The evaluator-owned verification service: the act_verify stage's
     # oracle is installed BEFORE the first stage runs, so
     # request_verification actions are live from stage 1 (a fixed-arm
@@ -324,6 +329,28 @@ def run_lifecycle(
             final_check = CheckResult(
                 passed=False,
                 failures=(*final_check.failures, *gate_failures),
+            )
+    # Longitudinal grading (research-v4): every follow_up stage's
+    # expected_state_delta is checked over the SAME sandbox at the end —
+    # a conclusion record that should have been created/refreshed from
+    # retained or re-read evidence. Follow-up failures are named with the
+    # stage id so the record says WHICH horizon link broke.
+    for follow in inst.stages:
+        if follow.kind != "follow_up" or follow.expected_state_delta is None:
+            continue
+        follow_check = ObjectiveChecker().check(
+            env, follow.expected_state_delta, aliases=follow.expected_aliases or None
+        )
+        if not follow_check.passed:
+            final_check = CheckResult(
+                passed=False,
+                failures=(
+                    *final_check.failures,
+                    *(
+                        f"follow_up[{follow.stage_id}]: {failure}"
+                        for failure in follow_check.failures
+                    ),
+                ),
             )
     wall_seconds = time.monotonic() - started
     snapshot = env.snapshot()
