@@ -44,21 +44,12 @@ from rsicontext.participant.recuris_real_arm import (
 from r2a_compare import _offline_responder, _run_arm
 
 
-NEUTRAL = {
-    "name": "neutral",
-    "entries": [],
-    "working_memory": {
-        "goals": ["answer_accurately_within_budget"],
-        "state_fields": {},
-        "base_token_cost": 100,
-    },
-    "invocation": {
-        "invoked_on_stages": ["act_verify", "follow_up"],
-        "max_cards_per_stage": 1,
-        "per_card_token_cost": 100,
-    },
-    "checkers": {"gate": "repair_and_regression", "reg_cap": 0},
-}
+from rsicontext.participant.recuris_real_arm import R2B_NEUTRAL_SEED
+
+#: One seed, one place: the tests consume the canonical r2b seed (the
+#: wiring audit's dedup finding — a drifting test-local copy would
+#: silently diverge from the arm's).
+NEUTRAL = json.loads(json.dumps(R2B_NEUTRAL_SEED))
 
 
 def _card(card_id: str, body: str, stage: str = "*") -> dict:

@@ -9,6 +9,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
+import json
+
+from rsicontext.participant.recuris_real_arm import (
+    R2B_NEUTRAL_SEED,
+    RecurisAdaptedImprover,
+)
+
 import r2b_compare
 from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
@@ -177,3 +184,100 @@ def test_canonical_seed_is_stage_compatible() -> None:
     }
     assert set(stages) <= our_kinds
     assert "entries" in R2B_NEUTRAL_SEED and "invocation" in R2B_NEUTRAL_SEED
+
+
+def test_live_mode_requires_key_and_writes_nothing() -> None:
+    # The wiring audit's live-skip pin: without SIFLOW_API_KEY the
+    # entry exits rc=2 BEFORE any run (the check precedes all arms).
+    import os
+    import subprocess
+
+    env = dict(os.environ)
+    env.pop("SIFLOW_API_KEY", None)
+    out = Path("artifacts/rsi-core-v1/tmp-live-skip.json")
+    if out.exists():
+        out.unlink()
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/r2b_compare.py",
+            "--output",
+            str(out),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 2
+    assert not out.exists()
+
+
+def test_offline_delta_values_and_cost_ledger() -> None:
+    # Value pins (offline-deterministic): all recuris deltas 0; the
+    # package never mutates without a repair target; the cost ledger
+    # fields exist and the dev cell is the improver's own final run.
+    import json
+
+    artifact = Path("artifacts/rsi-core-v1/r2b-offline.json")
+    if not artifact.exists():
+        import subprocess
+
+        subprocess.run(
+            [sys.executable, "scripts/r2b_compare.py", "--offline", "--output", str(artifact)],
+            check=True, capture_output=True,
+        )
+    payload = json.loads(artifact.read_text())
+    deltas = payload["deltas"]
+    assert deltas["recuris_update_vs_s0matched_eval"] == 0
+    assert all(v == 0 for v in deltas["per_decision_recuris_update"].values())
+    record = payload["arms"]["recuris_adapted"]["improver_record"]
+    assert record["final_package_digest"] == record["rounds"][0]["package_digest_before"]
+    assert payload["arms"]["recuris_adapted"]["final_package"]["entries"] == []
+    # Cost ledger: per-attempt meta records, internal dev runs, the
+    # final incumbent run (the audit's accounting gap).
+    assert "meta_attempts" in record and len(record["meta_attempts"]) == 2
+    assert "dev_runs_internal" in record and len(record["dev_runs_internal"]) >= 1
+    assert "final_incumbent_run" in record
+    # The dev cell IS the improver's final incumbent run (no redundant
+    # re-run inflating the dev-run column).
+    assert (
+        payload["arms"]["recuris_adapted"]["dev"]["decisions"]
+        == record["final_incumbent_run"]["decisions"]
+    )
+    # The S0-matched control's eval cell is present (the delta's
+    # denominator must be a real run, not a dev-only stand-in).
+    assert "eval_mirror" in payload["arms"]["recuris_s0_matched"]
+    assert "s0matched_vs_fixed_eval" not in deltas  # not yet declared; see record doc
+
+
+def test_improver_returns_usage_for_tuple_meta_agents() -> None:
+    # The meta-agent may return (content, usage) — the live caller's
+    # shape; the improver accumulates tokens and records the attempt.
+    def dev_runner(package: dict) -> dict:
+        return {
+            "decisions": {"award": False, "followup_1": True, "followup_2": True},
+            "policy_errors": [],
+            "final_state": {"memory_delivered": []},
+            "model_calls": 3,
+            "model_tokens_in": 900,
+            "model_tokens_out": 300,
+            "tool_ledger": {"tool_calls": 0},
+        }
+
+    def tuple_meta(prompt: str):
+        return (
+            json.dumps(
+                {"clusters": [{"component": "E", "action": "add_card", "target": "c",
+                               "card": {"body": "hint", "stage": "*", "requires_field": None},
+                               "evidence": ["award"]}]}
+            ),
+            {"prompt_tokens": 500, "completion_tokens": 120, "finish_reason": "stop"},
+        )
+
+    improver = RecurisAdaptedImprover(meta_agent=tuple_meta, dev_runner=dev_runner, rounds=1)
+    final, record = improver.improve(json.loads(json.dumps(R2B_NEUTRAL_SEED)))
+    assert record["meta_tokens_in"] == 500
+    assert record["meta_tokens_out"] == 120
+    assert record["meta_attempts"][0]["finish_reason"] == "stop"
+    assert record["dev_runs_internal"][0]["model_tokens_in"] == 900

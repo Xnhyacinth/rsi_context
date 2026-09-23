@@ -73,6 +73,21 @@
       "seed": 42,
       "temperature": 0.0,
       "provider_revision": null
+    },
+    {
+      "id": "siflow-glm-5.2-worker2",
+      "provider": "Siflow",
+      "endpoint_env": "SIFLOW_BASE_URL",
+      "api_key_env": "SIFLOW_API_KEY",
+      "allowed_host": "api.siflow.cn",
+      "model": "glm-5.2",
+      "protocol": "chat-completions-sse",
+      "evaluation_max_model_len": 1048576,
+      "max_output_tokens": 4096,
+      "seed": 42,
+      "temperature": 0.0,
+      "provider_revision": null,
+      "system_prompt": "You extract exact answers from supplied evidence. Output ONLY the answer phrase with no punctuation, no reasoning, no explanation. If the evidence is insufficient, output INSUFFICIENT."
     }
   ]
 }

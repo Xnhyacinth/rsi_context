@@ -186,11 +186,16 @@ def main() -> int:
         )
 
     if live:
-        def recuris_meta_agent(prompt: str) -> str:
+        def recuris_meta_agent(prompt: str):
             # The live Meta-Agent: the researcher model over the package +
-            # trace prompt (the same channel/pattern as the unassisted
-            # round; a failed call here is a named no-admit round).
+            # trace prompt. Robustness per the wiring audit (contract §6):
+            # TRANSPORT-only retries (5 attempts / 10s backoff — a
+            # completed-but-unusable reply is a RESULT, never retried);
+            # finish_reason captured; usage returned for the improver's
+            # cost ledger; the reasoning channel is rescued for plan JSON.
             import os
+            import time as _time
+            import urllib.error
             import urllib.request
 
             body = {
@@ -216,9 +221,27 @@ def main() -> int:
                 },
                 method="POST",
             )
-            with urllib.request.urlopen(request, timeout=600) as response:
-                raw = json.loads(response.read())
-            return raw["choices"][0]["message"].get("content") or ""
+            for _attempt in range(5):
+                try:
+                    with urllib.request.urlopen(request, timeout=600) as response:
+                        raw = json.loads(response.read())
+                    break
+                except (urllib.error.URLError, TimeoutError) as exc:
+                    if _attempt == 4:
+                        raise
+                    _time.sleep(10.0)
+            choice = raw["choices"][0]
+            message = choice["message"]
+            content = message.get("content") or ""
+            reasoning = message.get("reasoning") or message.get("reasoning_content")
+            if not content.strip() and isinstance(reasoning, str) and '"clusters"' in reasoning:
+                start = reasoning.find("{")
+                end = reasoning.rfind("}")
+                if start != -1 and end > start:
+                    content = reasoning[start : end + 1]
+            usage = dict(raw.get("usage") or {})
+            usage["finish_reason"] = choice.get("finish_reason")
+            return content, usage
     else:
         def recuris_meta_agent(prompt: str) -> str:
             # Offline deterministic stub: proposes a placeholder card for
@@ -260,10 +283,11 @@ def main() -> int:
         recuris_policy, eval_inst, responder,
         initial_state=package_to_state(final_package),
     )
-    dev_recuris = _run_arm(
-        recuris_policy, dev_inst, responder,
-        initial_state=package_to_state(final_package),
-    )
+    # The dev-side numbers come from the improver's OWN final incumbent
+    # run (the last internal dev run — deterministic offline, and live
+    # it is the exact run the gate accepted), not a redundant re-run
+    # that would silently inflate the arm's dev-run column.
+    dev_recuris = recuris_record["final_incumbent_run"]
 
     def _score(run: dict) -> int:
         return int(run["passed"])

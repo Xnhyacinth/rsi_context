@@ -312,12 +312,20 @@ class RecurisAdaptedImprover:
         self.ledger_keys: set[tuple[str, str, str]] = set()
         self.meta_tokens_in = 0
         self.meta_tokens_out = 0
+        #: Per-attempt meta-agent records (the wiring audit's cost gap:
+        #: usage, finish_reason, retry causes — same shape as the
+        #: unassisted arm's researcher records).
+        self.meta_attempts: list[dict[str, object]] = []
+        #: The full run dicts of every internal dev run the gate
+        #: compared (R+1 of them) — auditable, not discarded.
+        self.dev_runs_internal: list[dict[str, object]] = []
 
     def improve(self, package: dict[str, object]) -> tuple[dict[str, object], dict[str, object]]:
         """Run the declared rounds; return (final package, run record)."""
 
         current = json.loads(json.dumps(package))
         incumbent_run = self._dev_runner(current)
+        self.dev_runs_internal.append(incumbent_run)
         for round_index in range(self.rounds):
             record = RoundRecord(
                 round_index=round_index,
@@ -328,12 +336,40 @@ class RecurisAdaptedImprover:
                 trace = build_trace_doc(incumbent_run)
                 prompt = self._meta_prompt(current, trace)
                 try:
-                    reply = self._meta_agent(prompt)
+                    reply_raw = self._meta_agent(prompt)
                 except Exception as exc:
+                    self.meta_attempts.append(
+                        {
+                            "round": round_index,
+                            "outcome": "error",
+                            "cause": f"{type(exc).__name__}: {exc}",
+                        }
+                    )
                     record.outcome = f"failed: meta-agent {type(exc).__name__}: {exc}"
                     self.rounds_log.append(record)
                     continue
-                plan = self._parse_plan(reply)
+                # The callable may return plain content (offline stubs)
+                # or (content, usage_dict) — the live caller's shape.
+                if isinstance(reply_raw, tuple) and len(reply_raw) == 2:
+                    reply, usage = reply_raw
+                    self.meta_tokens_in += int(usage.get("prompt_tokens", 0) or 0)
+                    self.meta_tokens_out += int(usage.get("completion_tokens", 0) or 0)
+                    self.meta_attempts.append(
+                        {
+                            "round": round_index,
+                            "outcome": "ok",
+                            "finish_reason": usage.get("finish_reason"),
+                            "reply_chars": len(str(reply)),
+                            "prompt_tokens": int(usage.get("prompt_tokens", 0) or 0),
+                            "completion_tokens": int(usage.get("completion_tokens", 0) or 0),
+                        }
+                    )
+                else:
+                    reply = reply_raw
+                    self.meta_attempts.append(
+                        {"round": round_index, "outcome": "ok", "reply_chars": len(str(reply))}
+                    )
+                plan = self._parse_plan(str(reply))
                 if plan is None:
                     record.outcome = "bounced: meta-agent reply is not a plan"
                     self.rounds_log.append(record)
@@ -343,6 +379,7 @@ class RecurisAdaptedImprover:
                 record.patch = dict(cluster)
                 candidate = apply_patch(current, cluster)
                 candidate_run = self._dev_runner(candidate)
+                self.dev_runs_internal.append(candidate_run)
                 accepted, reason, gate = run_gate(incumbent_run, candidate_run, cluster)
                 record.gate = gate
                 if accepted:
@@ -371,11 +408,24 @@ class RecurisAdaptedImprover:
             "final_package_digest": _digest(current),
             "meta_tokens_in": self.meta_tokens_in,
             "meta_tokens_out": self.meta_tokens_out,
-            "initial_run": {
+            "meta_attempts": list(self.meta_attempts),
+            "dev_runs_internal": [
+                {
+                    "decisions": dict(run.get("decisions") or {}),
+                    "model_calls": run.get("model_calls", 0),
+                    "model_tokens_in": run.get("model_tokens_in", 0),
+                    "model_tokens_out": run.get("model_tokens_out", 0),
+                    "tool_ledger": run.get("tool_ledger"),
+                }
+                for run in self.dev_runs_internal
+            ],
+            "final_incumbent_run": {
                 "decisions": dict(incumbent_run.get("decisions") or {}),
-            }
-            if self.rounds_log
-            else {},
+                "model_calls": incumbent_run.get("model_calls", 0),
+                "model_tokens_in": incumbent_run.get("model_tokens_in", 0),
+                "model_tokens_out": incumbent_run.get("model_tokens_out", 0),
+                "tool_ledger": incumbent_run.get("tool_ledger"),
+            },
         }
         return current, run_record
 
