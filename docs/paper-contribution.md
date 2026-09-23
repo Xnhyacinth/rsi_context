@@ -1,3 +1,13 @@
+> **SUPERSEDED (2026-09-23).** This document describes the
+> compression-era direction (the `H` source-to-context compiler,
+> ContextPack payoffs) — a lineage retired before RSI core v1. The
+> project's current goal, value, and contribution statement is
+> [`docs/goal-value-contribution.md`](goal-value-contribution.md);
+> the current charter is [`docs/benchmark-contract-v2.md`](benchmark-contract-v2.md)
+> together with [`docs/rsi-core-spec-v1.md`](rsi-core-spec-v1.md).
+> Retained as normative history only: do not cite any claim below as
+> the project's current position.
+
 # Paper contribution: RSI for long-context performance and efficiency
 
 RSIBench-Context asks whether a coding researcher can expand an agent's

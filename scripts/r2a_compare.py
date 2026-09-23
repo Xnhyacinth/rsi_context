@@ -168,7 +168,9 @@ def _live_responder_factory():
             for marker in ("supplier=", "status=", "check=", "candidate="):
                 if marker in reasoning:
                     tail = reasoning[reasoning.rfind(marker) :]
-                    content = tail[: max(len(marker) + 60, tail.find("\n") if "\n" in tail else len(tail))][:100]
+                    content = tail[
+                        : max(len(marker) + 60, tail.find("\n") if "\n" in tail else len(tail))
+                    ][:100]
                     break
         return content
 
@@ -209,14 +211,30 @@ def _run_arm(policy_text: str, inst, responder, max_turns: int = 2) -> dict:
         # review's per-run questions need — which docs each stage cited
         # (provenance retention), the per-stage shape, and the model-call
         # transcript (prompts/replies/ok/tokens).
-        "provenance_retention": [
-            sr.provenance_retention for sr in record.stage_records
-        ],
+        "provenance_retention": [sr.provenance_retention for sr in record.stage_records],
         "stage_records": [sr.to_dict() for sr in record.stage_records],
         "model_transcript": list(hook.model_transcript),
         "finish_reasons": channel_state() if channel_state else [],
         "wall_seconds": round(time.monotonic() - started, 1),
     }
+
+
+def _policy_loadable(policy_text: str) -> bool:
+    """Scan + compile + on_turn check — the selection-time load gate.
+
+    The R2b diagnosis: the researcher's output carried an UNTERMINATED
+    STRING from mid-block truncation; the "def on_turn" substring check
+    accepted it and every stage then ran "policy unavailable". A
+    candidate counts only if it would actually load.
+    """
+
+    try:
+        from rsicontext.lifecycle.policy import load_policy
+
+        load_policy(policy_text)
+        return True
+    except Exception:
+        return False
 
 
 def _researcher_unassisted_round(
@@ -286,10 +304,54 @@ def _researcher_unassisted_round(
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=600) as response:
-        raw = json.loads(response.read())
-    content = raw["choices"][0]["message"].get("content") or ""
-    usage = raw.get("usage", {})
+    # Researcher retries (flag 7, declared in configs/budget_v1.json:
+    # 5 attempts / 10s backoff): retry TRANSPORT/endpoint failures only.
+    # A completed-but-unusable reply (truncation "length", empty/missing
+    # python block) is a RESULT, not an error — the per-run diagnosis
+    # showed this endpoint family consumes output budget in the
+    # reasoning channel; retrying that would burn compute without
+    # changing the outcome class.
+    attempts: list[dict[str, object]] = []
+    content = ""
+    usage: dict = {}
+    finish_reason = None
+    for attempt_index in range(5):
+        try:
+            with urllib.request.urlopen(request, timeout=600) as response:
+                raw = json.loads(response.read())
+        except (urllib.error.URLError, TimeoutError) as exc:
+            attempts.append(
+                {
+                    "attempt": attempt_index,
+                    "outcome": "transport_error",
+                    "cause": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            time.sleep(10.0)
+            continue
+        choice = raw["choices"][0]
+        finish_reason = choice.get("finish_reason")
+        content = choice["message"].get("content") or ""
+        usage = raw.get("usage", {})
+        reasoning = choice["message"].get("reasoning") or choice["message"].get("reasoning_content")
+        attempts.append(
+            {
+                "attempt": attempt_index,
+                "outcome": "ok",
+                "finish_reason": finish_reason,
+                "reply_chars": len(content),
+                "reasoning_present": bool(reasoning),
+            }
+        )
+        break
+    else:
+        return "", {
+            "round_outcome": "failed: transport after 5 attempts",
+            "attempts": attempts,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "wall_seconds": 0.0,
+        }
     # Extract the python block.
     if "```python" in content:
         block = content.split("```python", 1)[1]
@@ -297,6 +359,8 @@ def _researcher_unassisted_round(
         content = block.strip() + "\n"
     return content, {
         "round_outcome": "ok" if "def on_turn" in content else "no-policy",
+        "finish_reason": finish_reason,
+        "attempts": attempts,
         "input_tokens": int(usage.get("prompt_tokens", 0)),
         "output_tokens": int(usage.get("completion_tokens", 0)),
         "wall_seconds": 0.0,
@@ -350,13 +414,21 @@ def main() -> int:
         "run_result": "passed" if dev_fixed["passed"] else "failed",
     }
     updated_policy, researcher_record = _researcher_unassisted_round(baseline, dev_experience, live)
-    if "def on_turn" not in updated_policy:
-        # Round produced no usable policy: the PREVIOUS snapshot stands
-        # (stats-contract §3 — last snapshot, not best).
+    if not _policy_loadable(updated_policy):
+        # The round's output must LOAD (scan+compile+on_turn) — the R2b
+        # diagnosis found a mid-string truncation that passed the old
+        # "def on_turn" substring check and then failed to load at
+        # runtime ("policy unavailable" every stage). The load gate
+        # makes that failure visible at selection time; the previous
+        # snapshot still stands (stats-contract §3 — last, not best).
+        had_on_turn = "def on_turn" in updated_policy
         updated_policy = baseline
-        researcher_record["round_outcome"] = "no-policy (kept baseline): " + str(
-            researcher_record.get("round_outcome")
+        prefix = (
+            "rejected: policy does not compile (kept baseline)"
+            if had_on_turn
+            else "no-policy (kept baseline)"
         )
+        researcher_record["round_outcome"] = f"{prefix}: {researcher_record.get('round_outcome')}"
     dev_updated = _run_arm(updated_policy, dev_inst, responder)
     eval_updated = _run_arm(updated_policy, eval_inst, responder)
 

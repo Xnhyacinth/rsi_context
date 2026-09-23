@@ -96,3 +96,25 @@ def test_declared_selection_rule_is_order_not_score() -> None:
     # errors — declared, deterministic, not dev-score or eval based.
     assert 'policy_errors" == []' in source or 'policy_errors"] == []' in source
     assert "first usable" in source or "proposal order" in source
+
+
+def test_fu1_prompt_pins_the_id_format() -> None:
+    # The fu1 break was answer FORM: the worker knew the right supplier
+    # (notes retained; replies world-following) but replied the display
+    # form ('Vesper'/'Orbit') against the exact-match id. The fu1
+    # prompt now pins the id format exactly as the award prompt does.
+    text = strong_model_fixed_policy_text()
+    count = text.count("kebab-case id")
+    assert count >= 2  # award + fu1 (any future prompts follow suit)
+
+
+def test_policy_load_gate_rejects_truncated_policies() -> None:
+    # The R2b "no-policy" failure was a mid-string truncation that
+    # passed the substring check and failed to compile at runtime.
+    # The selection-time gate must reject it.
+    from r2a_compare import _policy_loadable
+
+    truncated = 'def on_turn(turn):\n    return {"pack_text": "unterminated'
+    assert "def on_turn" in truncated  # the old check would accept it
+    assert not _policy_loadable(truncated)
+    assert _policy_loadable(strong_model_fixed_policy_text())

@@ -33,17 +33,28 @@ four_outcome_update: **ties** (Δ_update = 0, Δ_practical = 0).
 
 Honest readings (each now ATTRIBUTABLE via the audit transcript):
 
-1. **The researcher's rewrite removed the model channel entirely**
-   (model_calls 0 across the update arm's runs): its unassisted
-   rewrite is a purely procedural policy — legal under the interface,
-   but it moved content decisions from the worker into code without
-   the worker's reading backing them, and the decisions regressed on
-   dev relative to even the fixed arm. The audit transcript shows the
-   channel went silent — exactly the failure attribution R2a could
-   not do.
+1. **CORRECTION (post-run diagnosis, 2026-09-23)**: the update arm's
+   model_calls=0 was initially read as "the researcher's rewrite
+   removed the model channel". That mechanism is WRONG. The artifact's
+   policy_errors carry `policy load failed: SyntaxError: unterminated
+   string literal` for both cells — the researcher's 16,384-token
+   output was truncated mid-string (the same reasoning-dominated cap
+   failure as R2a), the "def on_turn" SUBSTRING check accepted it, but
+   the policy never compiled: every stage returned "policy
+   unavailable" with zero actions. Nothing ran. Fixes applied for the
+   next declared run: a selection-time LOAD GATE (scan+compile+on_turn,
+   not substring) in the round acceptance; the fu1 prompt now pins the
+   id format (the actual fu1 break was answer FORM — the worker knew
+   the right supplier, its reply parsed to the display form 'Vesper'/
+   'Orbit' against the exact-match 'vesper-instruments'/'orbit-hosting';
+   per the diagnosis, notes were retained, truncation never engaged).
 2. **The id-pinned award prompt fixed the name-normalization gap**:
    the fixed arm's award now PASSES on the mirror variant (R2a's
-   failure mode — worker answering display names — is gone).
+   failure mode — worker answering display names — is gone). NOTE
+   (later audit): the mirror award gate was simultaneously defective
+   (plan_requirements keyed to the mother winner — fixed in e969c12;
+   see goal-value-contribution.md §6), so that pass was partially
+   confounded; both fixes are in for the next run.
 3. **Search arm**: 3 candidates — one no-policy, two usable; one
    usable candidate had policy errors on dev, so per the DECLARED
    rule the baseline stands (recorded, not re-picked). Its eval run

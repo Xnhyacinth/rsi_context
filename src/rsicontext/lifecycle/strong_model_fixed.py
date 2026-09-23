@@ -140,7 +140,10 @@ def on_turn(turn):
                 "A lab calibration partner is needed for the awarded "
                 "corridor. Retained notes: " + _notes(state)
                 + "\\n\\nWhich instrument supplier covers the same "
-                "checkpoints? Reply with exactly 'supplier=<name>'.",
+                "checkpoints? Reply with exactly 'supplier=<id>' where "
+                "<id> is the supplier's kebab-case id exactly as "
+                "printed in the card headers (the id after 'Supplier "
+                "card:'), and nothing else.",
             )
             supplier = _extract_value(reply, "supplier")
             return {
