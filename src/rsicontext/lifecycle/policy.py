@@ -304,12 +304,19 @@ class PolicyHook:
         self._env = env
 
     def _ask_model(self, prompt: str) -> ModelReply:
-        """The metered model channel the Turn exposes to the policy."""
+        """The metered model channel the Turn exposes to the policy.
+
+        R1.1: the cumulative budget gates the call BEFORE it is made —
+        model usage cannot bypass the arm's resource pack.
+        """
 
         if self._responder is None:
             return ModelReply(ok=False, cause="no model channel installed")
         if not isinstance(prompt, str) or not prompt.strip():
             return ModelReply(ok=False, cause="ask_model requires a non-empty prompt")
+        refusal = self.tool_budget.enforce("ask_model")
+        if refusal is not None:
+            return ModelReply(ok=False, cause=refusal)
         tokens_in = max(1, len(prompt.split()))
         try:
             content = self._responder(prompt)
@@ -360,4 +367,19 @@ class PolicyHook:
         for key, value in decision.memory_writes.items():
             self.state[key] = value
         self.policy_errors.extend(decision.errors)
-        return StageResponse(pack_text=decision.pack_text, actions=decision.actions)
+        # R1.1 unified billing: request_verification actions are budget-
+        # gated and charged through the SAME accounting as tool calls
+        # (an action must not be the free route around the caps). A
+        # gated action is DROPPED from the decision (the policy sees the
+        # budget state next turn and may adapt); a dropped action is a
+        # named policy error, never silent.
+        emitted: list[Action] = []
+        for action in decision.actions:
+            if action.kind == "request_verification":
+                refusal = self.tool_budget.enforce("request_verification (action)")
+                if refusal is not None:
+                    self.policy_errors.append(f"action dropped: {refusal}")
+                    continue
+                self.tool_budget.charge_verification()
+            emitted.append(action)
+        return StageResponse(pack_text=decision.pack_text, actions=tuple(emitted))

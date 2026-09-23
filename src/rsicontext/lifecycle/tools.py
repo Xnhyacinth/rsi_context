@@ -70,14 +70,35 @@ class ToolBudget:
     max_calls: int | None = None
     max_tokens: int | None = None
     receipts: list[ToolReceipt] = field(default_factory=list)
+    #: R1.1: the verification-request sequence lives on the BUDGET so
+    #: ids stay unique across stage turns (surfaces are rebuilt per
+    #: turn; a per-surface counter collided when actions and tools
+    #: mixed). Every env verification — tool-path OR action-path —
+    #: draws its id from here and is charged through here.
+    verification_seq: int = 0
+
+    def next_verification_id(self) -> str:
+        self.verification_seq += 1
+        return f"verif-{self.verification_seq}"
+
+    def charge_verification(self) -> None:
+        """One env verification executed (any syntax): counted and metered."""
+
+        self.calls += 1
 
     def enforce(self, name: str) -> str | None:
-        """Refusal cause if the next call would exceed a cap, else None."""
+        """Refusal cause if the next call would exceed a cap, else None.
+
+        R1.1: the TOKEN cap is checked against the cumulative total
+        actually consumed (the old ``max_tokens <= 0`` check never fired
+        for positive caps). Verified once + charged once: the same
+        accounting entry gates both the tool path and the
+        Action-submitted path.
+        """
 
         if self.max_calls is not None and self.calls >= self.max_calls:
             return f"tool budget exhausted: call cap {self.max_calls} reached ({name})"
-        total = self.tokens_in + self.tokens_out
-        if self.max_tokens is not None and self.max_tokens <= 0:
+        if self.max_tokens is not None and (self.tokens_in + self.tokens_out) >= self.max_tokens:
             return f"tool budget exhausted: token cap {self.max_tokens} reached ({name})"
         return None
 
@@ -153,7 +174,7 @@ class ToolSurface:
         self._budget = budget
         self._max_output_tokens = max_output_tokens
         self._delegate_runner = delegate_runner
-        self._verif_seq = 0
+
 
     def reread(self, doc_id: str, span: tuple[int, int] | None = None) -> ToolReceipt:
         """Re-read any document the world has LEGALLY revealed (v1.1).
@@ -228,15 +249,15 @@ class ToolSurface:
             receipt = ToolReceipt(tool="request_verification", ok=False, cause=refusal)
             self._budget.receipts.append(receipt)
             return receipt
-        self._verif_seq += 1
+        record_id = self._budget.next_verification_id()
         action = Action(
             kind="request_verification",
-            record_id=f"tool-verif-{self._verif_seq}",
+            record_id=record_id,
             fields={"check": check, "subject": subject},
         )
         receipt = self._env.submit(action)
         payload = receipt.to_dict()
-        self._budget.charge(0, 0)
+        self._budget.charge_verification()
         tool_receipt = ToolReceipt(
             tool="request_verification",
             ok=receipt.applied and receipt.verdict == "pass",

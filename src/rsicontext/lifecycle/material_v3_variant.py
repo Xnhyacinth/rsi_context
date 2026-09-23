@@ -411,6 +411,7 @@ def _build(spec: Mapping[str, object], instance_id: str) -> LifecycleInstance:
                 documents=(rule_change_doc,),
                 gold_evidence_ids=(),
                 rule_change_effect=2,
+                rule_change_scope=list(scope),
             ),
             StageSpec(
                 stage_id="s5-act-verify",

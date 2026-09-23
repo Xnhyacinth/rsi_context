@@ -311,6 +311,10 @@ def test_recovery_path_succeeds_from_lost_notes() -> None:
     # Recovery variant: the reread strategy works even though it kept
     # (and used) nothing from stage 1 — its verification records are
     # all constructed post-rule-change from re-read material.
+    # R1.1 scoped revisions: in-scope checks (replica-lag) carry their
+    # check's revision (2 after the supersession); out-of-scope checks
+    # (disk-encryption) stay at 1 — the OLD global-clock expectation
+    # would mislabel the unaffected check as updated.
     inst = build_research_v3_instance()
     record = run_lifecycle(inst, _PathHook("reread"), ProjectState())
     verifs = [
@@ -321,8 +325,10 @@ def test_recovery_path_succeeds_from_lost_notes() -> None:
     assert verifs  # fresh records exist
     assert all(
         cast(dict[str, object], record.sandbox_final_state[record_id]).get("protocol_revision") == 2
-        or cast(dict[str, object], record.sandbox_final_state[record_id]).get("check")
-        == "disk-encryption"
+        if cast(dict[str, object], record.sandbox_final_state[record_id]).get("check")
+        == "replica-lag"
+        else cast(dict[str, object], record.sandbox_final_state[record_id]).get("protocol_revision")
+        == 1
         for record_id in verifs
     )
 

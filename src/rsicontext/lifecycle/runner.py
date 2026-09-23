@@ -257,6 +257,7 @@ def run_lifecycle(
         raise ValueError("max_turns_per_stage must be at least 1")
     started = time.monotonic()
     stage_records: list[StageRecord] = []
+    commit_gate_failures_at_time: list[str] = []
     total_stages = len(inst.stages)
     # The commit stage is the LAST act_verify (longitudinal v4 instances
     # carry follow_up stages after it); the oracle comes from it.
@@ -277,7 +278,7 @@ def run_lifecycle(
             # advances BEFORE this stage's observations are built, so
             # synchronous tool calls and submitted actions at the same
             # logical moment see the SAME revision.
-            env.apply_protocol_revision(stage.rule_change_effect)
+            env.apply_protocol_revision(stage.rule_change_effect, tuple(stage.rule_change_scope))
         cited: tuple[str, ...] = ()
         actions_applied = 0
         available = tuple(document.doc_id for document in stage.documents)
@@ -317,29 +318,59 @@ def run_lifecycle(
                 notes=_stage_notes(stage, cited),
             )
         )
+        if stage.kind == "act_verify" and stage.commit_precondition is not None:
+            # R1.1 TIME-POINT grading (review §2.2): the award gate is
+            # judged AT THE STAGE where the award happened — evidence
+            # valid then is not retroactively staled by LATER rule
+            # changes (the end-state check would see revision 3 and
+            # fail a legitimate s5 commit). Longitudinal follow-ups are
+            # graded at the END (their own contract); the commit gate is
+            # not one of them.
+            stage_gate_failures = _commit_gate_failures(
+                stage.commit_precondition, env.snapshot(), env
+            )
+            if stage_gate_failures:
+                commit_gate_failures_at_time.extend(
+                    f"commit gate[{stage.stage_id}]: {failure}" for failure in stage_gate_failures
+                )
     expected = act_verify.expected_state_delta
     if expected is None:  # guarded by StageSpec.__post_init__; kept for mypy
         raise ValueError("act_verify stage lacks expected_state_delta")
     final_check = ObjectiveChecker().check(
         env, expected, aliases=act_verify.expected_aliases or None
     )
-    if act_verify.commit_precondition is not None:
-        gate_failures = _commit_gate_failures(act_verify.commit_precondition, env.snapshot(), env)
-        if gate_failures:
-            final_check = CheckResult(
-                passed=False,
-                failures=(*final_check.failures, *gate_failures),
-            )
+    if commit_gate_failures_at_time:
+        final_check = CheckResult(
+            passed=False,
+            failures=(*final_check.failures, *commit_gate_failures_at_time),
+        )
     # Longitudinal grading (research-v4): every follow_up stage's
     # expected_state_delta is checked over the SAME sandbox at the end —
     # a conclusion record that should have been created/refreshed from
     # retained or re-read evidence. Follow-up failures are named with the
     # stage id so the record says WHICH horizon link broke.
+    # R1.1 (review §2.2, Option A): a follow_up may declare an
+    # ``evidence_currency`` grading — the participant's diagnosis is
+    # scored against the value DERIVED from the sandbox (the commit's
+    # referenced in-scope evidence vs the env's per-check revisions), so
+    # different legal histories legitimately yield different correct
+    # answers; the stage grades a DIAGNOSIS, not a memorized string.
     for follow in inst.stages:
         if follow.kind != "follow_up" or follow.expected_state_delta is None:
             continue
+        expected_follow = follow.expected_state_delta
+        precondition = follow.commit_precondition or {}
+        currency = precondition.get("evidence_currency")
+        if isinstance(currency, Mapping):
+            derived = _derive_evidence_currency(env, currency)
+            record_key = str(currency.get("record_id", ""))
+            field_name = str(currency.get("field", "status"))
+            expected_follow = dict(expected_follow)
+            record_spec = dict(expected_follow.get(record_key, {}))
+            record_spec[field_name] = derived
+            expected_follow[record_key] = record_spec
         follow_check = ObjectiveChecker().check(
-            env, follow.expected_state_delta, aliases=follow.expected_aliases or None
+            env, expected_follow, aliases=follow.expected_aliases or None
         )
         if not follow_check.passed:
             final_check = CheckResult(
@@ -364,6 +395,46 @@ def run_lifecycle(
         sandbox_final_state=snapshot,
         stale_references=_stale_references(snapshot),
     )
+
+
+def _derive_evidence_currency(env: ProjectState, spec: Mapping[str, object]) -> str:
+    """Derive the correct evidence-currency diagnosis from the sandbox.
+
+    R1.1 Option A: the follow-up grades a DIAGNOSIS. The expected value
+    is computed from what actually happened: the ``commit_record``'s
+    referenced verifications carrying the named ``check`` are compared
+    against the env's CURRENT revision for that check. If any referenced
+    evidence is older than the check's current revision -> the stale
+    verdict (e.g. "reverify"); otherwise -> the current verdict (e.g.
+    "current"). A participant whose evidence was acquired AFTER the
+    supersession legitimately answers "current" — different legal
+    histories, different correct answers.
+    """
+
+    commit_id = spec.get("commit_record")
+    check = spec.get("check")
+    stale_value = str(spec.get("stale_value", "reverify"))
+    current_value = str(spec.get("current_value", "current"))
+    if not isinstance(commit_id, str) or not isinstance(check, str):
+        return stale_value
+    commit = env.records.get(commit_id)
+    if not isinstance(commit, dict):
+        return stale_value
+    refs = commit.get("provenance")
+    if not isinstance(refs, list):
+        return stale_value
+    current = env.check_revisions.get(check, 1)
+    for ref in refs:
+        if not isinstance(ref, str):
+            continue
+        record = env.records.get(ref)
+        if isinstance(record, dict) and record.get("check") == check:
+            revision = record.get("protocol_revision")
+            if isinstance(revision, int) and revision < current:
+                return stale_value
+            if isinstance(revision, int) and revision >= current:
+                return current_value
+    return current_value
 
 
 def _stale_references(records: Mapping[str, dict[str, Any]]) -> tuple[str, ...]:
@@ -520,19 +591,21 @@ def _commit_gate_failures(
         # rule change's scope); referenced in-scope checks of OTHER plans
         # are not invalidated (zephyr: rev-1 genre evidence is fine for
         # non-film candidates).
+        # R1.1 SCOPED currency: the CURRENT revision for each check is
+        # the env's per-check revision (an out-of-scope documentation
+        # update never makes unrelated evidence stale); the precondition
+        # value serves as the floor only when the env has no entry.
         scoped_plan = isinstance(requirement, Mapping)
         for record in referenced:
             check = record.get("check")
-            if (
-                scoped_plan
-                and isinstance(check, str)
-                and check in scope_set
-                and record.get("protocol_revision") != current_revision
-            ):
+            if not (scoped_plan and isinstance(check, str) and check in scope_set):
+                continue
+            required_now = env.check_revisions.get(check, current_revision)
+            if record.get("protocol_revision") != required_now:
                 failures.append(
                     f"commit gate: plan {plan!r} relies on a stale "
                     f"{check!r} verification (revision "
                     f"{record.get('protocol_revision')!r}, current "
-                    f"{current_revision})"
+                    f"{required_now})"
                 )
     return tuple(failures)

@@ -249,6 +249,10 @@ class ProjectState:
         self.records: dict[str, dict[str, Any]] = {}
         self.transcript: tuple[Action, ...] = ()
         self.protocol_revision: int = 1
+        #: Per-check revisions (R1.1 scoped semantics): a check absent
+        #: here is at revision 1. Verification currency is judged per
+        #: check against THIS map, not the global clock.
+        self.check_revisions: dict[str, int] = {}
         self._verification_oracle: Mapping[str, Mapping[str, bool]] | None = None
         self.verification_record_ids: frozenset[str] = frozenset()
         self.finalized_record_ids: frozenset[str] = frozenset()
@@ -314,12 +318,24 @@ class ProjectState:
 
         self._verification_oracle = dict(oracle) if oracle is not None else None
 
-    def apply_protocol_revision(self, revision: int) -> None:
-        """Advance the env's protocol clock (rule-change stages)."""
+    def apply_protocol_revision(self, revision: int, scope: tuple[str, ...] = ()) -> None:
+        """Advance the protocol clock for a rule change — SCOPED (R1.1).
+
+        A rule change bumps the revisions of the checks IN ITS SCOPE
+        only. ``protocol_revision`` remains the global run counter (the
+        env's wall clock); ``check_revisions`` maps each in-scope check
+        to the new revision and is what verification currency is judged
+        against. A DOCUMENTATION-ONLY update (empty scope) advances the
+        wall clock but invalidates NOTHING — this is the s4 trap fixed:
+        the old single-integer clock made "unaffected" checks' evidence
+        stale at the gate while the public rule said otherwise.
+        """
 
         if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
             raise ValueError("protocol revision must be a positive integer")
         self.protocol_revision = revision
+        for check in scope:
+            self.check_revisions[check] = revision
 
     def apply(self, action: Action) -> None:
         """Apply one typed action; invalid applications raise, never no-op.
@@ -401,11 +417,13 @@ class ProjectState:
             known = self._verification_oracle.get(check)
             if isinstance(known, Mapping) and subject in known:
                 verdict = "pass" if bool(known[subject]) else "fail"
+        # R1.1: the record carries the CHECK's own revision (an
+        # out-of-scope doc update does not re-stamp unrelated evidence).
         return {
             "check": check,
             "subject": subject,
             "verdict": verdict,
-            "protocol_revision": self.protocol_revision,
+            "protocol_revision": self.check_revisions.get(check, 1),
             "performed_by": "environment",
         }
 

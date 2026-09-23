@@ -495,7 +495,15 @@ def build_research_v4_dossier(
                     "cost through your own tool surface)."
                 ),
                 documents=survey_docs,
-                gold_evidence_ids=("card-03", "card-17", "card-05", "card-08", "doc-v4-verif-db"),
+                # Gold ids are DERIVED from the supplier tuple (minus the
+                # protocol doc) so corpus modifications (removal
+                # simulations) stay grammar-consistent automatically.
+                gold_evidence_ids=tuple(
+                    str(supplier["id"])
+                    for supplier in suppliers
+                    if str(supplier["id"]) in ("card-03", "card-17", "card-05", "card-08")
+                )
+                + ("doc-v4-verif-db",),
             ),
             StageSpec(
                 stage_id="s2-constraint",
@@ -529,6 +537,13 @@ def build_research_v4_dossier(
                 documents=(rule_change_doc,),
                 gold_evidence_ids=(),
                 rule_change_effect=2,
+                # R1.1: documentation-only update — EMPTY scope. The
+                # wall clock advances; no check's evidence is
+                # invalidated (the s4 trap: the public rule says the
+                # cold-chain update affects documentation only, so the
+                # env must NOT let it stale the customs evidence a
+                # correct system acquired at s2 and never re-verified).
+                rule_change_scope=(),
             ),
             StageSpec(
                 stage_id="s5-act-verify",
@@ -557,7 +572,7 @@ def build_research_v4_dossier(
                             "requires_check": "customs-preclearance",
                         }
                     },
-                    "current_revision": 2,
+                    "current_revision": 1,
                     "revision_scope": ["customs-preclearance"],
                 },
                 verification_oracle=_VERIFICATION_ORACLE,
@@ -586,6 +601,8 @@ def build_research_v4_dossier(
                 documents=(final_rule_change_doc,),
                 gold_evidence_ids=(),
                 rule_change_effect=3,
+                # R1.1: the REAL supersession — customs-preclearance only.
+                rule_change_scope=("customs-preclearance",),
             ),
             StageSpec(
                 stage_id="s8-followup-2",
@@ -596,7 +613,24 @@ def build_research_v4_dossier(
                 ),
                 documents=(followup_2_doc,),
                 gold_evidence_ids=(),
-                expected_state_delta={f"{_CONCLUSION_RECORD}-corridor": {"status": "reverify"}},
+                expected_state_delta={
+                    # Placeholder: overridden at grade time by the
+                    # evidence_currency derivation (R1.1 Option A) —
+                    # the correct answer depends on the ACTUAL evidence
+                    # history (pre-supersession evidence -> reverify;
+                    # post-supersession re-verification -> current).
+                    f"{_CONCLUSION_RECORD}-corridor": {"status": "reverify"}
+                },
+                commit_precondition={
+                    "evidence_currency": {
+                        "commit_record": _COMMIT_RECORD,
+                        "check": "customs-preclearance",
+                        "record_id": f"{_CONCLUSION_RECORD}-corridor",
+                        "field": "status",
+                        "stale_value": "reverify",
+                        "current_value": "current",
+                    }
+                },
             ),
         ),
         axes=DescriptionAxes(

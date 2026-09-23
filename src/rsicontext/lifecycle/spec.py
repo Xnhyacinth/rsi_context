@@ -178,6 +178,10 @@ class StageSpec:
     commit_precondition: Mapping[str, object] | None = None
     verification_oracle: Mapping[str, Mapping[str, bool]] | None = None
     rule_change_effect: int | None = None
+    #: R1.1 scoped revisions: which CHECKS this rule change supersedes
+    #: (their evidence becomes stale). Empty scope = documentation-only
+    #: update: the wall clock advances, nothing is invalidated.
+    rule_change_scope: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _require_str(self.stage_id, "stage_id")
@@ -207,6 +211,11 @@ class StageSpec:
                 raise TypeError("rule_change_effect must be an int or None")
             if self.rule_change_effect < 1:
                 raise ValueError("rule_change_effect must be a positive revision")
+        object.__setattr__(self, "rule_change_scope", tuple(self.rule_change_scope))
+        if self.rule_change_scope and self.rule_change_effect is None:
+            raise ValueError("rule_change_scope requires rule_change_effect")
+        for check in self.rule_change_scope:
+            _require_str(check, "rule_change_scope entry")
         if self.expected_state_delta is not None:
             if not isinstance(self.expected_state_delta, Mapping):
                 raise TypeError("expected_state_delta must be a mapping or None")
@@ -221,8 +230,8 @@ class StageSpec:
         if self.kind not in ("act_verify", "follow_up") and self.expected_aliases:
             raise ValueError("only act_verify/follow_up stages carry expected_aliases")
         if self.commit_precondition is not None:
-            if self.kind != "act_verify":
-                raise ValueError("only act_verify stages carry commit_precondition")
+            if self.kind not in ("act_verify", "follow_up"):
+                raise ValueError("only act_verify/follow_up stages carry commit_precondition")
             if not isinstance(self.commit_precondition, Mapping):
                 raise TypeError("commit_precondition must be a mapping or None")
             object.__setattr__(self, "commit_precondition", dict(self.commit_precondition))
@@ -247,6 +256,7 @@ class StageSpec:
                 else {check: dict(subjects) for check, subjects in self.verification_oracle.items()}
             ),
             "rule_change_effect": self.rule_change_effect,
+            "rule_change_scope": list(self.rule_change_scope),
         }
 
     def _copy_oracle(self) -> dict[str, dict[str, bool]]:
@@ -434,6 +444,9 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         effect = raw_effect
     else:
         raise TypeError("rule_change_effect must be a positive integer or null")
+    raw_scope = d.get("rule_change_scope", [])
+    if not isinstance(raw_scope, list) or any(not isinstance(e, str) for e in raw_scope):
+        raise TypeError("rule_change_scope must be a list of strings")
     return StageSpec(
         stage_id=_load_str(d, "stage_id"),
         kind=cast(StageKind, _load_choice(d, "kind", (*_STAGE_KINDS, "follow_up"))),
@@ -445,6 +458,7 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
         commit_precondition=precondition,
         verification_oracle=oracle,
         rule_change_effect=effect,
+        rule_change_scope=tuple(raw_scope),
     )
 
 

@@ -165,9 +165,14 @@ def test_reread_path_solves_the_world() -> None:
 
 
 def test_remember_path_solves_with_zero_rereads() -> None:
+    # R1.1: "zero reread calls" — the path re-reads NOTHING, but its
+    # request_verification ACTIONS are billed through the unified
+    # accounting (the old "zero tool calls" claim hid the free action
+    # channel).
     record, hook, env, budget = _run(REMEMBER_POLICY)
     assert record.final_check.passed, record.final_check.failures
-    assert budget.calls == 0
+    assert budget.receipts == []  # no tool-path receipts at all
+    assert budget.calls >= 1  # the action-path verifications are billed
 
 
 def test_the_decoy_fails_the_check_not_just_the_gate() -> None:
@@ -224,16 +229,85 @@ def test_grammar_is_longitudinal() -> None:
 
 
 def test_load_bearing_ledger() -> None:
-    # Each decisive fact has EXACTLY ONE source in the corpus (the
-    # no-lie constraint): removing card-03's clause breaks the award,
-    # card-08's line breaks follow-up 1, card-17's line undefuses the
-    # decoy, card-05's clause grounds the exemption transfer.
+    # R1.1 ledger v2: the four DECISIVE PROPOSITIONS each have exactly
+    # one textual source (the no-lie constraint); the check names occur
+    # in multiple places (protocol, constraint doc, follow-ups) — that
+    # is the RULE's source distribution, not evidence duplication.
     inst = build_research_v4_dossier()
     survey = "\n".join(doc.text for doc in inst.stages[0].documents)
     assert survey.count("bonded corridor") == 1  # card-03 only
     assert survey.count("northern service hub") == 1  # card-08 only
     assert survey.count("lapsed") == 1  # card-17 only
-    assert survey.count("mutual-aid annex") == 1  # card-05 only
+    # card-05's exemption clause: sole source (kept as FUTURE B-group
+    # material — not current required evidence; see the task card).
+    assert survey.count("mutual-aid annex") == 1
+
+
+def test_removal_simulation_award_evidence() -> None:
+    """Ledger v2 — EVIDENCE REMOVAL: deleting card-03 makes the award
+    UNANSWERABLE BY MEMORY, while the env-verification path stays
+    available (a participant can still request the check; it will
+    verify subjects the oracle covers). Text is not the only legal
+    route — the simulation says what information was lost, not that
+    every correct system must have read the card."""
+
+    import rsicontext.lifecycle.material_v4_dossier as dossier_mod
+
+    stripped = tuple(s for s in dossier_mod._SUPPLIERS if s["id"] != "card-03")
+    original = dossier_mod._SUPPLIERS
+    original_gold = "card-03", "card-17", "card-05", "card-08"
+    dossier_mod._SUPPLIERS = stripped
+    try:
+        inst = build_research_v4_dossier()
+        # The remaining corpus no longer contains the winning
+        # qualification — memory-based award selection lost its basis.
+        survey = "\n".join(doc.text for doc in inst.stages[0].documents)
+        assert "bonded corridor" not in survey
+        # The gate itself is unchanged (the oracle still covers the
+        # subject): the ENV path remains legal.
+        precondition = inst.stages[4].commit_precondition
+        assert precondition["legal_plans"] == ["atlas-carriage"]
+    finally:
+        dossier_mod._SUPPLIERS = original
+
+
+def test_removal_simulation_calibration_evidence() -> None:
+    """Ledger v2 — removing card-08 removes follow-up 1's ANSWER FACTS
+    (the asked-about supplier's coverage); the follow-up expectation
+    still names vesper-instruments (the proposition is now
+    unanswerable from the corpus — exactly the explainable loss)."""
+
+    import rsicontext.lifecycle.material_v4_dossier as dossier_mod
+
+    stripped = tuple(s for s in dossier_mod._SUPPLIERS if s["id"] != "card-08")
+    original = dossier_mod._SUPPLIERS
+    dossier_mod._SUPPLIERS = stripped
+    try:
+        inst = build_research_v4_dossier()
+        survey = "\n".join(doc.text for doc in inst.stages[0].documents)
+        assert "northern service hub" not in survey
+        assert inst.stages[5].expected_state_delta[
+            "followup_conclusion-calibration"
+        ]["supplier"] == "vesper-instruments"
+    finally:
+        dossier_mod._SUPPLIERS = original
+
+
+def test_irrelevant_perturbation_leaves_decisions_stable() -> None:
+    """Ledger v2 — IRRELEVANT PERTURBATION: growing the filler bulk
+    changes nothing about the legal answers (decisions depend on the
+    propositions, not on the surrounding text mass)."""
+
+    inst_small = build_research_v4_dossier()
+    inst_bulk = build_research_v4_dossier(bulk_cards=50)
+    assert (
+        inst_small.stages[4].commit_precondition["legal_plans"]
+        == inst_bulk.stages[4].commit_precondition["legal_plans"]
+    )
+    assert (
+        inst_small.stages[5].expected_state_delta
+        == inst_bulk.stages[5].expected_state_delta
+    )
 
 
 def test_followup_grading_names_the_broken_stage() -> None:
@@ -253,3 +327,87 @@ def test_corpus_scaling_preserves_the_load_bearing_ledger() -> None:
     assert len(inst.stages[0].documents) == 122
     for needle in ("bonded corridor", "northern service hub", "lapsed", "mutual-aid annex"):
         assert survey.count(needle) == 1, needle
+
+
+def test_phase1_acceptance_doc_update_does_not_stale_unrelated_evidence() -> None:
+    """R1.1 acceptance (review §2.1): the s4 documentation-only update
+    must NOT invalidate customs-preclearance evidence acquired at s2 —
+    a correct system commits at s5 WITHOUT re-verification; after the
+    s7 supersession the same evidence is stale for NEW decisions."""
+
+    policy = """
+def on_turn(turn):
+    kind = turn.view.kind
+    if kind == "constraint_injection":
+        # Acquire customs evidence EARLY (s2), before any rule change.
+        return {
+            "pack_text": "early evidence",
+            "actions": (
+                turn.actions.request_verification(
+                    "early-customs", "customs-preclearance", "atlas-carriage"
+                ),
+            ),
+        }
+    if kind == "act_verify":
+        # Cite the EARLY evidence — never re-verified.
+        return {
+            "pack_text": "award on early evidence",
+            "actions": (
+                turn.actions.create_record(
+                    "candidate_status-atlas", {"plan": "atlas-carriage", "domain": "shipping"}
+                ),
+                turn.actions.create_record("migration_commit", {"plan": "atlas-carriage"}),
+                turn.actions.finalize(
+                    "migration_commit",
+                    {"plan": "atlas-carriage", "status": "final"},
+                    ("early-customs", "candidate_status-atlas"),
+                ),
+            ),
+        }
+    return {"pack_text": "ok"}
+"""
+    record, hook, env, _ = _run(policy)
+    # The s5 award gate (graded IN TIME, before s7) passes on the
+    # revision-1 evidence: the doc update at s4 did not stale it.
+    assert not any(
+        "commit gate" in failure for failure in record.final_check.failures
+    ), record.final_check.failures
+    # The evidence record itself carries the CHECK's revision: 1 (never
+    # superseded at acquisition time).
+    assert env.records["early-customs"]["protocol_revision"] == 1
+    # After s7, the check's revision is 3 — the same evidence IS stale
+    # for new decisions now (the followup-2 derivation would say
+    # 'reverify' for a commit citing this record).
+    assert env.check_revisions["customs-preclearance"] == 3
+
+
+def test_followup2_diagnosis_matches_derivation_not_memory() -> None:
+    """Option A: the follow-up grades a DIAGNOSIS derived from the
+    sandbox. A policy that writes 'current' while its commit cites
+    pre-supersession evidence must FAIL (the derivation says
+    reverify); the correct answer for that history is 'reverify'."""
+
+    wrong_diagnosis = REREAD_POLICY.replace('"status": "reverify"', '"status": "current"')
+    record, _, _, _ = _run(wrong_diagnosis)
+    assert not record.final_check.passed
+    assert any("follow_up[" in f for f in record.final_check.failures)
+
+    # And the s8-time re-verification arm: the commit cites rev-1
+    # evidence, s8 re-verifies (rev 3), the DERIVED answer for the
+    # commit's OWN evidence stays 'reverify' — a fresh verification
+    # does not retroactively cure the commit's stale citation; the
+    # policy that correctly diagnoses its commit passes.
+    fresh_arm = REREAD_POLICY.replace(
+        """        # followup 2: the customs-preclearance evidence was stamped at
+        # revision 2; the final rule change (revision 3) superseded that
+        # check -> the evidence is stale -> reverify.
+        return {""",
+        """        # Re-verify NOW (post-s7, revision 3): the fresh record does
+        # not cure the commit's rev-1 citation; the honest diagnosis of
+        # the AWARD's evidence is still 'reverify'.
+        turn.actions.request_verification("fresh", "customs-preclearance", "atlas-carriage")
+        return {""",
+    )
+    record2, _, env2, _ = _run(fresh_arm)
+    assert record2.final_check.passed, record2.final_check.failures
+    assert env2.check_revisions["customs-preclearance"] == 3

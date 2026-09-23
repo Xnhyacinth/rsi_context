@@ -157,7 +157,7 @@ def on_turn(turn):
 """
     record, hook, env = _run_policy(policy)
     # Both records carry the SAME (post-rule-change) revision 2.
-    sync = env.records.get("tool-verif-1")
+    sync = env.records.get("verif-1")
     act = env.records.get("act-ver")
     assert sync is not None and act is not None
     assert sync["protocol_revision"] == 2
@@ -233,5 +233,6 @@ def on_turn(turn):
     record, hook, env = _run_policy(policy)
     assert hook.state["verdict"] in ("pass", "fail", "unverifiable")
     # The verification record id is sequential, not colliding with reread's.
-    assert "tool-verif-1" in env.records
+    assert "verif-1" in env.records
+    # Reread (1 call) + verification (1 charged call) — unified.
     assert hook.tool_budget.calls == 2
