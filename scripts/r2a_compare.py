@@ -154,15 +154,30 @@ def _live_responder_factory():
         )
         with urllib.request.urlopen(request, timeout=300) as response:
             raw = json.loads(response.read())
-        message = raw["choices"][0]["message"]
+        choice = raw["choices"][0]
+        finish_reasons.append(choice.get("finish_reason"))
+        message = choice["message"]
         content = message.get("content") or ""
         reasoning = message.get("reasoning") or message.get("reasoning_content")
-        if not content.strip() and isinstance(reasoning, str) and "supplier=" in reasoning:
-            content = reasoning[reasoning.rfind("supplier=") :][:80]
-        if not content.strip() and isinstance(reasoning, str) and "status=" in reasoning:
-            content = reasoning[reasoning.rfind("status=") :][:40]
+        # Channel robustness (declared fix, late-report diagnosis): the
+        # endpoint family emits final answers in the reasoning channel
+        # with empty visible content. Rescue the four decision-line
+        # shapes (supplier= / status= / check= / candidate=) from the
+        # reasoning tail; record finish_reason for truncation diagnosis.
+        if not content.strip() and isinstance(reasoning, str):
+            for marker in ("supplier=", "status=", "check=", "candidate="):
+                if marker in reasoning:
+                    tail = reasoning[reasoning.rfind(marker) :]
+                    content = tail[: max(len(marker) + 60, tail.find("\n") if "\n" in tail else len(tail))][:100]
+                    break
         return content
 
+    finish_reasons: list[str | None] = []
+
+    def channel_state() -> list[str | None]:
+        return list(finish_reasons)
+
+    responder.channel_state = channel_state  # type: ignore[attr-defined]
     return responder
 
 
@@ -179,6 +194,7 @@ def _run_arm(policy_text: str, inst, responder, max_turns: int = 2) -> dict:
         "followup_1": not any("s6-followup-1" in f for f in failures),
         "followup_2": not any("s8-followup-2" in f for f in failures),
     }
+    channel_state = getattr(responder, "channel_state", None)
     return {
         "instance_id": inst.instance_id,
         "passed": record.final_check.passed,
@@ -189,6 +205,16 @@ def _run_arm(policy_text: str, inst, responder, max_turns: int = 2) -> dict:
         "model_tokens_in": hook.model_tokens_in,
         "model_tokens_out": hook.model_tokens_out,
         "tool_ledger": budget.ledger(),
+        # Late-report fixes: the run record now carries the evidence the
+        # review's per-run questions need — which docs each stage cited
+        # (provenance retention), the per-stage shape, and the model-call
+        # transcript (prompts/replies/ok/tokens).
+        "provenance_retention": [
+            sr.provenance_retention for sr in record.stage_records
+        ],
+        "stage_records": [sr.to_dict() for sr in record.stage_records],
+        "model_transcript": list(hook.model_transcript),
+        "finish_reasons": channel_state() if channel_state else [],
         "wall_seconds": round(time.monotonic() - started, 1),
     }
 

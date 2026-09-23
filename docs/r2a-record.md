@@ -46,13 +46,18 @@ Honest findings (both are MEASURED properties, not wiring bugs):
    evidence currency even when selection failed.
 2. **The researcher round hit the output cap**: output_tokens=16384
    (the cap) with no extractable python block -> per contract §3 the
-   previous snapshot stands, recorded as no-policy. A real
-   unassisted-round failure mode for this researcher model at this
-   budget: the full policy file (~200 lines) plus reasoning exceeds
-   16K output. Candidate fixes for the NEXT run (not this one — the
-   contract forbids re-running until a desired result): a shorter
-   baseline policy to rewrite, a diff-format reply, or a larger output
-   cap declared up front in the budget pack.
+   previous snapshot stands, recorded as no-policy. CORRECTION
+   (post-run diagnosis, 2026-09-23): the initial theory — "the policy
+   file plus reasoning exceeds 16K" — fails arithmetic: the baseline
+   file is ~7K chars (~2K tokens) and the prompt ~2K tokens (matching
+   the recorded input of 2047); 16,384 completion tokens is several
+   times the file size. The output was dominated by reasoning-channel
+   text rather than the file (the Siflow canaries for this endpoint
+   family show empty visible content with consumed output tokens —
+   rsi-known endpoint behavior). The recorded cause stands as
+   "no-policy (output cap, reasoning-dominated)"; the discriminating
+   evidence (finish_reason, raw reply) was not captured in that run —
+   the audit transcript added in R2b now records it for future runs.
 
 This run licenses: the measurement works end-to-end with real models,
 the honest control is honest (its failures are its own), the

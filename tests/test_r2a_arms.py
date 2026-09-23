@@ -161,3 +161,20 @@ def test_denominator_counts_started_units() -> None:
         assert isinstance(run["passed"], bool)
         assert isinstance(run["failures"], list)
         assert "model_calls" in run and "tool_ledger" in run
+
+
+def test_mirror_award_gate_demands_evidence_for_its_own_winner() -> None:
+    # Late-report fix (2026-09-23): the variant's s5 plan_requirements
+    # was still keyed to the MOTHER world's winner — the variant's own
+    # winner faced NO evidence requirement (gate lookup returns None
+    # for unlisted plans), making the variant's award gate weaker than
+    # dev's. The requirements now derive from the variant spec.
+    mirror = build_dossier_variant("mirror")
+    precondition = mirror.stages[4].commit_precondition
+    assert isinstance(precondition, dict)
+    winner = precondition["legal_plans"][0]
+    requirements = precondition["plan_requirements"]
+    assert winner in requirements, requirements
+    assert requirements[winner]["requires_check"]
+
+

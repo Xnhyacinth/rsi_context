@@ -305,10 +305,13 @@ review); Recuris/FinEvo/PROCTOR-family details are abstract-level.
    silently resolved).
 5. **DONE (baseline floor)** — `scripts/rsi_core_demo.py`: the
    strong-fixed arm over the full 9-world calibration pool.
-   **Result: 9/9 passed, zero policy errors, zero tool calls** (the
-   baseline needs no re-reads on this pool — worlds are solvable from
-   the survey alone; the informative arms come with main tasks where
-   tools are NECESSARY, not optional). The researcher arm, the
+   **Result: 9/9 passed, zero policy errors.** (CORRECTION, 2026-09-23:
+   an earlier version of this line said "zero tool calls" — stale
+   after R1.1's unified billing: the re-run charges the verification
+   ACTIONS (~28 tool-budget calls on the 9-world pool). Zero REREADS
+   remains the accurate statement; worlds are solvable from the survey
+   alone, the informative arms come with main tasks where tools are
+   NECESSARY, not optional.) The researcher arm, the
    experience-only arm, and matched-compute sampling land with the
    trajectory entry integration (next round).
 6. **v1.1 DONE (2026-09-23, review of ab07c75)** — execution-entry

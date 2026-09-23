@@ -162,6 +162,43 @@ def build_dossier_variant(variant_id: str) -> LifecycleInstance:
         import dataclasses
 
         inst = dataclasses.replace(inst, stages=tuple(stages))
+        # s5 award-gate requirement override (late-report fix, 2026-09-23):
+        # the mother constructor's plan_requirements is keyed to
+        # atlas-carriage, so the variant's own winner faced NO evidence
+        # requirement at all (the gate's requirement lookup returns None
+        # for unlisted plans) — the variant's award gate was weaker than
+        # the dev world's. Derive the requirement from the variant spec
+        # so the mirror's winner must carry env-issued evidence at the
+        # current revision exactly as the mother's does.
+        s5 = stages[4]
+        precondition = dict(s5.commit_precondition or {})
+        winner = str(spec["legal"][0])
+        check = (
+            "customs-preclearance"
+            if "customs-preclearance" in spec["oracle"]
+            else next(
+                iter(spec["oracle"])  # type: ignore[arg-type]
+            )
+        )
+        precondition["plan_requirements"] = {
+            winner: {
+                "domain": "shipping",
+                "requires_check": check,
+            }
+        }
+        stages[4] = s5.__class__(
+            stage_id=s5.stage_id,
+            kind=s5.kind,
+            prompt_text=s5.prompt_text,
+            documents=s5.documents,
+            gold_evidence_ids=(),
+            expected_state_delta=s5.expected_state_delta,
+            expected_aliases=s5.expected_aliases,
+            commit_precondition=precondition,
+            verification_oracle=s5.verification_oracle,
+            rule_change_effect=s5.rule_change_effect,
+            rule_change_scope=s5.rule_change_scope,
+        )
         # fu1 answer override (the follow-up asks about the variant's
         # calibration supplier).
         fu1 = stages[5]

@@ -145,10 +145,46 @@ wired, offline-verified, live run pending.
 | C-group: action results change future paths | long-horizon dependence claim beyond sequence grading |
 | Formal-scale freeze + independent projects (per stats-contract §8) | any benchmark-level statement |
 
-## 6. Postmortem note (recorded honestly)
+## 5b. Open flags (from the 2026-09-23 independent audits)
 
-The R2a live artifact was written inside a removed worktree (artifacts
-are gitignored); its numbers survive only in docs/r2a-record.md.
-Root cause: run in a worktree, default output path relative. Fix
-already applied this round: future run outputs default to the shared
-checkout path; record docs carry the transcription duty.
+1. The R2a live artifact is unrecoverable (see §6) — the committed
+   record doc is its sole surviving evidence.
+2. `docs/paper-contribution.md` is the old compression-era direction
+   and contradicts the current charter — read as superseded history.
+3. The long-context axis is NOT validated difficulty (name-filterable
+   filler = robustness diagnostic; the task card says so).
+4. The matrix 1–3 S0→S1 "improvements" are calibration-profile
+   evidence only (a one-boolean reachable difference); never cite them
+   as strategy-improvement results.
+5. STATE-2026-09-22.md predates RSI-core-v1; read its observations
+   through flag 4.
+6. Literature verification debt: all neighbors are arXiv preprints;
+   several details abstract-level (spec Part 4 carries provenance).
+7. Researcher retry policy (budget pack: 5 attempts) is declared but
+   not implemented in the unassisted round — a declared-vs-implemented
+   gap, queued for the next run's config.
+
+## 6. Postmortem notes (recorded honestly)
+
+- The R2a live artifact was written inside a removed worktree
+  (artifacts are gitignored); its numbers survive only in
+  docs/r2a-record.md. Root cause: run in a worktree, default output
+  path relative. Fix applied: run outputs now write to the shared
+  checkout path; record docs carry the transcription duty.
+- CORRECTION to the R2b mirror reading (late-report diagnosis,
+  2026-09-23): the mirror variant's s5 award gate was DEFECTIVE — its
+  plan_requirements still keyed the mother world's winner, so the
+  variant's own winner faced NO evidence requirement (the gate's
+  requirement lookup returns None for unlisted plans). The R2b live
+  "award passes on mirror" was therefore partially confounded: a
+  correct naming fix AND a weakened gate both contributed. The
+  constructor is fixed (requirements now derive from the variant
+  spec; pinned); the recorded R2b numbers stand as measured, with this
+  annotation. Future runs grade the mirror at equal strength.
+- The R2a record's initial researcher-failure theory (file-size
+  exceeds cap) failed arithmetic and is corrected in r2a-record.md —
+  the output was reasoning-dominated (endpoint-family behavior, per
+  the canaries); finish_reason + replies are recorded from R2b on.
+- rsi-core-spec-v1.md's "zero tool calls" demo line was stale after
+  R1.1's unified billing (~28 charged verification actions on the
+  calibration pool); corrected in place with a note.
