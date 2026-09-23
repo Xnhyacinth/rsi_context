@@ -15,15 +15,21 @@ is implemented. One thing at a time: environment and evaluation first.
 
 ---
 
-## Part 0 — The non-negotiable definition of "RSI is happening here"
+## Part 0 — The conditions for a system-level strategy-improvement claim
 
-An improvement loop counts as real RSI for this benchmark only if ALL
-five hold:
+v1.1 (review 2026-09-23): this Part is NOT a definition of "real RSI" —
+the benchmark does not get to define the phenomenon by artifact form.
+It states the EXPERIMENTAL CONDITIONS under which a claim of system-level
+strategy improvement is interpretable on this benchmark. All five hold
+for any such claim; the artifact form itself is open (memory content,
+skills, call policy, or code — what matters is that behavior, measured
+through the same channel, changed for traceable reasons):
 
 1. **Policy surface is open**: the improver can change *behavior*, not
    set one of four config knobs whose combined reachable difference is a
    single boolean (gap report G2). The learned artifact is executable
-   decision logic over observations and tools.
+   decision logic over observations, tools, and the model channel —
+   whatever its form (memory, skills, code, or a mix).
 2. **Actions have observable consequences**: the environment returns
    responses (verdicts, refusals, tool results) that the participant
    SEES and can act on within the same run (G1). Open-loop acting is not
@@ -120,16 +126,23 @@ choice, and the commit-time fallback all move into the policy.
 untouched as the CALIBRATION profile (the 9-world suite). They are the
 reference participant for the machinery, not a competitor arm.
 
-### 1.4 Isolation boundary (honest about what is deferred)
+### 1.4 Isolation boundary (honest about what it is and is not)
 
 v1 implements a **restricted execution namespace** for strategy code:
 no `open`/`__import__`/`os`/network (capability-scan at freeze time +
 `exec` with a controlled builtins set; imports resolved from a whitelist
-of stdlib modules: json, re, math, statistics). This closes the trivial
-exfiltration/DoS paths. Full OS-level sandboxing (subprocess/container)
-is explicitly OUT of v1 and documented as such — the benchmark's
-official runs will additionally run whole experiments in isolated
-compute environments regardless.
+of stdlib modules: json, re, math, statistics).
+
+v1.1 correction (review §3.6): this is a **hygiene filter, NOT a
+security boundary** — Python underscore attributes are not access
+control, regex scans are not confidentiality, and a policy object
+holding a live ToolSurface can reach the env object. It is adequate for
+internally-trusted calibration policies only. For open participation
+and machine-authored code, a process/container boundary with controlled
+RPC between participant and evaluator is REQUIRED (reusing the existing
+worker/infra plumbing, not a new platform); the restricted namespace
+remains as a first-line lint. Official runs additionally isolate whole
+experiments regardless.
 
 ### 1.5 Budgets v1 (registry-consistent, one source of truth)
 
@@ -298,14 +311,46 @@ review); Recuris/FinEvo/PROCTOR-family details are abstract-level.
    tools are NECESSARY, not optional). The researcher arm, the
    experience-only arm, and matched-compute sampling land with the
    trajectory entry integration (next round).
-6. **NEXT** — trajectory entry integration (arms + four-outcome
-   reporting), one live smoke on the CALIBRATION pool, then the
-   main-task spec (3-group A/B/C). Inventory reconciliation (the
-   2026-09-22 inventory audit) shapes this step: the matched-compute
-   arm maps to the registered-but-unimplemented `stateful_control` slot
-   (`registration.py`); the external-method arm maps to the existing
-   `recuris_arm.py` fidelity adapter (in-process, 22 offline tests,
-   never scored) — the next round ACTIVATES existing assets rather
-   than building new ones, and the inventory's top-5 undecided list
-   (world distribution, main metrics/statistics, process isolation,
-   frozen F-schema, control arms) is the main-task spec's agenda.
+6. **v1.1 DONE (2026-09-23, review of ab07c75)** — execution-entry
+   completion, one acceptance test per review row (`tests/test_phase1_entry.py`):
+   the metered model channel (`turn.ask_model` — policy-owned context and
+   timing, harness-owned pool/budget/accounting; failures named), intra-stage
+   recovery (`max_turns_per_stage` multi-turn loop; a refused action is read
+   as a receipt and repaired within the stage), event-timing correctness
+   (rule-change clock advances BEFORE the stage's observations — sync-tool
+   and action verifications at the same logical moment now carry the same
+   revision), historical reread (DocumentRegistry: everything legally
+   revealed stays re-readable; future material unreachable by construction),
+   budget ENFORCEMENT (ToolBudget caps refuse calls before execution and
+   refused calls still meter; request_verification charged with unique
+   sequential ids; note the v1 word-count estimates remain ENVIRONMENT
+   UNITS, not model-bill tokens — real model usage is metered by the
+   model channel from platform-reported usage).
+7. **NEXT** — in the review's corrected order, run in PARALLEL:
+   (a) one non-isomorphic MAIN-TASK longitudinal slice (A-group:
+   persistent evidence synthesis — early material's conditions and
+   exceptions must still drive later decisions; reread-vs-remember is a
+   real trade) — its spec is a separate document;
+   (b) the four-arm comparison: a strong MODEL fixed agent (same A0 as
+   the update arm — reads, verifies, recovers; never updates), the
+   UNASSISTED feedback-update arm (no "the failure is X, do Y" prompt;
+   assisted stays a labeled diagnostic), non-adaptive strategy search
+   (the `stateful_control` slot's first real implementation), and the
+   REAL Recuris adaptation — which per the review is NOT today's
+   `recuris_arm.py`: that module is a mechanism simulation (deterministic
+   localizer replaces their Meta-Agent; delivery simulated; zero model
+   calls). Asset maturity ladder now governs naming: interface
+   placeholder / mechanism simulation / real implementation / main-entry
+   wired / verified participation. `recuris_arm.py` = mechanism
+   simulation (reclass: Recuris-style rule control, usable for pipeline
+   calibration only); a real Recuris arm needs their Meta-Agent actually
+   proposing edits from legal execution traces, memory actually entering
+   the worker's context, and acceptance validated on real dev tasks.
+   Two reported deltas: Δ_reference = J(S_k) − J(strong-fixed) and
+   Δ_update = J(S_k) − J(S0-matched) (AgentStream-style matched
+   no-evolution control, same backbone/permissions/budget).
+   Deploy-time sampling stays a separate cost-quality control (candidate
+   selection without hidden-answer access).
+   The inventory's top-5 undecided list (world distribution, main
+   metrics/statistics, process isolation, frozen F-schema, control arms)
+   is the main-task spec's agenda, now open in parallel.

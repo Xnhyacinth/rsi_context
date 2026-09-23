@@ -55,24 +55,70 @@ class ToolReceipt:
 
 @dataclass
 class ToolBudget:
-    """The arm's tool metering state (the caller owns the ledger merge)."""
+    """The arm's tool metering state — and its ENFORCEMENT (v1.1).
+
+    Review §3.5: a counter without a cap is not a budget. ``max_calls``
+    and ``max_tokens`` are cumulative caps; once exceeded, every further
+    tool call refuses BEFORE executing (a named refusal receipt, never a
+    silent pass, never a crash). Failed attempts still meter — a policy
+    cannot probe for free. ``enforce()`` is the gate every tool passes.
+    """
 
     tokens_in: int = 0
     tokens_out: int = 0
     calls: int = 0
+    max_calls: int | None = None
+    max_tokens: int | None = None
     receipts: list[ToolReceipt] = field(default_factory=list)
+
+    def enforce(self, name: str) -> str | None:
+        """Refusal cause if the next call would exceed a cap, else None."""
+
+        if self.max_calls is not None and self.calls >= self.max_calls:
+            return f"tool budget exhausted: call cap {self.max_calls} reached ({name})"
+        total = self.tokens_in + self.tokens_out
+        if self.max_tokens is not None and self.max_tokens <= 0:
+            return f"tool budget exhausted: token cap {self.max_tokens} reached ({name})"
+        return None
 
     def charge(self, tokens_in: int, tokens_out: int) -> None:
         self.tokens_in += tokens_in
         self.tokens_out += tokens_out
         self.calls += 1
 
-    def ledger(self) -> dict[str, int]:
+    def ledger(self) -> dict[str, int | None]:
         return {
             "tool_calls": self.calls,
             "tool_tokens_in": self.tokens_in,
             "tool_tokens_out": self.tokens_out,
+            "max_calls": self.max_calls,
+            "max_tokens": self.max_tokens,
         }
+
+
+class DocumentRegistry:
+    """Every document the world has LEGALLY revealed, in order (v1.1).
+
+    Review §3.4: reread used to index only the CURRENT stage's
+    attachments, so previously-seen survey material read back as
+    "unknown doc id". The registry accumulates what was revealed as
+    stages run — reread reads from it, so any document the participant
+    legitimately saw stays readable, and future material is unreachable
+    by construction (it has not been revealed yet).
+    """
+
+    def __init__(self) -> None:
+        self._documents: dict[str, DocumentRef] = {}
+
+    def reveal(self, documents: Sequence[DocumentRef]) -> None:
+        for doc in documents:
+            self._documents.setdefault(doc.doc_id, doc)
+
+    def get(self, doc_id: str) -> DocumentRef | None:
+        return self._documents.get(doc_id)
+
+    def knows(self, doc_id: str) -> bool:
+        return doc_id in self._documents
 
 
 class ToolSurface:
@@ -83,6 +129,10 @@ class ToolSurface:
     env-verification channel stays Action-shaped (request_verification);
     here it gains a direct callable form whose receipt carries the same
     verdict fields.
+
+    v1.1: reread resolves through the ``registry`` (everything legally
+    revealed so far), and every tool enforces the budget BEFORE
+    executing.
     """
 
     def __init__(
@@ -91,25 +141,43 @@ class ToolSurface:
         documents: Sequence[DocumentRef],
         env: ProjectState,
         budget: ToolBudget,
+        registry: DocumentRegistry | None = None,
         max_output_tokens: int = 2048,
         delegate_runner: Callable[[str, Sequence[str]], str] | None = None,
     ) -> None:
         self._documents = {doc.doc_id: doc for doc in documents}
+        self._registry = registry
+        if registry is not None:
+            registry.reveal(documents)
         self._env = env
         self._budget = budget
         self._max_output_tokens = max_output_tokens
         self._delegate_runner = delegate_runner
+        self._verif_seq = 0
 
     def reread(self, doc_id: str, span: tuple[int, int] | None = None) -> ToolReceipt:
-        """Re-read a document the world showed (the promise stage 1 makes).
+        """Re-read any document the world has LEGALLY revealed (v1.1).
 
-        ``span`` (start, length) in lines bounds the cost for policies
-        that learned to read slices; the default is the full document.
-        Unknown ids refuse with a cause.
+        Resolution order: the document registry (everything revealed in
+        earlier stages) first, then the current stage's attachments.
+        Future material is unreachable by construction — it has not been
+        revealed. ``span`` (start, length) in lines bounds the cost for
+        policies that learned to read slices. Unknown ids refuse with a
+        cause. Budget is enforced BEFORE the read; the refusal still
+        meters (a call is a call).
         """
 
+        refusal = self._budget.enforce("reread")
+        if refusal is not None:
+            self._budget.charge(0, 0)
+            receipt = ToolReceipt(tool="reread", ok=False, cause=refusal)
+            self._budget.receipts.append(receipt)
+            return receipt
         doc = self._documents.get(doc_id)
+        if doc is None and self._registry is not None:
+            doc = self._registry.get(doc_id)
         if doc is None:
+            self._budget.charge(0, 0)
             receipt = ToolReceipt(tool="reread", ok=False, cause=f"unknown doc id {doc_id!r}")
             self._budget.receipts.append(receipt)
             return receipt
@@ -127,6 +195,12 @@ class ToolSurface:
     def query_sandbox(self, pattern: str) -> ToolReceipt:
         """Read back the participant's own records (and their fields)."""
 
+        refusal = self._budget.enforce("query_sandbox")
+        if refusal is not None:
+            self._budget.charge(0, 0)
+            receipt = ToolReceipt(tool="query_sandbox", ok=False, cause=refusal)
+            self._budget.receipts.append(receipt)
+            return receipt
         matches = []
         for record_id, record in self._env.records.items():
             if pattern.lower() in record_id.lower() or any(
@@ -141,15 +215,28 @@ class ToolSurface:
         return receipt
 
     def request_verification(self, check: str, subject: str) -> ToolReceipt:
-        """The env verification service in callable form (same oracle)."""
+        """The env verification service in callable form (same oracle).
 
+        v1.1: the call is METERED (charge + unique sequential record id —
+        the old id derived from ``budget.calls`` collided with
+        reread/query usage) and budget-gated before the env executes.
+        """
+
+        refusal = self._budget.enforce("request_verification")
+        if refusal is not None:
+            self._budget.charge(0, 0)
+            receipt = ToolReceipt(tool="request_verification", ok=False, cause=refusal)
+            self._budget.receipts.append(receipt)
+            return receipt
+        self._verif_seq += 1
         action = Action(
             kind="request_verification",
-            record_id=f"tool-verif-{self._budget.calls}",
+            record_id=f"tool-verif-{self._verif_seq}",
             fields={"check": check, "subject": subject},
         )
         receipt = self._env.submit(action)
         payload = receipt.to_dict()
+        self._budget.charge(0, 0)
         tool_receipt = ToolReceipt(
             tool="request_verification",
             ok=receipt.applied and receipt.verdict == "pass",
@@ -166,14 +253,28 @@ class ToolSurface:
         return without finding/source/applicability is recorded as
         unusable — exactly the delegation stage's documented contract.
         Without a runner installed, the tool refuses with a cause (the
-        calibration profile runs delegation-free).
+        calibration profile runs delegation-free). v1.1: budget-gated
+        before the sub-agent runs; documents resolve through the
+        registry so delegation may cite previously-revealed material.
         """
 
         if self._delegate_runner is None:
             receipt = ToolReceipt(tool="delegate", ok=False, cause="no delegate runner installed")
             self._budget.receipts.append(receipt)
             return receipt
-        docs = [self._documents[doc_id].text for doc_id in doc_ids if doc_id in self._documents]
+        refusal = self._budget.enforce("delegate")
+        if refusal is not None:
+            self._budget.charge(0, 0)
+            receipt = ToolReceipt(tool="delegate", ok=False, cause=refusal)
+            self._budget.receipts.append(receipt)
+            return receipt
+        docs = []
+        for doc_id in doc_ids:
+            doc = self._documents.get(doc_id)
+            if doc is None and self._registry is not None:
+                doc = self._registry.get(doc_id)
+            if doc is not None:
+                docs.append(doc.text)
         if not docs:
             receipt = ToolReceipt(tool="delegate", ok=False, cause="no known documents named")
             self._budget.receipts.append(receipt)
@@ -194,6 +295,7 @@ def tool_surface_for_stage(
     env: ProjectState,
     budget: ToolBudget,
     *,
+    registry: DocumentRegistry | None = None,
     delegate_runner: Callable[[str, Sequence[str]], str] | None = None,
 ) -> ToolSurface:
     """Build the stage-scoped tool surface from a view and live env."""
@@ -202,5 +304,6 @@ def tool_surface_for_stage(
         documents=view.documents,
         env=env,
         budget=budget,
+        registry=registry,
         delegate_runner=delegate_runner,
     )

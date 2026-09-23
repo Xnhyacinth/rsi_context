@@ -24,7 +24,7 @@ from typing import Any
 
 from rsicontext.lifecycle.env import Action, Receipt
 from rsicontext.lifecycle.runner import StageResponse, StageView
-from rsicontext.lifecycle.tools import ToolSurface
+from rsicontext.lifecycle.tools import DocumentRegistry, ToolSurface
 
 #: Modules a policy may import (everything else is a freeze-time refusal).
 ALLOWED_POLICY_MODULES: frozenset[str] = frozenset({"json", "re", "math", "statistics"})
@@ -161,7 +161,13 @@ class Turn:
     ``view`` is the stage view INCLUDING this turn's pending receipts;
     ``tools`` is the metered tool surface; ``state`` is the participant's
     own memory dict (the policy decides how to shape it — retention is
-    no longer a harness constant); ``actions`` is the write factory.
+    no longer a harness constant); ``actions`` is the write factory;
+    ``ask_model`` is the METERED worker-model channel (review §3.1): the
+    POLICY decides message content and timing, the harness owns the
+    model pool, budget, and usage accounting. Model responses are
+    first-class observations the policy can act on — this is what makes
+    the measured thing a model-driven agent's information strategy, not
+    a generated mini-program.
     """
 
     view: StageView
@@ -169,6 +175,7 @@ class Turn:
     tools: ToolSurface
     state: dict[str, Any]
     actions: TurnActions = field(default_factory=TurnActions)
+    ask_model: Callable[[str], "ModelReply"] | None = None
 
     @property
     def stage_kind(self) -> str:
@@ -177,6 +184,22 @@ class Turn:
     @property
     def documents_text(self) -> str:
         return "\n\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in self.view.documents)
+
+
+@dataclass
+class ModelReply:
+    """One metered worker-model reply (the ask_model channel's answer).
+
+    ``content`` is the model's text; usage carries the platform-reported
+    token counts (a failed call is a named outcome, never a silent
+    fallback string).
+    """
+
+    ok: bool
+    content: str = ""
+    cause: str = ""
+    tokens_in: int = 0
+    tokens_out: int = 0
 
 
 @dataclass
@@ -231,16 +254,20 @@ class PolicyHook:
     """A participant hook driven by an ``on_turn`` policy (RSI core v1).
 
     The wiring: each stage view becomes a ``Turn`` (view + receipts +
-    metered tools + the participant's own state + the action factory);
-    the policy's ``TurnDecision`` becomes the ``StageResponse`` and its
-    memory writes merge into the state. A policy that raises or returns
-    an invalid decision is a NAMED outcome (``policy_errors``), never a
-    silent fallback — the calibration profile's contract, carried over.
+    metered tools + the participant's own state + the action factory +
+    the metered model channel); the policy's ``TurnDecision`` becomes
+    the ``StageResponse`` and its memory writes merge into the state. A
+    policy that raises or returns an invalid decision is a NAMED
+    outcome (``policy_errors``), never a silent fallback — the
+    calibration profile's contract, carried over.
 
-    The reader/model channel is INJECTED (``responder``): the harness
-    never calls a model directly; the host decides whether the policy
-    gets a live reader, a deterministic fake, or none (the strong-fixed
-    baseline is pure code — no model calls inside the policy itself).
+    The model channel (review §3.1): ``turn.ask_model(prompt)`` is the
+    ONLY way policy code reaches a worker model. The host injects the
+    channel (``responder``: live reader, deterministic fake, or None);
+    every call is metered into the budget and returns a ``ModelReply``
+    (a failed call is named, never a silent fallback string). The
+    harness never calls a model on the policy's behalf — the POLICY
+    owns message content and timing; that is the improvement surface.
     """
 
     def __init__(
@@ -252,6 +279,7 @@ class PolicyHook:
         env: ProjectState | None = None,
         delegate_runner: Callable[[str, Sequence[str]], str] | None = None,
         responder: Callable[[str], str] | None = None,
+        registry: "DocumentRegistry | None" = None,
     ) -> None:
         self.state = state
         self.policy_text = policy_text
@@ -259,6 +287,10 @@ class PolicyHook:
         self._env = env
         self._delegate_runner = delegate_runner
         self._responder = responder
+        self.registry = registry if registry is not None else DocumentRegistry()
+        self.model_calls = 0
+        self.model_tokens_in = 0
+        self.model_tokens_out = 0
         self.policy_errors: list[str] = []
         self._policy: Callable[[Turn], TurnDecision] | None = None
         try:
@@ -271,6 +303,25 @@ class PolicyHook:
 
         self._env = env
 
+    def _ask_model(self, prompt: str) -> ModelReply:
+        """The metered model channel the Turn exposes to the policy."""
+
+        if self._responder is None:
+            return ModelReply(ok=False, cause="no model channel installed")
+        if not isinstance(prompt, str) or not prompt.strip():
+            return ModelReply(ok=False, cause="ask_model requires a non-empty prompt")
+        tokens_in = max(1, len(prompt.split()))
+        try:
+            content = self._responder(prompt)
+        except Exception as exc:
+            return ModelReply(ok=False, cause=f"model call failed: {type(exc).__name__}: {exc}")
+        tokens_out = max(1, len(str(content).split()))
+        self.model_calls += 1
+        self.model_tokens_in += tokens_in
+        self.model_tokens_out += tokens_out
+        self.tool_budget.charge(tokens_in, tokens_out)
+        return ModelReply(ok=True, content=str(content), tokens_in=tokens_in, tokens_out=tokens_out)
+
     def on_stage(self, stage: StageView) -> StageResponse:
         if self._policy is None:
             return StageResponse(pack_text="policy unavailable")
@@ -278,6 +329,7 @@ class PolicyHook:
             documents=stage.documents,
             env=self._env if self._env is not None else ProjectState(),
             budget=self.tool_budget,
+            registry=self.registry,
             delegate_runner=self._delegate_runner,
         )
         turn = Turn(
@@ -285,6 +337,7 @@ class PolicyHook:
             receipts=stage.receipts,
             tools=tools,
             state=self.state,
+            ask_model=self._ask_model,
         )
         try:
             decision = self._policy(turn)

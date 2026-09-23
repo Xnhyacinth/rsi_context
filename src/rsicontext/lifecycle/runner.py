@@ -219,21 +219,42 @@ def _build_stage_view(
 
 
 def run_lifecycle(
-    inst: LifecycleInstance, hook: ParticipantHook, env: ProjectState
+    inst: LifecycleInstance,
+    hook: ParticipantHook,
+    env: ProjectState,
+    *,
+    max_turns_per_stage: int = 1,
 ) -> LifecycleRunRecord:
     """Execute ``inst``'s stages in order against ``hook``, writing into ``env``.
 
     Applies each stage's actions to ``env`` as they arrive (act_verify
     included), then checks the final sandbox state against the act_verify
-    stage's ``expected_state_delta`` via ``ObjectiveChecker``. Raises on any
-    invalid action application — a mid-run crash is an engineering record,
-    not a silent zero.
+    stage's ``expected_state_delta`` via ``ObjectiveChecker``.
+
+    Multi-turn recovery (RSI core v1.1, review §3.2): a stage may run up
+    to ``max_turns_per_stage`` participant turns. After each turn the
+    actions' receipts queue, and the next turn's view carries them — a
+    refused action can be read, corrected, and re-submitted WITHIN the
+    same stage. The stage advances when the hook returns a response
+    without actions (its way of saying "done here") or when the turn
+    budget is exhausted. ``max_turns_per_stage=1`` (the default) is the
+    legacy single-turn behavior.
+
+    Event ordering (review §3.3): the stage's ENVIRONMENT events (the
+    rule-change protocol-clock advance) apply BEFORE the first view is
+    built — a verification requested through the synchronous tool and
+    one submitted as an action at the same logical moment are stamped
+    with the SAME protocol revision.
     """
 
     if not isinstance(inst, LifecycleInstance):
         raise TypeError("run_lifecycle requires a LifecycleInstance")
     if not isinstance(env, ProjectState):
         raise TypeError("run_lifecycle requires a ProjectState")
+    if not isinstance(max_turns_per_stage, int) or isinstance(max_turns_per_stage, bool):
+        raise TypeError("max_turns_per_stage must be an int")
+    if max_turns_per_stage < 1:
+        raise ValueError("max_turns_per_stage must be at least 1")
     started = time.monotonic()
     stage_records: list[StageRecord] = []
     total_stages = len(inst.stages)
@@ -246,33 +267,38 @@ def run_lifecycle(
     # is evaluator-only — never surfaced through StageView.
     env.begin_instance(act_verify.verification_oracle)
     for index, stage in enumerate(inst.stages):
-        # RSI core v1 — the act->observe channel: this view carries the
-        # receipts of everything the env said since the participant's
-        # last turn; after the hook responds, its actions go through
-        # ``submit`` (refusals become receipts, not crashes) and their
-        # receipts queue for the NEXT view. The loop is closed: a policy
-        # can see its own consequences.
-        view = _build_stage_view(
-            stage,
-            inst.axes,
-            remaining=total_stages - index,
-            receipts=env.drain_receipts(),
-        )
-        response = hook.on_stage(view)
-        if not isinstance(response, StageResponse):
-            raise TypeError(
-                f"hook returned {type(response).__name__} for stage "
-                f"{stage.stage_id!r}; expected StageResponse"
-            )
         if stage.kind == "rule_change" and stage.rule_change_effect is not None:
             # The rule change is an ENVIRONMENT event: the protocol clock
-            # advances before this stage's actions apply, so evidence
-            # requested from here on carries the new revision.
+            # advances BEFORE this stage's observations are built, so
+            # synchronous tool calls and submitted actions at the same
+            # logical moment see the SAME revision.
             env.apply_protocol_revision(stage.rule_change_effect)
-        for action in response.actions:
-            env.submit(action)
-        cited = view.cited_doc_ids(response.pack_text)
+        cited: tuple[str, ...] = ()
+        actions_applied = 0
         available = tuple(document.doc_id for document in stage.documents)
+        for turn_number in range(max_turns_per_stage):
+            # RSI core v1 — the act->observe channel: this view carries
+            # the receipts of everything the env said since the
+            # participant's last turn (across stages AND within one
+            # stage when recovery turns are enabled).
+            view = _build_stage_view(
+                stage,
+                inst.axes,
+                remaining=total_stages - index,
+                receipts=env.drain_receipts(),
+            )
+            response = hook.on_stage(view)
+            if not isinstance(response, StageResponse):
+                raise TypeError(
+                    f"hook returned {type(response).__name__} for stage "
+                    f"{stage.stage_id!r}; expected StageResponse"
+                )
+            cited = view.cited_doc_ids(response.pack_text)
+            for action in response.actions:
+                env.submit(action)
+            actions_applied += len(response.actions)
+            if not response.actions:
+                break  # the participant closed the stage voluntarily
         stage_records.append(
             StageRecord(
                 stage_id=stage.stage_id,
@@ -280,7 +306,7 @@ def run_lifecycle(
                 cited_doc_ids=cited,
                 available_doc_ids=available,
                 provenance_retention=_provenance_retention(stage, cited, available),
-                actions_applied=len(response.actions),
+                actions_applied=actions_applied,
                 stale_fact_rate=0.0,
                 delegation_completeness=0.0,
                 notes=_stage_notes(stage, cited),
