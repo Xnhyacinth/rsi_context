@@ -183,10 +183,19 @@ def _live_responder_factory():
     return responder
 
 
-def _run_arm(policy_text: str, inst, responder, max_turns: int = 2) -> dict:
+def _run_arm(
+    policy_text: str,
+    inst,
+    responder,
+    max_turns: int = 2,
+    initial_state: dict | None = None,
+) -> dict:
     env = ProjectState()
     budget = ToolBudget()
-    hook = PolicyHook({}, policy_text, tool_budget=budget, responder=responder)
+    hook = PolicyHook(
+        dict(initial_state) if initial_state else {}, policy_text,
+        tool_budget=budget, responder=responder,
+    )
     hook.bind_env(env)
     started = time.monotonic()
     record = run_lifecycle(inst, hook, env, max_turns_per_stage=max_turns)
@@ -215,6 +224,11 @@ def _run_arm(policy_text: str, inst, responder, max_turns: int = 2) -> dict:
         "stage_records": [sr.to_dict() for sr in record.stage_records],
         "model_transcript": list(hook.model_transcript),
         "finish_reasons": channel_state() if channel_state else [],
+        "final_state": {
+            k: v
+            for k, v in hook.state.items()
+            if k in ("memory_delivered", "obs", "recuris_memory", "supplier", "notes")
+        },
         "wall_seconds": round(time.monotonic() - started, 1),
     }
 
