@@ -13,6 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
+import r3_researcher_pilot as pilot
 from r2a_compare import (
     READER_MODEL,
     RESEARCHER_MODEL,
@@ -27,6 +28,7 @@ from r3_compare import _canonical_sha256
 from r3_researcher_pilot import (
     WORKER_REQUEST_CAP_PER_DRAW,
     WorkerRequestCap,
+    _audit_candidate,
     _classify,
     _identity_still_frozen,
     _persist_candidate,
@@ -98,6 +100,8 @@ def test_classification_counts_truncation_and_actual_exercise() -> None:
         "input_tokens": 2,
         "output_tokens": 3,
         "total_tokens": 5,
+        "candidate_audit": {"safe": True},
+        "candidate_loadable": True,
     }
     reported_call = {
         "outcome": "ok",
@@ -110,7 +114,10 @@ def test_classification_counts_truncation_and_actual_exercise() -> None:
     }
     assert _classify(policy, "different", {"finish_reason": "length"}, None) == "truncated"
     assert _classify(policy, "different", {"finish_reason": None}, None) == "unverified_finish"
-    assert _classify("not python", "different", ready_record, None) == "invalid"
+    assert (
+        _classify("not python", "different", {**ready_record, "candidate_loadable": False}, None)
+        == "invalid"
+    )
     assert _classify(policy, policy, ready_record, None) == "loadable-unchanged"
     assert (
         _classify(
@@ -191,6 +198,7 @@ def test_researcher_verification_blocks_worker_spend() -> None:
         "input_tokens": 2,
         "output_tokens": 3,
         "total_tokens": 5,
+        "candidate_audit": {"safe": True},
     }
     assert _researcher_readiness(ready) is None
     for changed_field, expected in (
@@ -254,8 +262,110 @@ def test_candidate_bytes_are_saved_in_python_only_directory(tmp_path: Path) -> N
     assert candidate.read_text(encoding="utf-8") == policy
     assert record["policy_sha256"] == hashlib.sha256(policy.encode()).hexdigest()
     assert list(candidate.parent.iterdir()) == [candidate]
+    assert _audit_candidate(record["candidate_dir"], policy)["safe"] is True
     with pytest.raises(FileExistsError):
         _persist_candidate(output, 0, policy)
+
+
+def test_second_draw_audit_is_independent_of_first_rejection(tmp_path: Path) -> None:
+    output = tmp_path / "pilot-v4.json"
+    output.with_suffix("").mkdir()
+    unsafe_text = "def on_turn(turn):\n    turn.state.write('x')\n    return None\n"
+    safe_text = "def on_turn(turn):\n    return None\n"
+    unsafe = _persist_candidate(output, 0, unsafe_text)
+    safe = _persist_candidate(output, 1, safe_text)
+    assert _audit_candidate(unsafe["candidate_dir"], unsafe_text)["safe"] is False
+    assert _audit_candidate(safe["candidate_dir"], safe_text)["safe"] is True
+    for candidate in (unsafe, safe):
+        directory = Path(str(candidate["candidate_dir"]))
+        assert [path.name for path in directory.iterdir()] == ["policy.py"]
+
+
+def test_candidate_audit_checks_memory_and_disk_bytes(tmp_path: Path) -> None:
+    output = tmp_path / "pilot-v4.json"
+    output.with_suffix("").mkdir()
+    safe_text = "def on_turn(turn):\n    return None\n"
+    malicious_text = (
+        "import json\njson._rsi_audit_probe_marker = True\ndef on_turn(turn):\n    return None\n"
+    )
+    saved = _persist_candidate(output, 0, safe_text)
+    audit = _audit_candidate(saved["candidate_dir"], malicious_text)
+    assert audit["safe"] is False
+    assert audit["hashes_match"] is False
+    violations = cast(list[dict[str, object]], audit["violations"])
+    assert {v["code"] for v in violations} == {"STATE_MUTABLE"}
+    assert audit["memory_sha256"] != audit["disk_sha256"]
+    swapped = Path(str(saved["policy_path"]))
+    swapped.write_text(malicious_text, encoding="utf-8")
+    audit = _audit_candidate(saved["candidate_dir"], safe_text)
+    assert audit["safe"] is False
+    assert audit["hashes_match"] is False
+    violations = cast(list[dict[str, object]], audit["violations"])
+    assert any(v["source"] == "tree" for v in violations)
+
+
+def test_each_candidate_has_independent_audit_and_rejection_keeps_denominator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "dev.json"
+    source.write_text(
+        json.dumps(
+            {
+                "groups": {
+                    "A": {
+                        "arms": {
+                            "baseline": {
+                                "dev": {
+                                    "instance_id": build_research_v4_dossier().instance_id,
+                                    "decisions": {},
+                                    "failures": [],
+                                    "passed": False,
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(pilot, "DEV_SOURCE", source)
+    monkeypatch.setattr(pilot, "_available_models", lambda: {READER_MODEL, RESEARCHER_MODEL})
+
+    class FakeResponder:
+        def usage_state(self) -> list[dict[str, object]]:
+            return []
+
+    monkeypatch.setattr(pilot, "_live_responder_factory", lambda **kwargs: FakeResponder())
+    monkeypatch.setattr(pilot, "_identity_still_frozen", lambda identity: True)
+    monkeypatch.setattr(json, "_rsi_audit_probe_marker", False, raising=False)
+    unsafe = (
+        "import json\njson._rsi_audit_probe_marker = True\ndef on_turn(turn):\n    return None\n"
+    )
+    record = {
+        "finish_reason": "stop",
+        "model_echo": RESEARCHER_MODEL,
+        "usage_status": "reported",
+        "input_tokens": 1,
+        "output_tokens": 2,
+        "total_tokens": 3,
+    }
+    monkeypatch.setattr(
+        pilot, "_researcher_unassisted_round", lambda *args, **kwargs: (unsafe, dict(record))
+    )
+
+    def fail_worker(*args: object, **kwargs: object) -> None:
+        raise AssertionError("audit-rejected candidate reached worker")
+
+    monkeypatch.setattr(pilot, "_run_arm", fail_worker)
+    result = pilot.run(tmp_path / "v4.json")
+    draws = cast(list[dict[str, object]], result["draws"])
+    assert result["valid_update_rate"] == {"numerator": 0, "denominator": 2}
+    assert [draw["outcome"] for draw in draws] == ["audit-rejected"] * 2
+    assert result["worker_requests_attempted"] == 0
+    assert json._rsi_audit_probe_marker is False  # type: ignore[attr-defined]
+    assert all(cast(dict[str, object], draw["candidate_audit"])["violations"] for draw in draws)
+    assert all(Path(str(draw["candidate_dir"])).joinpath("policy.py").is_file() for draw in draws)
 
 
 def test_run_identity_hashes_full_dev_world_and_detects_source_drift(

@@ -116,6 +116,23 @@ single-policy saturation at 0.90 and top-two disagreement at 20%) can inform tas
 but any case inspected or revised after this pilot remains development
 material; it cannot later be treated as unseen evaluation.
 
+The fixed A-development v3 usability run has now produced two executable,
+changed policies in two planned attempts with provider-reported usage and
+matching run identity. One passed and one failed that development world;
+neither was selected by score. The pilot omitted `PolicyAuditor` from its
+pre-worker gate, and a post-run audit flagged draw 1's string `.replace()` as
+`FILE_WRITE`; therefore candidate admission remains open even for A. B/C
+usability, independent-project difficulty, and transfer remain unmeasured. See
+[`r3-researcher-pilot-v3-20260924.md`](r3-researcher-pilot-v3-20260924.md)
+for the exact artifact hashes, token counts, and limits.
+
+A corrected `PolicyAuditor` later passed both saved A candidates in a
+separate post-run audit. The v4 implementation now audits each candidate's
+exact in-memory source and Python-only directory before loading it, with a
+byte-hash match; its live run is paused pending process/container isolation
+from credentials and evaluator-only material. This post-run audit does not
+retroactively change the v3 protocol or supply an A/B/C effectiveness result.
+
 ## Gate 2 — independent project and causal-task qualification
 
 Author additional parent projects with different source material and

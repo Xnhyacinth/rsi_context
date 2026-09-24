@@ -33,14 +33,15 @@ from r3_compare import _api_profile, _canonical_sha256, _git_identity, _source_s
 
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
 from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
+from rsicontext.security.audit import PolicyAuditor
 
 PLANNED_ATTEMPTS = 2
-RESEARCHER_MAX_OUTPUT_TOKENS = 12288
+RESEARCHER_MAX_OUTPUT_TOKENS = 8192
 WORKER_MAX_OUTPUT_TOKENS = 2048
 WORKER_REQUEST_CAP = 32
 WORKER_REQUEST_CAP_PER_DRAW = 16
 DEV_SOURCE = Path("artifacts/rsi-core-v1/r3-live.json")
-DEFAULT_OUTPUT = Path("artifacts/rsi-core-v1/r3-researcher-pilot-v3-20260924.json")
+DEFAULT_OUTPUT = Path("artifacts/rsi-core-v1/r3-researcher-pilot-v4-20260924.json")
 MODELS_ENDPOINT = "https://api.siflow.cn/model-api/models"
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -125,7 +126,10 @@ def _classify(
     readiness = _researcher_readiness(record)
     if readiness is not None:
         return readiness
-    if not _policy_loadable(policy):
+    candidate_audit = record.get("candidate_audit")
+    if not isinstance(candidate_audit, dict) or candidate_audit.get("safe") is not True:
+        return "audit-rejected"
+    if record.get("candidate_loadable") is not True:
         return "invalid"
     if policy == baseline:
         return "loadable-unchanged"
@@ -189,14 +193,58 @@ def _persist_candidate(output: Path, draw_id: int, policy: str) -> dict[str, obj
     """Save exact researcher bytes in an ignored, Python-only candidate directory."""
 
     if not policy:
-        return {"policy_sha256": None, "policy_path": None, "policy_chars": 0}
-    candidate_path = output.with_suffix("") / f"draw-{draw_id}.py"
+        return {
+            "policy_sha256": None,
+            "policy_path": None,
+            "candidate_dir": None,
+            "policy_chars": 0,
+        }
+    candidate_dir = output.with_suffix("") / f"draw-{draw_id}"
+    candidate_dir.mkdir(exist_ok=False)
+    candidate_path = candidate_dir / "policy.py"
     with candidate_path.open("x", encoding="utf-8") as handle:
         handle.write(policy)
     return {
         "policy_sha256": _sha256(candidate_path.read_bytes()),
         "policy_path": str(candidate_path),
+        "candidate_dir": str(candidate_dir),
         "policy_chars": len(policy),
+    }
+
+
+def _audit_candidate(candidate_dir: object, policy: str) -> dict[str, object]:
+    if not isinstance(candidate_dir, str):
+        return {
+            "safe": False,
+            "status": "missing-candidate",
+            "memory_sha256": _sha256(policy.encode()),
+            "disk_sha256": None,
+            "hashes_match": False,
+            "violations": [],
+        }
+    candidate_path = Path(candidate_dir) / "policy.py"
+    auditor = PolicyAuditor()
+    memory_report = auditor.audit_source(policy, filename=str(candidate_path))
+    tree_report = auditor.audit_tree(candidate_dir)
+    memory_sha256 = _sha256(policy.encode())
+    try:
+        disk_sha256 = _sha256(candidate_path.read_bytes())
+    except OSError:
+        disk_sha256 = None
+    hashes_match = memory_sha256 == disk_sha256
+    safe = memory_report.safe and tree_report.safe and hashes_match
+    return {
+        "safe": safe,
+        "status": "passed" if safe else "rejected",
+        "memory_sha256": memory_sha256,
+        "disk_sha256": disk_sha256,
+        "hashes_match": hashes_match,
+        "files": list(tree_report.files),
+        "violations": [
+            {"source": source, "code": v.code, "filename": v.filename, "line": v.line}
+            for source, report in (("memory", memory_report), ("tree", tree_report))
+            for v in report.violations
+        ],
     }
 
 
@@ -277,7 +325,8 @@ def run(output: Path) -> dict[str, object]:
         "purpose": "A-dev researcher usability only; no eval or score selection",
         "valid_update_definition": (
             "researcher stop with matching model echo and reported numeric usage; loadable, "
-            "changed; at least one successful worker call with matching model echo and "
+            "PolicyAuditor candidate directory passed, changed; at least one successful "
+            "worker call with matching model echo and "
             "reported numeric usage; zero policy errors; no failed, truncated, or capped calls"
         ),
         "attempts": PLANNED_ATTEMPTS,
@@ -336,15 +385,22 @@ def run(output: Path) -> dict[str, object]:
                 "total_tokens": None,
                 "wall_seconds": round(time.monotonic() - started, 3),
             }
-        loadable = _policy_loadable(policy)
-        changed = loadable and policy != baseline
         candidate = _persist_candidate(output, draw_id, policy)
+        candidate_audit = _audit_candidate(candidate["candidate_dir"], policy)
+        record["candidate_audit"] = candidate_audit
+        # Audit the exact saved bytes before load_policy can exec them. This
+        # static gate is not a sandbox: live execution still needs an external
+        # process/container boundary from secrets and evaluator-only data.
+        loadable = candidate_audit["safe"] is True and _policy_loadable(policy)
+        record["candidate_loadable"] = loadable
+        changed = loadable and policy != baseline
         draw: dict[str, object] = {
             "draw_id": draw_id,
             "outcome": "worker-pending" if changed else _classify(policy, baseline, record, None),
             "loadable": loadable,
             "changed": changed,
             **candidate,
+            "candidate_audit": candidate_audit,
             "researcher": record,
             "worker_run": None,
             "worker_requests_attempted": 0,
@@ -360,7 +416,7 @@ def run(output: Path) -> dict[str, object]:
             )
             break
         worker_run = None
-        if changed and _researcher_readiness(record) is None:
+        if changed and _researcher_readiness(record) is None and candidate_audit["safe"] is True:
             draw_responder = WorkerRequestCap(responder, limit=WORKER_REQUEST_CAP_PER_DRAW)
             try:
                 worker_run = _run_arm(policy, build_research_v4_dossier(), draw_responder)

@@ -54,6 +54,37 @@ def select(query: str) -> list[str]:
     report.require_safe()
 
 
+def test_string_replace_is_not_a_filesystem_write() -> None:
+    for source in (
+        'def clean():\n    return "a\\nb".replace("\\n", " ")\n',
+        'def clean(text):\n    return str(text).replace("\\n", " ")\n',
+    ):
+        assert PolicyAuditor().audit_source(source).safe
+
+
+def test_path_replace_and_shadowed_str_remain_forbidden() -> None:
+    for source in (
+        'from pathlib import Path\nPath("/tmp/a").replace("/tmp/b")\n',
+        'def move(path):\n    path.replace("/tmp/b")\n',
+        'from pathlib import Path\nstr = Path\nstr("/tmp/a").replace("/tmp/b")\n',
+        'def move(str):\n    return str("/tmp/a").replace("/tmp/b")\n',
+        "def move(value):\n    match value:\n        case str:\n"
+        '            return str("/tmp/a").replace("/tmp/b")\n',
+    ):
+        assert "FILE_WRITE" in violation_codes(source)
+
+
+def test_star_import_cannot_hide_path_replace_from_string_exemption(tmp_path: Path) -> None:
+    policy = tmp_path / "policy"
+    policy.mkdir()
+    (policy / "helper.py").write_text("from pathlib import Path\nstr = Path\n", encoding="utf-8")
+    (policy / "policy.py").write_text(
+        'from helper import *\nstr("/tmp/a").replace("/tmp/b")\n', encoding="utf-8"
+    )
+    report = PolicyAuditor().audit_tree(policy)
+    assert "FILE_WRITE" in {violation.code for violation in report.violations}
+
+
 @pytest.mark.parametrize(
     ("source", "expected"),
     [

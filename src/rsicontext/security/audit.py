@@ -244,6 +244,7 @@ class PolicyAuditor:
             capabilities=self._capabilities_with_extra(extra_allowed_imports),
             filename=filename,
             source_directory=_source_directory(filename),
+            builtin_str_available=not _shadows_builtin_str(tree),
         )
         visitor.visit(tree)
         return AuditReport(files=(filename,), violations=tuple(visitor.violations))
@@ -397,10 +398,12 @@ class _PolicyVisitor(ast.NodeVisitor):
         capabilities: PolicyCapabilities,
         filename: str,
         source_directory: Path | None,
+        builtin_str_available: bool,
     ) -> None:
         self.capabilities = capabilities
         self.filename = filename
         self.source_directory = source_directory
+        self.builtin_str_available = builtin_str_available
         self.violations: list[SecurityViolation] = []
         self.import_aliases: dict[str, str] = {}
         self.dangerous_aliases: set[str] = set()
@@ -501,7 +504,11 @@ class _PolicyVisitor(ast.NodeVisitor):
             self._add("DYNAMIC_CODE", f"call to {simple_name} is forbidden", node)
         if self._calls_forbidden_import(call_name):
             self._add("CAPABILITY_CALL", f"call through forbidden module: {call_name}", node)
-        if simple_name in _WRITE_METHODS:
+        if simple_name in _WRITE_METHODS and not (
+            simple_name == "replace"
+            and isinstance(node.func, ast.Attribute)
+            and _is_provably_string(node.func.value, self.builtin_str_available)
+        ):
             self._add("FILE_WRITE", f"filesystem write operation is forbidden: {simple_name}", node)
         elif simple_name == "open":
             self._audit_open(node)
@@ -653,6 +660,43 @@ def _literal_string(node: ast.expr) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     return None
+
+
+def _shadows_builtin_str(tree: ast.AST) -> bool:
+    """Treat any binding of ``str`` as shadowing, regardless of scope."""
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Name) and node.id == "str" and isinstance(node.ctx, ast.Store):
+            return True
+        if isinstance(node, ast.arg) and node.arg == "str":
+            return True
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+            and node.name == "str"
+        ):
+            return True
+        if isinstance(node, ast.alias) and (
+            node.name == "*" or (node.asname or node.name) == "str"
+        ):
+            return True
+        if isinstance(node, ast.ExceptHandler) and node.name == "str":
+            return True
+        if isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name == "str":
+            return True
+        if isinstance(node, ast.MatchMapping) and node.rest == "str":
+            return True
+    return False
+
+
+def _is_provably_string(node: ast.expr, builtin_str_available: bool) -> bool:
+    if _literal_string(node) is not None or isinstance(node, ast.JoinedStr):
+        return True
+    return (
+        builtin_str_available
+        and isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "str"
+    )
 
 
 def _is_mutable_state(node: ast.AST) -> bool:
