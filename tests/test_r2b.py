@@ -11,18 +11,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import json
 
-from rsicontext.participant.recuris_real_arm import (
-    R2B_NEUTRAL_SEED,
-    RecurisAdaptedImprover,
-)
-
 import r2b_compare
+
 from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import run_lifecycle
 from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
 from rsicontext.lifecycle.tools import ToolBudget
+from rsicontext.participant.recuris_real_arm import (
+    R2B_NEUTRAL_SEED,
+    RecurisAdaptedImprover,
+)
 
 
 def test_model_transcript_records_prompts_and_replies() -> None:
@@ -38,7 +38,7 @@ def test_model_transcript_records_prompts_and_replies() -> None:
         responder=lambda prompt: "notes: nothing decisive",
     )
     hook.bind_env(env)
-    record = run_lifecycle(build_research_v4_dossier(), hook, env, max_turns_per_stage=2)
+    run_lifecycle(build_research_v4_dossier(), hook, env, max_turns_per_stage=2)
     assert len(hook.model_transcript) == hook.model_calls
     assert hook.model_calls > 0
     entry = hook.model_transcript[0]
@@ -56,12 +56,13 @@ def test_model_transcript_records_prompts_and_replies() -> None:
     assert entry["stage_kind"] == "survey"
     assert entry["stage_id"] == "s1-survey"
     assert entry["ok"] is True
+    assert isinstance(entry["prompt_head"], str)
     assert "supplier-selection" in entry["prompt_head"]
     assert entry["reply_head"] == "notes: nothing decisive"
 
 
 def test_model_transcript_records_failures() -> None:
-    def boom(prompt):
+    def boom(prompt: str) -> str:
         raise RuntimeError("endpoint down")
 
     env = ProjectState()
@@ -71,7 +72,8 @@ def test_model_transcript_records_failures() -> None:
     hook.bind_env(env)
     run_lifecycle(build_research_v4_dossier(), hook, env, max_turns_per_stage=2)
     failed = [e for e in hook.model_transcript if not e["ok"]]
-    assert failed and "endpoint down" in failed[0]["cause"]
+    assert failed and isinstance(failed[0]["cause"], str)
+    assert "endpoint down" in failed[0]["cause"]
     assert failed[0]["reply_head"] == ""
 
 
@@ -143,7 +145,8 @@ def test_four_arm_offline_artifact_shape() -> None:
 
         subprocess.run(
             [sys.executable, "scripts/r2b_compare.py", "--offline", "--output", str(artifact)],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
     payload = json.loads(artifact.read_text())
     arms = payload["arms"]
@@ -166,9 +169,7 @@ def test_four_arm_offline_artifact_shape() -> None:
     rounds = arms["recuris_adapted"]["improver_record"]["rounds"]
     assert len(rounds) == 2
     for record in rounds:
-        assert record["outcome"].startswith(
-            "bounced: nothing failed"
-        ), record["outcome"]
+        assert record["outcome"].startswith("bounced: nothing failed"), record["outcome"]
     # Δ_update_recuris (vs S0-matched) is reported per decision.
     assert "recuris_update_vs_s0matched_eval" in payload["deltas"]
     assert "per_decision_recuris_update" in payload["deltas"]
@@ -180,9 +181,16 @@ def test_canonical_seed_is_stage_compatible() -> None:
     # retrieve/read/verify/synthesize — delivery would never fire).
     from rsicontext.participant.recuris_real_arm import R2B_NEUTRAL_SEED
 
-    stages = R2B_NEUTRAL_SEED["invocation"]["invoked_on_stages"]
+    invocation = R2B_NEUTRAL_SEED["invocation"]
+    assert isinstance(invocation, dict)
+    stages = invocation["invoked_on_stages"]
+    assert isinstance(stages, (list, tuple))
     our_kinds = {
-        "survey", "constraint_injection", "rule_change", "act_verify", "follow_up",
+        "survey",
+        "constraint_injection",
+        "rule_change",
+        "act_verify",
+        "follow_up",
     }
     assert set(stages) <= our_kinds
     assert "entries" in R2B_NEUTRAL_SEED and "invocation" in R2B_NEUTRAL_SEED
@@ -227,7 +235,8 @@ def test_offline_delta_values_and_cost_ledger() -> None:
 
         subprocess.run(
             [sys.executable, "scripts/r2b_compare.py", "--offline", "--output", str(artifact)],
-            check=True, capture_output=True,
+            check=True,
+            capture_output=True,
         )
     payload = json.loads(artifact.read_text())
     deltas = payload["deltas"]
@@ -256,7 +265,7 @@ def test_offline_delta_values_and_cost_ledger() -> None:
 def test_improver_returns_usage_for_tuple_meta_agents() -> None:
     # The meta-agent may return (content, usage) — the live caller's
     # shape; the improver accumulates tokens and records the attempt.
-    def dev_runner(package: dict) -> dict:
+    def dev_runner(package: dict[str, object]) -> dict[str, object]:
         return {
             "decisions": {"award": False, "followup_1": True, "followup_2": True},
             "policy_errors": [],
@@ -267,22 +276,34 @@ def test_improver_returns_usage_for_tuple_meta_agents() -> None:
             "tool_ledger": {"tool_calls": 0},
         }
 
-    def tuple_meta(prompt: str):
+    def tuple_meta(prompt: str) -> tuple[str, dict[str, object]]:
         return (
             json.dumps(
-                {"clusters": [{"component": "E", "action": "add_card", "target": "c",
-                               "card": {"body": "hint", "stage": "*", "requires_field": None},
-                               "evidence": ["award"]}]}
+                {
+                    "clusters": [
+                        {
+                            "component": "E",
+                            "action": "add_card",
+                            "target": "c",
+                            "card": {"body": "hint", "stage": "*", "requires_field": None},
+                            "evidence": ["award"],
+                        }
+                    ]
+                }
             ),
             {"prompt_tokens": 500, "completion_tokens": 120, "finish_reason": "stop"},
         )
 
     improver = RecurisAdaptedImprover(meta_agent=tuple_meta, dev_runner=dev_runner, rounds=1)
-    final, record = improver.improve(json.loads(json.dumps(R2B_NEUTRAL_SEED)))
+    _final, record = improver.improve(json.loads(json.dumps(R2B_NEUTRAL_SEED)))
     assert record["meta_tokens_in"] == 500
     assert record["meta_tokens_out"] == 120
-    assert record["meta_attempts"][0]["finish_reason"] == "stop"
-    assert record["dev_runs_internal"][0]["model_tokens_in"] == 900
+    attempts = record["meta_attempts"]
+    dev_runs = record["dev_runs_internal"]
+    assert isinstance(attempts, list) and isinstance(attempts[0], dict)
+    assert isinstance(dev_runs, list) and isinstance(dev_runs[0], dict)
+    assert attempts[0]["finish_reason"] == "stop"
+    assert dev_runs[0]["model_tokens_in"] == 900
 
 
 def test_r2b_update_arm_load_gate_rejects_truncated_policies() -> None:
@@ -298,8 +319,9 @@ def test_r2b_update_arm_load_gate_rejects_truncated_policies() -> None:
     assert "def on_turn" in truncated  # the old substring check accepted it
     assert not _policy_loadable(truncated)
     # And the import surface: r2b module exposes both gated call sites.
-    import r2b_compare
     import inspect
+
+    import r2b_compare
 
     source = inspect.getsource(r2b_compare)
     assert source.count("_policy_loadable") >= 3  # import + update + search

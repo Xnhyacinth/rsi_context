@@ -11,6 +11,7 @@ stage's view.
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -23,7 +24,7 @@ from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
 class _ReceiptCollectingHook:
     """Emits actions at the constraint stage; records every view's receipts."""
 
-    def __init__(self, actions_fn=None) -> None:
+    def __init__(self, actions_fn: Sequence[Action] | None = None) -> None:
         self.actions_fn = actions_fn
         self.received: dict[str, tuple[Receipt, ...]] = {}
 

@@ -17,6 +17,7 @@ One test per acceptance-table row:
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -24,13 +25,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.material_v3 import build_research_v3_instance
 from rsicontext.lifecycle.policy import PolicyHook
-from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
+from rsicontext.lifecycle.runner import LifecycleRunRecord, run_lifecycle
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
 
-from rsicontext.lifecycle.env import Action
 
-
-def _run_policy(policy_text, inst=None, responder=None, max_turns=1, budget=None):
+def _run_policy(
+    policy_text: str,
+    inst: LifecycleInstance | None = None,
+    responder: Callable[[str], str] | None = None,
+    max_turns: int = 1,
+    budget: ToolBudget | None = None,
+) -> tuple[LifecycleRunRecord, PolicyHook, ProjectState]:
     inst = inst or build_research_v3_instance()
     env = ProjectState()
     hook = PolicyHook({}, policy_text, tool_budget=budget or ToolBudget(), responder=responder)
@@ -57,7 +63,7 @@ def on_turn(turn):
         turn.state["reply_head"] = reply.content
     return {"pack_text": "ok"}
 """
-    record, hook, _ = _run_policy(policy, responder=responder)
+    _record, hook, _ = _run_policy(policy, responder=responder)
     assert hook.state["reply_ok"] is True
     assert "aurora" in hook.state["reply_head"] or "aurora" in hook.state.get("reply_full", "")
     # The policy-issued context actually reached the model...
@@ -79,7 +85,7 @@ def on_turn(turn):
         turn.state["ok"] = reply.ok
     return {"pack_text": "ok"}
 """
-    record, hook, _ = _run_policy(policy, responder=boom)
+    _record, hook, _ = _run_policy(policy, responder=boom)
     assert hook.state["ok"] is False
     assert "endpoint down" in hook.state["cause"]
 
@@ -120,7 +126,9 @@ def on_turn(turn):
         acts = (
             turn.actions.request_verification("verif-ok", "replica-lag", "aurora"),
             turn.actions.request_verification("verif-ok2", "online-cutover", "aurora"),
-            turn.actions.create_record("candidate_status-aurora", {"plan": "aurora", "domain": "finance"}),
+            turn.actions.create_record(
+                "candidate_status-aurora", {"plan": "aurora", "domain": "finance"}
+            ),
             turn.actions.create_record("migration_commit", {"plan": "aurora"}),
             turn.actions.finalize(
                 "migration_commit",
@@ -155,7 +163,7 @@ def on_turn(turn):
         }
     return {"pack_text": "ok"}
 """
-    record, hook, env = _run_policy(policy)
+    _record, _hook, env = _run_policy(policy)
     # Both records carry the SAME (post-rule-change) revision 2.
     sync = env.records.get("verif-1")
     act = env.records.get("act-ver")
@@ -182,7 +190,7 @@ def on_turn(turn):
         turn.state["late_reread_ok"] = d.ok
     return {"pack_text": "ok"}
 """
-    record, hook, _ = _run_policy(policy)
+    _record, hook, _ = _run_policy(policy)
     assert hook.state["reread_ok"] is True
     assert "Aurora" in hook.state["reread_head"]
 
@@ -212,7 +220,7 @@ def on_turn(turn):
     return {"pack_text": "ok"}
 """
     budget = ToolBudget(max_calls=2)
-    record, hook, _ = _run_policy(policy, budget=budget)
+    _record, hook, _ = _run_policy(policy, budget=budget)
     ok_results = hook.state["results"]
     assert ok_results[:2] == [True, True]
     assert ok_results[2] is False
@@ -230,7 +238,7 @@ def on_turn(turn):
         turn.state["verdict"] = v.answer
     return {"pack_text": "ok"}
 """
-    record, hook, env = _run_policy(policy)
+    _record, hook, env = _run_policy(policy)
     assert hook.state["verdict"] in ("pass", "fail", "unverifiable")
     # The verification record id is sequential, not colliding with reread's.
     assert "verif-1" in env.records

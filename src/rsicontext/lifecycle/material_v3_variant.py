@@ -20,6 +20,7 @@ independent-world pool for research-v3.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import cast
 
 from rsicontext.lifecycle.env import Action
 from rsicontext.lifecycle.spec import (
@@ -354,6 +355,17 @@ def _build(spec: Mapping[str, object], instance_id: str) -> LifecycleInstance:
     assert isinstance(scope, tuple)
     plan_requirements = spec["plan_requirements"]
     assert isinstance(plan_requirements, dict)
+    raw_oracle = spec["verification_oracle"]
+    assert isinstance(raw_oracle, dict)
+    assert all(
+        isinstance(check, str)
+        and isinstance(subjects, dict)
+        and all(
+            isinstance(subject, str) and isinstance(ok, bool) for subject, ok in subjects.items()
+        )
+        for check, subjects in raw_oracle.items()
+    )
+    oracle = cast(dict[str, dict[str, bool]], raw_oracle)
 
     information_scale_tokens = sum(1 + len(doc.text.split()) for doc in survey_docs)
     return LifecycleInstance(
@@ -411,7 +423,7 @@ def _build(spec: Mapping[str, object], instance_id: str) -> LifecycleInstance:
                 documents=(rule_change_doc,),
                 gold_evidence_ids=(),
                 rule_change_effect=2,
-                rule_change_scope=list(scope),
+                rule_change_scope=scope,
             ),
             StageSpec(
                 stage_id="s5-act-verify",
@@ -442,7 +454,7 @@ def _build(spec: Mapping[str, object], instance_id: str) -> LifecycleInstance:
                     "current_revision": 2,
                     "revision_scope": list(scope),
                 },
-                verification_oracle=spec["verification_oracle"],
+                verification_oracle=oracle,
             ),
         ),
         axes=DescriptionAxes(

@@ -13,6 +13,7 @@ differences from the parent worlds (real KILT text vs authored prose).
 from __future__ import annotations
 
 import json
+from typing import cast
 
 import pytest
 
@@ -28,7 +29,14 @@ from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
 _COMMIT = "migration_commit"
 _STATUS = "candidate_status"
 
-_ZEPHYR_ROW_IDS = {str(candidate["row_id"]) for candidate in _CANDIDATES}
+
+def _CANDIDANTS() -> tuple[dict[str, object], ...]:
+    assert isinstance(_CANDIDATES, tuple)
+    assert all(isinstance(candidate, dict) for candidate in _CANDIDATES)
+    return cast(tuple[dict[str, object], ...], _CANDIDATES)
+
+
+_ZEPHYR_ROW_IDS = {str(candidate["row_id"]) for candidate in _CANDIDANTS()}
 #: The 20 audited v2 stratification worlds' row ids (from the artifact).
 _V2_WORLD_IDS = {
     "1652383",
@@ -87,7 +95,7 @@ def test_double_solve_card_matches_corpus() -> None:
         for line in handle:
             parsed = json.loads(line)
             rows[str(parsed["id"])] = parsed
-    for candidate in _CANDIDATES:
+    for candidate in _CANDIDANTS():
         row = rows[str(candidate["row_id"])]
         answers = json.loads(str(row["possible_answers"]))
         assert str(candidate["property"]) == str(answers[0])
@@ -119,10 +127,6 @@ def test_zephyr_material_is_real_kilt_text() -> None:
     assert {f"doc-cand-{c['candidate']}" for c in _CANDIDANTS()} <= gold_ids
 
 
-def _CANDIDANTS() -> tuple[dict[str, object], ...]:
-    return _CANDIDATES
-
-
 # --- Engine layer -----------------------------------------------------------------
 
 
@@ -140,7 +144,11 @@ class _ZephyrHook:
         self._requested = False
 
     def on_stage(self, stage: StageView) -> StageResponse:
-        if self.genre_revision == 1 and stage.kind == "constraint_injection" and not self._requested:
+        if (
+            self.genre_revision == 1
+            and stage.kind == "constraint_injection"
+            and not self._requested
+        ):
             self._requested = True
             return StageResponse(
                 pack_text="zephyr notes",

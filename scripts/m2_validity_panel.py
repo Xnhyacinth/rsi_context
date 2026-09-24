@@ -40,6 +40,7 @@ import argparse
 import json
 import sys
 import time
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -71,7 +72,12 @@ from rsicontext.lifecycle.material_m2_parents import (
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import run_lifecycle
-from rsicontext.lifecycle.session_sequence import run_session_sequence
+from rsicontext.lifecycle.session_sequence import (
+    SequenceRecord,
+    SessionRecord,
+    run_session_sequence,
+)
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
 
@@ -203,7 +209,7 @@ def _vector_policy_text() -> str:
     return base.replace(needle, replacement) + _VECTOR_AWARD_ACTIONS
 
 
-def _run_a_world(inst) -> dict[str, Any]:
+def _run_a_world(inst: LifecycleInstance) -> dict[str, Any]:
     """One A-group reference run (single lifecycle)."""
 
     responder = _a_responder
@@ -373,12 +379,12 @@ def _b_responder(prompt: str) -> str:
     return _offline_responder(prompt)
 
 
-def _b_decision_rules(record, sessions) -> None:
+def _b_decision_rules(record: SequenceRecord, sessions: list[LifecycleInstance]) -> None:
     """B's decision vector, stage-id needles (b1's six + b2's session-3)."""
 
     by_index = record.sessions
 
-    def _decision(key: str, session, needle: str) -> None:
+    def _decision(key: str, session: SessionRecord | None, needle: str) -> None:
         failures = session.failures if session else []
         record.decisions[key] = not any(needle in f for f in failures)
         hits = [f for f in failures if needle in f]
@@ -454,7 +460,7 @@ def _re_award_2(turn, state):
     return base.replace(needle, replacement) + helper
 
 
-def _run_b_world(sessions) -> dict[str, Any]:
+def _run_b_world(sessions: Sequence[LifecycleInstance]) -> dict[str, Any]:
     """One B-group reference run (session sequence)."""
 
     env = ProjectState()
@@ -470,7 +476,7 @@ def _run_b_world(sessions) -> dict[str, Any]:
         else group_b_basline_policy_text()
     )
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             policy,
@@ -611,11 +617,11 @@ def _c_switch_candidate(failed_subjects: list[str], prompt: str) -> str:
     return "meridian-carriage"
 
 
-def _c_decision_rules(record, sessions) -> None:
+def _c_decision_rules(record: SequenceRecord, sessions: list[LifecycleInstance]) -> None:
     record.decisions = {f"session_{i + 1}_passed": s.passed for i, s in enumerate(record.sessions)}
 
 
-def _run_c_world(sessions) -> dict[str, Any]:
+def _run_c_world(sessions: Sequence[LifecycleInstance]) -> dict[str, Any]:
     """One C-group reference run (session sequence)."""
 
     env = ProjectState()
@@ -623,7 +629,7 @@ def _run_c_world(sessions) -> dict[str, Any]:
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             group_c_baseline_policy_text(),
@@ -659,7 +665,7 @@ def _run_c_world(sessions) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _named_cards(inst) -> dict[str, str]:
+def _named_cards(inst: LifecycleInstance) -> dict[str, str]:
     """{supplier-name: card text} for every card in the survey stage."""
 
     survey = next((s for s in inst.stages if s.kind == "survey"), None)
@@ -674,7 +680,7 @@ def _named_cards(inst) -> dict[str, str]:
     return out
 
 
-def _legal_plans_from_stages(inst) -> list[tuple[str, str, list[str]]]:
+def _legal_plans_from_stages(inst: LifecycleInstance) -> list[tuple[str, str, list[str]]]:
     """Every (stage_id, record_id, legal_plans) the world's gates declare."""
 
     out: list[tuple[str, str, list[str]]] = []
@@ -689,7 +695,7 @@ def _legal_plans_from_stages(inst) -> list[tuple[str, str, list[str]]]:
     return out
 
 
-def _check_a_plans_named(inst) -> dict[str, Any]:
+def _check_a_plans_named(inst: LifecycleInstance) -> dict[str, Any]:
     """Audit (a): every legal plan is a named survey candidate."""
 
     cards = _named_cards(inst)
@@ -746,7 +752,7 @@ def _rule_selected_winners(
     return winners, losers
 
 
-def _check_a_rules_select_legal_set(inst) -> dict[str, Any]:
+def _check_a_rules_select_legal_set(inst: LifecycleInstance) -> dict[str, Any]:
     """Audit (b): the stated rules deterministically select the legal set."""
 
     cards = _named_cards(inst)
@@ -764,7 +770,7 @@ def _check_a_rules_select_legal_set(inst) -> dict[str, Any]:
     return {"name": "rules_select_legal_set", "ok": not problems, "problems": problems}
 
 
-def _check_plans_named_union(insts, label: str) -> dict[str, Any]:
+def _check_plans_named_union(insts: Sequence[LifecycleInstance], label: str) -> dict[str, Any]:
     """Audit (a) for a v5 sequence world: every legal plan the gates
     declare is a named supplier card in the world's OWN survey
     material (the union across sessions — a re-award gate in a
@@ -785,7 +791,9 @@ def _check_plans_named_union(insts, label: str) -> dict[str, Any]:
     return {"name": "legal_plans_named_in_survey", "ok": not problems, "problems": problems}
 
 
-def _check_c_public_rules_match_gate(inst_session_pair) -> dict[str, Any]:
+def _check_c_public_rules_match_gate(
+    inst_session_pair: Sequence[LifecycleInstance],
+) -> dict[str, Any]:
     """Audit (b) for C worlds: the mutation notice's rule derives the legal set.
 
     The public rule (the notice + re-award prompt): HIGHEST-ranked
@@ -807,7 +815,11 @@ def _check_c_public_rules_match_gate(inst_session_pair) -> dict[str, Any]:
     notice = mutation_stage.documents[0].text
     award_stage = next(s for s in s2.stages if s.kind == "act_verify")
     oracle = award_stage.verification_oracle or {}
-    legal = [str(p) for p in award_stage.commit_precondition["legal_plans"]]
+    precondition = award_stage.commit_precondition
+    assert precondition is not None
+    legal_value = precondition["legal_plans"]
+    assert isinstance(legal_value, list)
+    legal = [str(p) for p in legal_value]
     problems: list[str] = []
     # (a) the notice states the ranking rule and the eligibility of
     # the non-renewed leaders.
@@ -829,7 +841,7 @@ def _check_c_public_rules_match_gate(inst_session_pair) -> dict[str, Any]:
     return {"name": "rules_select_legal_set", "ok": not problems, "problems": problems}
 
 
-def _check_b_rules_select_legal_set(insts) -> dict[str, Any]:
+def _check_b_rules_select_legal_set(insts: Sequence[LifecycleInstance]) -> dict[str, Any]:
     """Audit (b) for B worlds: every gate's legal set is derivable from
     the material the participant actually holds.
 
@@ -881,7 +893,7 @@ def _check_b_rules_select_legal_set(insts) -> dict[str, Any]:
     return {"name": "rules_select_legal_set", "ok": not problems, "problems": problems}
 
 
-def _audit_a(inst) -> list[dict[str, Any]]:
+def _audit_a(inst: LifecycleInstance) -> list[dict[str, Any]]:
     checks = [
         _check_a_plans_named(inst),
         _check_a_rules_select_legal_set(inst),
@@ -889,14 +901,16 @@ def _audit_a(inst) -> list[dict[str, Any]]:
     return checks
 
 
-def _audit_b(insts) -> list[dict[str, Any]]:
+def _audit_b(insts: Sequence[LifecycleInstance]) -> list[dict[str, Any]]:
     return [
         _check_plans_named_union(insts, insts[0].instance_id),
         _check_b_rules_select_legal_set(insts),
     ]
 
 
-def _audit_c(session_pair) -> list[dict[str, Any]]:
+def _audit_c(
+    session_pair: Sequence[LifecycleInstance],
+) -> list[dict[str, Any]]:
     s1, s2 = session_pair
     named = _check_plans_named_union([s1, s2], "c")
     return [named, _check_c_public_rules_match_gate(session_pair)]
@@ -910,7 +924,13 @@ def _audit_c(session_pair) -> list[dict[str, Any]]:
 def build_worlds() -> dict[str, list[dict[str, Any]]]:
     """The world registry: family, builder, audit factory per world."""
 
-    def _entry(world_id, family, kind, build, audit):
+    def _entry(
+        world_id: str,
+        family: str,
+        kind: str,
+        build: Callable[[], LifecycleInstance | list[LifecycleInstance]],
+        audit: Callable[..., list[dict[str, Any]]],
+    ) -> dict[str, Any]:
         return {
             "world_id": world_id,
             "family": family,

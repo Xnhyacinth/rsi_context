@@ -31,10 +31,12 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from typing import TypedDict
 
-from rsicontext.lifecycle.env import ProjectState
+from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.material_v2 import alias_hit_v2
-from rsicontext.lifecycle.runner import StageResponse, run_lifecycle
+from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.worlds.constructor_v2 import load_worlds_v2
 
 POPQA_ROWS = Path("data/helmet-data/data/kilt/popqa_test_1000_k1000_dep6.jsonl")
@@ -46,6 +48,22 @@ READER_SYSTEM = (
     "If the evidence is insufficient, output INSUFFICIENT."
 )
 RECORD_ID = "answer_project"
+
+
+class _ArmItem(TypedDict):
+    instance_id: str
+    answer: str
+    expected: str
+    hit: bool
+    final_check: bool
+
+
+class _ArmResult(TypedDict):
+    arm: str
+    n: int
+    alias_hits: int
+    alias_rate: float
+    records: list[_ArmItem]
 
 
 def reader_call(prompt: str) -> tuple[str, int, int]:
@@ -69,7 +87,8 @@ def reader_call(prompt: str) -> tuple[str, int, int]:
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=300) as response:
+    # READER_ENDPOINT is the fixed HTTPS Siflow chat-completions URL.
+    with urllib.request.urlopen(request, timeout=300) as response:  # nosec B310
         raw = json.loads(response.read())
     message = raw["choices"][0]["message"]
     content = (message.get("content") or "").strip() or (message.get("reasoning") or "").strip()
@@ -92,9 +111,7 @@ def normalize_answer(raw: str, strategy_path: Path | None = None) -> str:
     if strategy_path is not None and strategy_path.exists():
         namespace: dict[str, object] = {}
         try:
-            exec(
-                strategy_path.read_text(encoding="utf-8"), namespace
-            )
+            exec(strategy_path.read_text(encoding="utf-8"), namespace)
         except Exception:
             namespace = {}
         extractor = namespace.get("extract")
@@ -144,7 +161,7 @@ class V2Hook:
 
     def __init__(
         self,
-        state: dict,
+        state: dict[str, object],
         aliases: tuple[str, ...],
         *,
         persist: bool,
@@ -155,9 +172,10 @@ class V2Hook:
         self._persist = persist
         self._strategy_path = strategy_path
 
-    def on_stage(self, stage) -> object:
+    def on_stage(self, stage: StageView) -> StageResponse:
         docs = "\n\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
-        notes = "\n".join(str(n) for n in self._state.get("notes", []))
+        raw_notes = self._state.get("notes", [])
+        notes = "\n".join(str(n) for n in raw_notes) if isinstance(raw_notes, list) else ""
         prompt = (
             f"Working notes so far:\n{notes or '(none)'}\n\n{stage.prompt_text}\n\n"
             f"Evidence:\n{docs}"
@@ -167,11 +185,11 @@ class V2Hook:
         )
         reply, _tokens_in, _tokens_out = reader_call(prompt)
         answer = normalize_answer(reply, self._strategy_path)
-        actions = ()
+        actions: tuple[Action, ...] = ()
         if stage.kind == "act_verify":
-            from rsicontext.lifecycle.env import Action
-
-            supports = list(self._state.get("supports", [])) or ["retained-notes"]
+            raw_supports = self._state.get("supports", [])
+            supports = list(raw_supports) if isinstance(raw_supports, list) else []
+            supports = supports or ["retained-notes"]
             actions = (
                 Action(
                     kind="create_record",
@@ -188,7 +206,7 @@ class V2Hook:
             )
         # Note-taking (working memory): record what the reader extracted
         # and the doc ids seen at this stage (provenance habit).
-        notes_list = list(self._state.get("notes", []))
+        notes_list = list(raw_notes) if isinstance(raw_notes, list) else []
         notes_list.append(
             {
                 "stage": stage.stage_id,
@@ -213,13 +231,13 @@ def _world_of(instance_id: str) -> str:
 
 def _run_arm(
     arm: str,
-    instances: list,
+    instances: list[LifecycleInstance],
     *,
     persist: bool,
     strategy_path: Path | None = None,
-) -> dict[str, object]:
+) -> _ArmResult:
     state: dict[str, object] = {}
-    records = []
+    records: list[_ArmItem] = []
     current_world: str | None = None
     for instance in instances:
         world = _world_of(instance.instance_id)
@@ -229,11 +247,10 @@ def _run_arm(
             # Learned knowledge persists WITHIN a world (continuation);
             # crossing into a new world starts fresh (migration discipline:
             # stale facts from another world must not leak in).
-            state = state.get("__carry__", {}) if arm == "ds-researcher" else {}
+            carry = state.get("__carry__")
+            state = dict(carry) if arm == "ds-researcher" and isinstance(carry, dict) else {}
         current_world = world
-        hook = V2Hook(
-            state, instance.answer_aliases, persist=persist, strategy_path=strategy_path
-        )
+        hook = V2Hook(state, instance.answer_aliases, persist=persist, strategy_path=strategy_path)
         record = run_lifecycle(instance, hook, ProjectState())
         committed = record.sandbox_final_state.get(RECORD_ID, {})
         answer = str(committed.get("answer") or "") if isinstance(committed, dict) else ""
@@ -278,10 +295,12 @@ def main() -> int:
     }
 
     # Arm 1: fixed (memory-operational, per-instance state only).
-    results["fixed"] = _run_arm("fixed", instances, persist=False)
+    fixed_result = _run_arm("fixed", instances, persist=False)
+    results["fixed"] = fixed_result
 
     # Arm 2: experience accumulation (state persists across instances).
-    results["experience"] = _run_arm("experience", instances, persist=True)
+    experience_result = _run_arm("experience", instances, persist=True)
+    results["experience"] = experience_result
 
     # Arm 3: DS researcher — round 0 visible experience, then the DS edits a
     # strategy file which is WIRED BACK as an extraction postprocess, then
@@ -311,10 +330,8 @@ def main() -> int:
         )
         feedback = json.dumps(
             {
-                "visible_alias_rate": results["experience"]["alias_rate"],
-                "failures": [r["answer"] for r in results["experience"]["records"] if not r["hit"]][
-                    :8
-                ],
+                "visible_alias_rate": experience_result["alias_rate"],
+                "failures": [r["answer"] for r in experience_result["records"] if not r["hit"]][:8],
             }
         ).encode()
         round_input = ImprovementRoundInput(
@@ -351,9 +368,8 @@ def main() -> int:
     strategy_file = args.output.parent / "ds-workspace" / "agent" / "strategy.py"
     ds_strategy = strategy_file if strategy_file.exists() else None
     results["ds_strategy_applied"] = ds_strategy is not None
-    results["ds_researcher"] = _run_arm(
-        "ds-researcher", instances, persist=True, strategy_path=ds_strategy
-    )
+    ds_result = _run_arm("ds-researcher", instances, persist=True, strategy_path=ds_strategy)
+    results["ds_researcher"] = ds_result
 
     elapsed = time.perf_counter() - started
     results["meta"] = {
@@ -367,9 +383,9 @@ def main() -> int:
         json.dump(results, handle, indent=1, sort_keys=True)
         handle.write("\n")
     summary = {
-        arm: results[arm].get("alias_rate")
-        for arm in ("fixed", "experience", "ds_researcher")
-        if arm in results
+        "fixed": fixed_result["alias_rate"],
+        "experience": experience_result["alias_rate"],
+        "ds_researcher": ds_result["alias_rate"],
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0

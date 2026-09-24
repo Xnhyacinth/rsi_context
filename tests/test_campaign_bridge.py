@@ -19,6 +19,7 @@ from rsicontext.participant.arms import (
 )
 from rsicontext.participant.campaign_bridge import (
     CampaignBridgeError,
+    _CampaignRequestShape,
     build_open_s_arm,
     make_campaign_run_round,
 )
@@ -61,6 +62,7 @@ def test_bridge_seeds_workspace_and_detects_changes(tmp_path: Path) -> None:
     seen: dict[str, object] = {}
 
     def callback(request: object) -> None:
+        assert isinstance(request, _CampaignRequestShape)
         seen["round_index"] = request.round_index
         seen["previous_score"] = request.previous_score
         seen["incumbent_score"] = request.incumbent_score
@@ -108,6 +110,7 @@ def test_open_s_arm_over_bridge(tmp_path: Path) -> None:
     workspace_root = tmp_path / "workspaces"
 
     def callback(request: object) -> None:
+        assert isinstance(request, _CampaignRequestShape)
         policy_dir = Path(request.policy_directory)
         (policy_dir / "policy.py").write_text("POLICY = 'round-edit'\n")
 
@@ -137,10 +140,13 @@ def test_three_arm_no_reader_smoke(tmp_path: Path) -> None:
 
     fixed = FixedStrategyImprover()
     experience = ExperienceAccumulationImprover(byte_cap=4096)
+
+    def edit_policy(request: object) -> None:
+        assert isinstance(request, _CampaignRequestShape)
+        Path(request.policy_directory, "policy.py").write_text("POLICY = 'smoke'\n")
+
     open_s = build_open_s_arm(
-        lambda request: Path(request.policy_directory, "policy.py").write_text(
-            "POLICY = 'smoke'\n"
-        ),
+        edit_policy,
         tmp_path / "workspaces",
         prediction_item_ids=("item-1", "item-2"),
         feedback_bytes_to_scores=_scores,

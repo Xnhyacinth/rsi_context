@@ -18,7 +18,7 @@ Design rules (spec Part 1.2):
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 
 from rsicontext.lifecycle.env import Action, ProjectState
@@ -267,14 +267,13 @@ class ToolSurface:
             record_id=record_id,
             fields={"check": check, "subject": subject},
         )
-        receipt = self._env.submit(action)
-        payload = receipt.to_dict()
+        env_receipt = self._env.submit(action)
         self._budget.charge_verification()
         tool_receipt = ToolReceipt(
             tool="request_verification",
-            ok=receipt.applied and receipt.verdict == "pass",
-            answer=payload["verdict"],
-            cause=payload["cause"],
+            ok=env_receipt.applied and env_receipt.verdict == "pass",
+            answer=env_receipt.verdict,
+            cause=env_receipt.cause,
         )
         self._budget.receipts.append(tool_receipt)
         return tool_receipt

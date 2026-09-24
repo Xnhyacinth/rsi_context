@@ -474,7 +474,7 @@ def build_option2_world(world_id: str, *, instance_id: str | None = None) -> Lif
                 documents=(rule_change_doc,),
                 gold_evidence_ids=(),
                 rule_change_effect=2,
-                rule_change_scope=[check_name],
+                rule_change_scope=(check_name,),
             ),
             StageSpec(
                 stage_id="s5-act-verify",

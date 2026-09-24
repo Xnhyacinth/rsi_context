@@ -10,14 +10,34 @@ independent projects. Nothing from them enters any improvement input
 
 from __future__ import annotations
 
-from rsicontext.lifecycle.spec import DocumentRef, LifecycleInstance
+from typing import TypedDict
+
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
+from rsicontext.lifecycle.spec import DocumentRef, LifecycleInstance
+
+
+class _VariantSpec(TypedDict):
+    winner: str
+    winner_card: str
+    winner_clause: str
+    decoy: str
+    decoy_card: str
+    decoy_clause: str
+    calibration: str
+    calibration_card: str
+    calibration_clause: str
+    final_scope: tuple[str, ...]
+    fu2_stale: str
+    legal: list[str]
+    oracle: dict[str, dict[str, bool]]
+    fu1_answer: str
+
 
 #: Variant overwrites: applied to the mother world's supplier cards and
 #: stage texts. Each variant keeps the load-bearing LEDGER SHAPE (one
 #: qualification, one decoy disqualifier, one calibration answer) but
 #: assigns them to DIFFERENT suppliers/checks.
-_VARIANTS: dict[str, dict[str, object]] = {
+_VARIANTS: dict[str, _VariantSpec] = {
     "mirror": {
         # Winner: harborline (card-02); decoy: northwind (card-01);
         # calibration: orbit-hosting (card-11); superseded at s7:
@@ -106,8 +126,8 @@ def build_dossier_variant(variant_id: str) -> LifecycleInstance:
     original_oracle = dossier._VERIFICATION_ORACLE
     original_legal = dossier._LEGAL_PLANS
     dossier._SUPPLIERS = tuple(patched)
-    dossier._VERIFICATION_ORACLE = dict(spec["oracle"])  # type: ignore[arg-type]
-    dossier._LEGAL_PLANS = tuple(str(p) for p in spec["legal"])  # type: ignore[arg-type]
+    dossier._VERIFICATION_ORACLE = dict(spec["oracle"])
+    dossier._LEGAL_PLANS = tuple(str(p) for p in spec["legal"])
     try:
         inst = build_research_v4_dossier(instance_id=f"research-v4-dossier-{variant_id}-0001")
         # Variant-specific stage adjustments: the final rule-change
@@ -143,7 +163,7 @@ def build_dossier_variant(variant_id: str) -> LifecycleInstance:
             ),
             gold_evidence_ids=(),
             rule_change_effect=3,
-            rule_change_scope=tuple(str(c) for c in spec["final_scope"]),  # type: ignore[arg-type]
+            rule_change_scope=tuple(str(c) for c in spec["final_scope"]),
         )
         # fu2 expectation: the derivation overrides the placeholder, but
         # keep the static value consistent for readers.
@@ -176,9 +196,7 @@ def build_dossier_variant(variant_id: str) -> LifecycleInstance:
         check = (
             "customs-preclearance"
             if "customs-preclearance" in spec["oracle"]
-            else next(
-                iter(spec["oracle"])  # type: ignore[arg-type]
-            )
+            else next(iter(spec["oracle"]))
         )
         precondition["plan_requirements"] = {
             winner: {

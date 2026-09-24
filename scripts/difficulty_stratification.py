@@ -36,6 +36,7 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from rsicontext.lifecycle.material_v2 import alias_hit_v2, gold_sane_v2
 
@@ -49,15 +50,15 @@ READER_SYSTEM = (
 )
 
 
-def _ctxs(row: dict) -> list[dict]:
+def _ctxs(row: dict[str, Any]) -> list[dict[str, Any]]:
     return [c for c in row.get("ctxs", []) if isinstance(c, dict)]
 
 
-def _is_gold(ctx: dict) -> bool:
+def _is_gold(ctx: dict[str, Any]) -> bool:
     return ctx.get("has_answer") is True or ctx.get("has_answer") == 1
 
 
-def _clean(ctx: dict) -> bool:
+def _clean(ctx: dict[str, Any]) -> bool:
     return bool(str(ctx.get("text") or "").strip() and str(ctx.get("title") or "").strip())
 
 
@@ -85,7 +86,7 @@ def normalize_answer(raw: str) -> str:
     return line.strip().strip(".").strip()
 
 
-def gold_dominance(row: dict) -> dict[str, object]:
+def gold_dominance(row: dict[str, Any]) -> dict[str, object]:
     """Structural dominance signal for one world's primary survey set."""
 
     ctxs = _ctxs(row)
@@ -161,14 +162,15 @@ def reader_probe(question: str, docs_text: str) -> str:
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=300) as response:
+    # READER_ENDPOINT is the fixed HTTPS Siflow chat-completions URL.
+    with urllib.request.urlopen(request, timeout=300) as response:  # nosec B310
         raw = json.loads(response.read())
     message = raw["choices"][0]["message"]
     return (message.get("content") or "").strip() or (message.get("reasoning") or "").strip()
 
 
-def load_pool(max_worlds: int) -> list[dict]:
-    pool: list[dict] = []
+def load_pool(max_worlds: int) -> list[dict[str, Any]]:
+    pool: list[dict[str, Any]] = []
     seen_rows: set[str] = set()
     seen_entities: set[str] = set()
     with POPQA_ROWS.open(encoding="utf-8") as handle:

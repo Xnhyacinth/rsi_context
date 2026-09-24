@@ -217,18 +217,15 @@ class StageSpec:
             if not isinstance(self.verification_oracle, Mapping):
                 raise TypeError("verification_oracle must be a mapping or None")
             object.__setattr__(self, "verification_oracle", self._copy_oracle())
-        if self.kind in ("session_start", "session_end"):
-            if (
-                self.expected_state_delta is not None
-                or self.expected_aliases
-                or self.commit_precondition is not None
-                or self.verification_oracle is not None
-                or self.rule_change_effect is not None
-                or self.documents
-            ):
-                raise ValueError(
-                    "session_start/session_end stages are boundaries, not graded material"
-                )
+        if self.kind in ("session_start", "session_end") and (
+            self.expected_state_delta is not None
+            or self.expected_aliases
+            or self.commit_precondition is not None
+            or self.verification_oracle is not None
+            or self.rule_change_effect is not None
+            or self.documents
+        ):
+            raise ValueError("session_start/session_end stages are boundaries, not graded material")
         if self.rule_change_effect is not None:
             if self.kind != "rule_change":
                 raise ValueError("only rule_change stages carry rule_change_effect")
@@ -342,7 +339,8 @@ class LifecycleInstance:
             if kinds[:5] != list(_STAGE_KINDS):
                 raise ValueError(
                     "research-v4 instances begin with the five v1 stages "
-                    f"(survey, constraint_injection, delegation, rule_change, act_verify); got {kinds[:5]}"
+                    "(survey, constraint_injection, delegation, rule_change, act_verify); "
+                    f"got {kinds[:5]}"
                 )
             if len(kinds) <= 5:
                 raise ValueError("research-v4 instances carry follow-up stages after act_verify")
@@ -466,10 +464,7 @@ def _load_stage(d: Mapping[str, object]) -> StageSpec:
     if raw_oracle is None:
         oracle = None
     elif isinstance(raw_oracle, Mapping):
-        oracle = {
-            check: dict(subjects)
-            for check, subjects in raw_oracle.items()  # type: ignore[union-attr]
-        }
+        oracle = {check: dict(subjects) for check, subjects in raw_oracle.items()}
     else:
         raise TypeError("verification_oracle must be a mapping or null")
     raw_effect = d.get("rule_change_effect")

@@ -11,18 +11,19 @@ pinned alongside.
 
 from __future__ import annotations
 
-import json
 import sys
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import pytest
+import trajectory_v3 as t3
 
 from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.material_v3 import build_research_v3_instance
-from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
+from rsicontext.lifecycle.runner import LifecycleRunRecord, StageResponse, StageView, run_lifecycle
 from rsicontext.participant.snapshot import (
     BranchKind,
     FrozenSnapshot,
@@ -30,13 +31,11 @@ from rsicontext.participant.snapshot import (
     run_evaluation_branch,
 )
 
-import trajectory_v3 as t3
-
 
 class _CommitOnlyHook:
     """Emits the given actions at act_verify; notes otherwise."""
 
-    def __init__(self, actions_fn) -> None:
+    def __init__(self, actions_fn: Callable[[], Sequence[Action]]) -> None:
         self.actions_fn = actions_fn
 
     def on_stage(self, stage: StageView) -> StageResponse:
@@ -45,7 +44,7 @@ class _CommitOnlyHook:
         return StageResponse(pack_text="commit", actions=tuple(self.actions_fn()))
 
 
-def _run(actions_fn):
+def _run(actions_fn: Callable[[], Sequence[Action]]) -> LifecycleRunRecord:
     return run_lifecycle(build_research_v3_instance(), _CommitOnlyHook(actions_fn), ProjectState())
 
 
@@ -261,6 +260,7 @@ def test_zephyr_constraint_has_no_unimplemented_clause() -> None:
     constraint_doc = inst.stages[1].documents[0]
     assert "1990" not in constraint_doc.text
     precondition = inst.stages[4].commit_precondition
+    assert precondition is not None
     assert precondition["legal_plans"] == [
         "play-the-game",
         "ill-be-there",
@@ -286,7 +286,9 @@ def _tiny_snapshot() -> FrozenSnapshot:
 
 def test_in_place_snapshot_mutation_refuses_to_serve_carry() -> None:
     snapshot = _tiny_snapshot()
-    snapshot.memory["notes"].append("tampered")  # in-place, post-freeze
+    notes = snapshot.memory["notes"]
+    assert isinstance(notes, list)
+    notes.append("tampered")  # in-place, post-freeze
     with pytest.raises(SnapshotStateError):
         run_evaluation_branch(
             snapshot,

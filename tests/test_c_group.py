@@ -23,32 +23,33 @@ Pins:
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable, Mapping
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from rsicontext.lifecycle.env import ProjectState
+from r2a_compare import _offline_responder
+
+from rsicontext.lifecycle.env import ProjectState, Receipt
 from rsicontext.lifecycle.material_c_group import build_c1_sessions
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
-from rsicontext.lifecycle.session_sequence import run_session_sequence
+from rsicontext.lifecycle.session_sequence import SequenceRecord, run_session_sequence
+from rsicontext.lifecycle.spec import LifecycleInstance, StageSpec
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
 
-from r2a_compare import _offline_responder
+
+def _required_oracle(stage: StageSpec) -> Mapping[str, Mapping[str, bool]]:
+    oracle = stage.verification_oracle
+    assert oracle is not None
+    return oracle
 
 
-def _actions(turn, plan, ver_id, check="customs-preclearance"):
-    return (
-        turn.actions.request_verification(ver_id, check, plan),
-        turn.actions.create_record("candidate_status-" + plan, {"plan": plan, "domain": "domain"}),
-        turn.actions.create_record("migration_commit", {"plan": plan}),
-        turn.actions.finalize(
-            "migration_commit",
-            {"plan": plan, "status": "final"},
-            (ver_id, "candidate_status-" + plan),
-        ),
-    )
+def _required_precondition(stage: StageSpec) -> Mapping[str, object]:
+    precondition = stage.commit_precondition
+    assert precondition is not None
+    return precondition
 
 
 #: NAIVE: commits the reading-level best (atlas) WITHOUT reading the
@@ -209,13 +210,13 @@ def on_turn(turn):
 """
 
 
-def _run_c1(policy_text: str, turns: int = 3):
+def _run_c1(policy_text: str, turns: int = 3) -> tuple[SequenceRecord, ProjectState]:
     sessions = list(build_c1_sessions())
     env = ProjectState()
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             policy_text,
@@ -235,14 +236,18 @@ def _run_c1(policy_text: str, turns: int = 3):
     return record, env
 
 
-def _run_c1_with(builder, policy_text: str, turns: int = 3):
+def _run_c1_with(
+    builder: Callable[[], tuple[LifecycleInstance, LifecycleInstance]],
+    policy_text: str,
+    turns: int = 3,
+) -> tuple[SequenceRecord, ProjectState]:
     """The same two-session sequence, over any C-world builder."""
     sessions = list(builder())
     env = ProjectState()
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             policy_text,
@@ -263,7 +268,7 @@ def _run_c1_with(builder, policy_text: str, turns: int = 3):
 
 
 def test_naive_agent_fails_both_decisions() -> None:
-    record, env = _run_c1(NAIVE_POLICY)
+    record, _env = _run_c1(NAIVE_POLICY)
     s1, s2 = record.sessions
     # Session 1: committed the oracle-FAIL subject; the gate refuses
     # (no passing env-issued evidence for the plan).
@@ -303,14 +308,14 @@ def test_session1_oracle_fails_the_reading_level_best() -> None:
     # The mutation contract: session 1's oracle marks atlas FAIL (the
     # pending audit) — the task's premise.
     s1, s2 = build_c1_sessions()
-    oracle = s1.stages[2].verification_oracle
+    oracle = _required_oracle(s1.stages[2])
     assert oracle["customs-preclearance"]["atlas-carriage"] is False
     assert oracle["customs-preclearance"]["meridian-carriage"] is True
-    oracle2 = s2.stages[2].verification_oracle
+    oracle2 = _required_oracle(s2.stages[2])
     assert oracle2["customs-preclearance"]["atlas-carriage"] is True
     # The mutation flips the LEGAL SET (session 2's re-award: the
     # public SLA rule ranks atlas first).
-    assert s2.stages[2].commit_precondition["legal_plans"] == ["atlas-carriage"]
+    assert _required_precondition(s2.stages[2])["legal_plans"] == ["atlas-carriage"]
 
 
 def test_public_rules_match_the_gate() -> None:
@@ -325,7 +330,8 @@ def test_public_rules_match_the_gate() -> None:
     assert "Supplier card: meridian-carriage" in survey_text, (
         "the recovery target must be discoverable from the survey material"
     )
-    legal_s1 = s1.stages[2].commit_precondition["legal_plans"]
+    legal_s1 = _required_precondition(s1.stages[2])["legal_plans"]
+    assert isinstance(legal_s1, list)
     assert set(legal_s1) <= {
         d.text.split("] ", 1)[1].split("\n", 1)[0].replace("Supplier card: ", "")
         for d in s1.stages[0].documents
@@ -340,7 +346,7 @@ def test_public_rules_match_the_gate() -> None:
     assert "Meridian Carriage remains eligible" in notice
     assert "HIGHEST-ranked eligible carrier" in notice and "STANDARD SLA, shortest first" in notice
     assert "HIGHEST-ranked eligible carrier" in s2.stages[2].prompt_text
-    assert s2.stages[2].commit_precondition["legal_plans"] == ["atlas-carriage"]
+    assert _required_precondition(s2.stages[2])["legal_plans"] == ["atlas-carriage"]
     # The winner the rule derives is the one with the shorter standard
     # SLA among the s2 oracle's passers (from the survey cards).
     survey_cards = {
@@ -350,7 +356,7 @@ def test_public_rules_match_the_gate() -> None:
     }
     passing = [
         subject
-        for subject, ok in s2.stages[2].verification_oracle["customs-preclearance"].items()
+        for subject, ok in _required_oracle(s2.stages[2])["customs-preclearance"].items()
         if ok and subject in survey_cards
     ]
     import re
@@ -361,7 +367,7 @@ def test_public_rules_match_the_gate() -> None:
         if match:
             slas[name] = int(match.group(1))
     ranked = sorted(passing, key=lambda name: slas[name])
-    assert ranked[0] == s2.stages[2].commit_precondition["legal_plans"][0] == "atlas-carriage"
+    assert ranked[0] == "atlas-carriage"
 
 
 def test_receipts_deliver_the_fail_verdict_in_stage() -> None:
@@ -369,11 +375,11 @@ def test_receipts_deliver_the_fail_verdict_in_stage() -> None:
     # as a RECEIPT on the next turn's view (multi-turn delivery).
     s1, _ = build_c1_sessions()
     env = ProjectState()
-    env.begin_instance(s1.stages[2].verification_oracle)
+    env.begin_instance(_required_oracle(s1.stages[2]))
 
     class ReceiptSpy:
-        def __init__(self):
-            self.seen = []
+        def __init__(self) -> None:
+            self.seen: list[Receipt] = []
 
         def on_stage(self, stage: StageView) -> StageResponse:
             self.seen.extend(stage.receipts)
@@ -395,7 +401,7 @@ def test_receipts_deliver_the_fail_verdict_in_stage() -> None:
     from rsicontext.lifecycle.env import Action
 
     spy = ReceiptSpy()
-    record = run_lifecycle(s1, spy, env, max_turns_per_stage=3)
+    run_lifecycle(s1, spy, env, max_turns_per_stage=3)
     probe = [r for r in spy.seen if r.record_id == "probe"]
     assert probe and probe[0].applied and probe[0].verdict == "fail"
 
@@ -426,15 +432,15 @@ def test_c1_mirror_grammar_and_flip() -> None:
     assert "bonded corridor" not in survey_text
     # Session-1 oracle FAILS the mirror's reading-level best
     # (harborline) and PASSES a recovery target (atlas).
-    oracle = m1.stages[2].verification_oracle
+    oracle = _required_oracle(m1.stages[2])
     assert oracle["customs-preclearance"]["harborline-freight"] is False
     assert oracle["customs-preclearance"]["atlas-carriage"] is True
     # The mutation renews harborline: session-2's oracle flips it to pass
     # and the re-award legal set is {harborline-freight} at rev 2.
-    oracle2 = m2.stages[2].verification_oracle
+    oracle2 = _required_oracle(m2.stages[2])
     assert oracle2["customs-preclearance"]["harborline-freight"] is True
-    assert m2.stages[2].commit_precondition["legal_plans"] == ["harborline-freight"]
-    assert m2.stages[2].commit_precondition["current_revision"] == 2
+    assert _required_precondition(m2.stages[2])["legal_plans"] == ["harborline-freight"]
+    assert _required_precondition(m2.stages[2])["current_revision"] == 2
 
 
 def test_c1_mirror_public_rules_match_the_gate() -> None:
@@ -470,12 +476,12 @@ def test_c1_mirror_public_rules_match_the_gate() -> None:
             slas[name] = int(match.group(1))
     passing = [
         subject
-        for subject, ok in m2.stages[2].verification_oracle["customs-preclearance"].items()
+        for subject, ok in _required_oracle(m2.stages[2])["customs-preclearance"].items()
         if ok and subject in slas
     ]
     ranked = sorted(passing, key=lambda name: slas[name])
     assert ranked[0] == "harborline-freight"
-    assert m2.stages[2].commit_precondition["legal_plans"] == ["harborline-freight"]
+    assert _required_precondition(m2.stages[2])["legal_plans"] == ["harborline-freight"]
 
 
 #: NAIVE (mirror): commits the mirror's reading-level best (harborline)

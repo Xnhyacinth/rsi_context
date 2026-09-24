@@ -37,7 +37,7 @@ def head_policy() -> ContextPolicy:
 def load_qwen_tokenizer(path: Path) -> EncodedWindowTokenizer:
     """Load only the pinned local tokenizer implementation and files."""
 
-    from transformers import AutoTokenizer
+    from transformers import AutoTokenizer  # type: ignore[import-not-found]  # optional tokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(
         str(path),

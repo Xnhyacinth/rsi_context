@@ -1,5 +1,15 @@
 # Project goal, value, and contribution (2026-09-23, post-R2b-wiring)
 
+**2026-09-24 status update:** B and C session worlds and the unified R3 entry
+now exist, so the older roadmap and “unbuilt” statements below describe the
+state at this document's date. The first R3 live B/C numbers are invalid for
+method comparison because sequence state and Recuris package delivery were
+miswired. See [the R3 correctness audit](reviews/r3-correctness-and-next-experiments-20260924.md)
+for the current evidence boundary, repair gates, and prospective experiments.
+The project's goal remains the same; independent parent diversity, real-model
+task difficulty, executable policy updates, and a frozen formal comparison
+still need evidence.
+
 Evidence-level discipline throughout (the reviews' demand): every claim
 is labeled [implemented+pinned] (code + tests), [implemented, evidence
 pending] (code exists; no run yet licenses it), or [design only].

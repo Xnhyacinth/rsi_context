@@ -21,18 +21,20 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Mapping
 from pathlib import Path
+from types import TracebackType
+from typing import Any, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from rsicontext.lifecycle.env import ProjectState
+from r2a_compare import _offline_responder, _run_arm
+
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
-from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.recuris_memory_policy import recuris_memory_policy_text
-from rsicontext.lifecycle.runner import run_lifecycle
-from rsicontext.lifecycle.tools import ToolBudget
 from rsicontext.participant.recuris_real_arm import (
+    R2B_NEUTRAL_SEED,
     PlanBounce,
     RecurisAdaptedImprover,
     apply_patch,
@@ -42,25 +44,31 @@ from rsicontext.participant.recuris_real_arm import (
     validate_plan,
 )
 
-from r2a_compare import _offline_responder, _run_arm
-
-
-from rsicontext.participant.recuris_real_arm import R2B_NEUTRAL_SEED
-
 #: One seed, one place: the tests consume the canonical r2b seed (the
 #: wiring audit's dedup finding — a drifting test-local copy would
 #: silently diverge from the arm's).
-NEUTRAL = json.loads(json.dumps(R2B_NEUTRAL_SEED))
+NEUTRAL = cast(dict[str, object], json.loads(json.dumps(R2B_NEUTRAL_SEED)))
 
 
-def _card(card_id: str, body: str, stage: str = "*") -> dict:
+def _card(card_id: str, body: str, stage: str = "*") -> dict[str, object]:
     return {"id": card_id, "body": body, "stage": stage, "requires_field": None}
 
 
-def _with_card(body: str, stage: str = "*") -> dict:
-    pkg = json.loads(json.dumps(NEUTRAL))
+def _with_card(body: str, stage: str = "*") -> dict[str, object]:
+    pkg = cast(dict[str, object], json.loads(json.dumps(NEUTRAL)))
     pkg["entries"] = [_card("test-card", body, stage)]
     return pkg
+
+
+def _mapping(value: object) -> Mapping[str, object]:
+    assert isinstance(value, dict)
+    return value
+
+
+def _rows(value: object) -> list[Mapping[str, object]]:
+    assert isinstance(value, list)
+    assert all(isinstance(row, dict) for row in value)
+    return cast(list[Mapping[str, object]], value)
 
 
 # --- 1-3: the memory→behavior path --------------------------------------
@@ -83,8 +91,9 @@ def test_memory_injection_changes_prompts() -> None:
     # Delivered on matching stages (act_verify/follow_up), logged.
     state = run_with["final_state"]
     delivered = state.get("memory_delivered") or []
-    stages_delivered = {log[0] for log in delivered if isinstance(log, list)}
+    stages_delivered = {log["stage_kind"] for log in delivered if isinstance(log, dict)}
     assert "act_verify" in stages_delivered and "follow_up" in stages_delivered
+    assert all(log.get("stage_id") for log in delivered)
     # The card body PHYSICALLY entered the metered prompts.
     heads = " ".join(str(call.get("prompt_head", "")) for call in run_with["model_transcript"])
     assert "Prior-failure memory" in heads
@@ -143,7 +152,11 @@ def test_neutral_package_matches_baseline_decisions() -> None:
 # --- 4-7: the gate --------------------------------------------------------
 
 
-def _run(decisions: dict, errors: list | None = None, delivered: list | None = None) -> dict:
+def _run(
+    decisions: dict[str, bool],
+    errors: list[str] | None = None,
+    delivered: list[object] | None = None,
+) -> dict[str, object]:
     return {
         "decisions": decisions,
         "policy_errors": errors or [],
@@ -158,9 +171,58 @@ def test_gate_accepts_strict_repair() -> None:
         delivered=[["act_verify", "test-card"]],
     )
     patch = {"action": "add_card", "target": "test-card"}
-    accepted, reason, gate = run_gate(inc, cand, patch)
+    accepted, reason, _gate = run_gate(inc, cand, patch)
     assert accepted, reason
     assert "strict repair" in reason
+
+
+def test_gate_accepts_stage_identified_delivery() -> None:
+    inc = _run({"award": False, "followup_1": True})
+    cand = _run(
+        {"award": True, "followup_1": True},
+        delivered=[
+            {"stage_id": "s5-act-verify", "stage_kind": "act_verify", "card_ids": ["test-card"]}
+        ],
+    )
+    accepted, reason, gate = run_gate(inc, cand, {"action": "add_card", "target": "test-card"})
+    assert accepted, reason
+    assert gate["fingerprint_delivered_ids"] == ["test-card"]
+
+
+def test_trace_matches_stage_id_and_aggregates_recovery_turns() -> None:
+    run = {
+        "stage_records": [
+            {"stage_id": "s9-calibration", "kind": "follow_up", "actions_applied": 1},
+            {"stage_id": "s10-currency", "kind": "follow_up", "actions_applied": 0},
+        ],
+        "final_state": {
+            "memory_delivered": [
+                {"stage_id": "s9-calibration", "stage_kind": "follow_up", "card_ids": ["first"]},
+                {
+                    "stage_id": "s9-calibration",
+                    "stage_kind": "follow_up",
+                    "card_ids": ["second", "first"],
+                },
+                {"stage_id": "s10-currency", "stage_kind": "follow_up", "card_ids": ["third"]},
+            ]
+        },
+    }
+    turns = _rows(build_trace_doc(run)["turns"])
+    assert turns[0]["delivered_cards"] == ["first", "second"]
+    assert turns[1]["delivered_cards"] == ["third"]
+
+
+def test_trace_legacy_delivery_logs_follow_repeated_kind_order() -> None:
+    run = {
+        "stage_records": [
+            {"stage_id": "s9-calibration", "kind": "follow_up"},
+            {"stage_id": "s10-currency", "kind": "follow_up"},
+        ],
+        "final_state": {"memory_delivered": [["follow_up", "first"], ["follow_up", "second"]]},
+    }
+    turns = _rows(build_trace_doc(run)["turns"])
+    assert turns[0]["delivered_cards"] == ["first"]
+    assert turns[1]["delivered_cards"] == ["second"]
 
 
 def test_gate_rejects_tie() -> None:
@@ -200,7 +262,7 @@ def test_gate_rejects_new_policy_errors() -> None:
 # --- 8-10: the plan validator ---------------------------------------------
 
 
-def _trace(failed: list[str]) -> dict:
+def _trace(failed: list[str]) -> dict[str, object]:
     # `failed` names the decisions that FAILED (everything else passed).
     return {
         "decisions": {
@@ -216,9 +278,9 @@ def _plan(
     action: str = "add_card",
     target: str = "c1",
     body: str = "hint text",
-    field=None,
-    evidence=("award",),
-):
+    field: str | None = None,
+    evidence: tuple[str, ...] = ("award",),
+) -> dict[str, object]:
     card = {"body": body, "stage": "*", "requires_field": field}
     return {
         "clusters": [
@@ -284,7 +346,7 @@ def test_edit_card_action() -> None:
     patched = apply_patch(
         pkg, validate_plan(plan, _trace(["award"]), pkg, set(), {"state_fields": ()})
     )
-    assert patched["entries"][0]["body"] == "revised body"
+    assert _rows(patched["entries"])[0]["body"] == "revised body"
     # The do-not-repeat ledger blocks add on the same target but the
     # edit is a different key.
     with pytest_wrap(PlanBounce, "ledger"):
@@ -304,19 +366,23 @@ def test_meta_agent_failure_admits_nothing() -> None:
     def boom(prompt: str) -> str:
         raise RuntimeError("endpoint down")
 
-    def dev_runner(package: dict) -> dict:
-        return _run_arm(
-            recuris_memory_policy_text(),
-            build_research_v4_dossier(),
-            _offline_responder,
-            initial_state=package_to_state(package),
+    def dev_runner(package: dict[str, object]) -> dict[str, object]:
+        return cast(
+            dict[str, object],
+            _run_arm(
+                recuris_memory_policy_text(),
+                build_research_v4_dossier(),
+                _offline_responder,
+                initial_state=package_to_state(package),
+            ),
         )
 
     improver = RecurisAdaptedImprover(meta_agent=boom, dev_runner=dev_runner, rounds=1)
     final, record = improver.improve(json.loads(json.dumps(NEUTRAL)))
     assert final == NEUTRAL, "a failed meta-agent admits nothing"
-    assert record["rounds"][0]["outcome"].startswith("failed: meta-agent")
-    assert record["final_package_digest"] == record["rounds"][0]["package_digest_before"]
+    first_round = _rows(record["rounds"])[0]
+    assert str(first_round["outcome"]).startswith("failed: meta-agent")
+    assert record["final_package_digest"] == first_round["package_digest_before"]
 
 
 def test_offline_improver_end_to_end_accepts_a_repair() -> None:
@@ -331,12 +397,15 @@ def test_offline_improver_end_to_end_accepts_a_repair() -> None:
             return "supplier=pinnacle-courier"
         return _offline_responder(prompt)
 
-    def dev_runner(package: dict) -> dict:
-        return _run_arm(
-            recuris_memory_policy_text(),
-            build_research_v4_dossier(),
-            memory_aware_responder,
-            initial_state=package_to_state(package),
+    def dev_runner(package: dict[str, object]) -> dict[str, object]:
+        return cast(
+            dict[str, object],
+            _run_arm(
+                recuris_memory_policy_text(),
+                build_research_v4_dossier(),
+                memory_aware_responder,
+                initial_state=package_to_state(package),
+            ),
         )
 
     def stub_meta_agent(prompt: str) -> str:
@@ -360,11 +429,14 @@ def test_offline_improver_end_to_end_accepts_a_repair() -> None:
 
     improver = RecurisAdaptedImprover(meta_agent=stub_meta_agent, dev_runner=dev_runner, rounds=1)
     final, record = improver.improve(json.loads(json.dumps(NEUTRAL)))
-    assert record["rounds"][0]["outcome"].startswith("accepted"), record["rounds"][0]
-    assert any(str(e.get("id")) == "repair-award" for e in final["entries"])
+    first_round = _rows(record["rounds"])[0]
+    assert str(first_round["outcome"]).startswith("accepted"), first_round
+    assert any(str(e.get("id")) == "repair-award" for e in _rows(final["entries"]))
     # The card actually delivers in the accepted run (fingerprint evidence).
-    gate = record["rounds"][0]["gate"]
-    assert "repair-award" in gate.get("fingerprint_delivered_ids", [])
+    gate = _mapping(first_round["gate"])
+    delivered_ids = gate.get("fingerprint_delivered_ids", [])
+    assert isinstance(delivered_ids, list)
+    assert "repair-award" in delivered_ids
 
 
 def test_state_survives_all_stages() -> None:
@@ -380,26 +452,33 @@ def test_state_survives_all_stages() -> None:
     # writes it; memory_writes merge never clobbers it).
     state = run["final_state"]
     assert isinstance(state.get("recuris_memory"), dict)
-    assert state["recuris_memory"]["entries"][0]["body"] == "stable memory"
+    memory = _mapping(state["recuris_memory"])
+    assert _rows(memory["entries"])[0]["body"] == "stable memory"
 
 
 class pytest_wrap:
     """Minimal pytest.raises shim so the file has one import path."""
 
-    def __init__(self, exc_type, needle: str):
+    def __init__(self, exc_type: type[BaseException], needle: str) -> None:
         self.exc_type = exc_type
         self.needle = needle
+        self._ctx: Any = None
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         import pytest
 
         self._ctx = pytest.raises(self.exc_type)
         return self._ctx.__enter__()
 
-    def __exit__(self, *args):
-        outcome = self._ctx.__exit__(*args)
-        if args[0] is not None:
-            message = str(args[1])
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None:
+        outcome = cast(bool | None, self._ctx.__exit__(exc_type, exc, tb))
+        if exc_type is not None:
+            message = str(exc)
             assert self.needle in message, f"expected {self.needle!r} in {message!r}"
         return outcome
 
@@ -415,13 +494,16 @@ def test_citation_accepts_failure_strings_not_just_decision_names() -> None:
     trace = {
         "decisions": {"award": False, "followup_1": True, "followup_2": False},
         "failures": [
-            "commit gate[s5-act-verify]: commit gate: plan 'vesper-instruments' is not in the legal set",
-            "follow_up[s8-followup-2]: record 'followup_conclusion-corridor': field 'status' expected 'reverify', got 'current'",
+            "commit gate[s5-act-verify]: commit gate: plan 'vesper-instruments' "
+            "is not in the legal set",
+            "follow_up[s8-followup-2]: record 'followup_conclusion-corridor': "
+            "field 'status' expected 'reverify', got 'current'",
         ],
     }
     plan_by_string = _plan(
         evidence=(
-            "commit gate[s5-act-verify]: commit gate: plan 'vesper-instruments' is not in the legal set",
+            "commit gate[s5-act-verify]: commit gate: plan 'vesper-instruments' "
+            "is not in the legal set",
         )
     )
     cluster = validate_plan(plan_by_string, trace, NEUTRAL, set(), {"state_fields": ()})

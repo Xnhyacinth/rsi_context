@@ -1,10 +1,22 @@
 # The r3 live first run (2026-09-24, r3-live.json)
 
+**Erratum (2026-09-24):** This is an immutable developmental record, not a
+valid B/C method comparison. The R3 sequence entry gave each B/C session a
+fresh `ProjectState`, omitted Recuris `initial_state`/package delivery, and
+left B `failure_detail` empty. Thus B/C scores below reflect an incorrect
+project-continuation and memory-input path. A is unaffected by those sequence
+entry defects but remains a same-family development case. The original
+artifact and numbers are retained; see
+[`reviews/r3-correctness-and-next-experiments-20260924.md`](reviews/r3-correctness-and-next-experiments-20260924.md)
+for repair gates and claim limits. `stats-contract-v1.md` froze R2a/R2b rules
+and explicitly did not freeze B/C outcomes or formal inference.
+
 The first LIVE run of the unified A/B/C entry (five arms × three
 groups, each with its own A0 baseline and its held-out eval twin).
 Artifact: `artifacts/rsi-core-v1/r3-live.json` (shared checkout;
-13,319 s wall). Governed by docs/stats-contract-v1.md; transcribed
-here because the artifact path is gitignored.
+13,319 s wall). The run reused R2a/R2b procedures from
+docs/stats-contract-v1.md, which did not freeze B/C or formal inference;
+transcribed here because the artifact path is gitignored.
 
 **Provenance note (matters):** this is the first run in which the
 dev/eval structural split was actually enforced — the pre-run code

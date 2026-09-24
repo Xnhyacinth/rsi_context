@@ -12,32 +12,36 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 _BUDGET_FILE = _REPO_ROOT / "configs" / "budget_v1.json"
 
 
 @lru_cache(maxsize=1)
-def budget_v1() -> dict:
+def budget_v1() -> dict[str, Any]:
     """The frozen v1 budget pack (parsed JSON; cached per process)."""
 
     with _BUDGET_FILE.open(encoding="utf-8") as handle:
-        return json.load(handle)
+        parsed: Any = json.load(handle)
+    if not isinstance(parsed, dict):
+        raise ValueError("budget_v1.json must contain a JSON object")
+    return parsed
 
 
-def worker_reader_limits() -> dict:
+def worker_reader_limits() -> dict[str, Any]:
     return dict(budget_v1()["worker_reader"])
 
 
-def researcher_limits() -> dict:
+def researcher_limits() -> dict[str, Any]:
     return dict(budget_v1()["researcher"])
 
 
-def tool_overheads() -> dict:
+def tool_overheads() -> dict[str, Any]:
     return dict(budget_v1()["tools"])
 
 
-def state_limits() -> dict:
+def state_limits() -> dict[str, Any]:
     return dict(budget_v1()["state"])
 
 

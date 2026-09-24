@@ -28,20 +28,59 @@ import json
 import sys
 import time
 from pathlib import Path
+from typing import Any, cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.dossier_variants import build_dossier_variant
+from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import run_lifecycle
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
 from rsicontext.lifecycle.tools import ToolBudget
 
 READER_ENDPOINT = "https://api.siflow.cn/model-api/chat/completions"
 READER_MODEL = "Qwen/Qwen3.6-27B"
 RESEARCHER_MODEL = "deepseek-ai/deepseek-v4.1-flash"
+
+
+def _reported_usage(raw: object) -> dict[str, object]:
+    """Keep provider counts separate from the policy channel's word estimates."""
+
+    usage = raw if isinstance(raw, dict) else {}
+    counts = {
+        name: value
+        if isinstance(value, int) and not isinstance(value, bool) and value >= 0
+        else None
+        for name in ("prompt_tokens", "completion_tokens", "total_tokens")
+        for value in (usage.get(name),)
+    }
+    return {
+        **counts,
+        "usage_status": "reported"
+        if all(value is not None for value in counts.values())
+        else "missing",
+    }
+
+
+def _provider_usage_totals(calls: list[dict[str, object]], *, live: bool) -> dict[str, object]:
+    if not live:
+        return {
+            "usage_status": "not_applicable",
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        }
+    complete = bool(calls) and all(call.get("usage_status") == "reported" for call in calls)
+    return {
+        "usage_status": "reported" if complete else "incomplete",
+        **{
+            name: sum(cast(int, call[name]) for call in calls) if complete else None
+            for name in ("prompt_tokens", "completion_tokens", "total_tokens")
+        },
+    }
 
 
 def _offline_responder(prompt: str) -> str:
@@ -122,11 +161,12 @@ def _offline_responder(prompt: str) -> str:
     return "notes: (nothing decisive in this batch)"
 
 
-def _live_responder_factory():
+def _live_responder_factory(*, enable_thinking: bool | None = None) -> Any:
     import os
     import urllib.request
 
     key = os.environ["SIFLOW_API_KEY"]
+    usage_calls: list[dict[str, object]] = []
 
     def responder(prompt: str) -> str:
         body = {
@@ -134,7 +174,9 @@ def _live_responder_factory():
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are the project worker. Follow the requested output format exactly.",
+                    "content": (
+                        "You are the project worker. Follow the requested output format exactly."
+                    ),
                 },
                 {"role": "user", "content": prompt},
             ],
@@ -143,6 +185,8 @@ def _live_responder_factory():
             "seed": 42,
             "stream": False,
         }
+        if enable_thinking is False:
+            body["chat_template_kwargs"] = {"enable_thinking": False}
         request = urllib.request.Request(
             READER_ENDPOINT,
             data=json.dumps(body).encode("utf-8"),
@@ -152,13 +196,57 @@ def _live_responder_factory():
             },
             method="POST",
         )
-        with urllib.request.urlopen(request, timeout=300) as response:
-            raw = json.loads(response.read())
-        choice = raw["choices"][0]
-        finish_reasons.append(choice.get("finish_reason"))
-        message = choice["message"]
-        content = message.get("content") or ""
-        reasoning = message.get("reasoning") or message.get("reasoning_content")
+        try:
+            # READER_ENDPOINT is a code-owned HTTPS constant.
+            with urllib.request.urlopen(request, timeout=300) as response:  # nosec B310
+                raw = json.loads(response.read())
+        except Exception as exc:
+            usage_calls.append(
+                {
+                    "model": READER_MODEL,
+                    "model_echo": None,
+                    "system_fingerprint": None,
+                    "outcome": "request_error",
+                    "finish_reason": None,
+                    "error_type": type(exc).__name__,
+                    **_reported_usage(None),
+                }
+            )
+            raise
+        try:
+            choice = raw["choices"][0]
+            message = choice["message"]
+            content = message.get("content") or ""
+            if not isinstance(content, str):
+                raise TypeError("worker content must be a string")
+            reasoning = message.get("reasoning") or message.get("reasoning_content")
+            finish_reason = choice.get("finish_reason")
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
+            usage_calls.append(
+                {
+                    "model": READER_MODEL,
+                    "model_echo": raw.get("model") if isinstance(raw, dict) else None,
+                    "system_fingerprint": (
+                        raw.get("system_fingerprint") if isinstance(raw, dict) else None
+                    ),
+                    "outcome": "protocol_error",
+                    "finish_reason": None,
+                    "error_type": type(exc).__name__,
+                    **_reported_usage(raw.get("usage") if isinstance(raw, dict) else None),
+                }
+            )
+            raise
+        usage_calls.append(
+            {
+                "model": READER_MODEL,
+                "model_echo": raw.get("model"),
+                "system_fingerprint": raw.get("system_fingerprint"),
+                "outcome": "ok",
+                "finish_reason": finish_reason,
+                **_reported_usage(raw.get("usage")),
+            }
+        )
+        finish_reasons.append(finish_reason)
         # Channel robustness (declared fix, late-report diagnosis): the
         # endpoint family emits final answers in the reasoning channel
         # with empty visible content. Rescue the four decision-line
@@ -179,22 +267,32 @@ def _live_responder_factory():
     def channel_state() -> list[str | None]:
         return list(finish_reasons)
 
+    def usage_state() -> list[dict[str, object]]:
+        return [dict(call) for call in usage_calls]
+
     responder.channel_state = channel_state  # type: ignore[attr-defined]
+    responder.usage_state = usage_state  # type: ignore[attr-defined]
     return responder
 
 
 def _run_arm(
     policy_text: str,
-    inst,
-    responder,
+    inst: LifecycleInstance,
+    responder: Any,
     max_turns: int = 2,
-    initial_state: dict | None = None,
-) -> dict:
+    initial_state: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     env = ProjectState()
     budget = ToolBudget()
+    channel_state = getattr(responder, "channel_state", None)
+    finish_reasons_before = len(channel_state()) if channel_state else 0
+    usage_state = getattr(responder, "usage_state", None)
+    usage_before = len(usage_state()) if usage_state else 0
     hook = PolicyHook(
-        dict(initial_state) if initial_state else {}, policy_text,
-        tool_budget=budget, responder=responder,
+        dict(initial_state) if initial_state else {},
+        policy_text,
+        tool_budget=budget,
+        responder=responder,
     )
     hook.bind_env(env)
     started = time.monotonic()
@@ -205,7 +303,7 @@ def _run_arm(
         "followup_1": not any("s6-followup-1" in f for f in failures),
         "followup_2": not any("s8-followup-2" in f for f in failures),
     }
-    channel_state = getattr(responder, "channel_state", None)
+    provider_calls = usage_state()[usage_before:] if usage_state else []
     return {
         "instance_id": inst.instance_id,
         "passed": record.final_check.passed,
@@ -215,6 +313,9 @@ def _run_arm(
         "model_calls": hook.model_calls,
         "model_tokens_in": hook.model_tokens_in,
         "model_tokens_out": hook.model_tokens_out,
+        "model_tokens_source": "word_estimate",
+        "provider_usage_calls": provider_calls,
+        "provider_usage_totals": _provider_usage_totals(provider_calls, live=bool(usage_state)),
         "tool_ledger": budget.ledger(),
         # Late-report fixes: the run record now carries the evidence the
         # review's per-run questions need — which docs each stage cited
@@ -223,7 +324,7 @@ def _run_arm(
         "provenance_retention": [sr.provenance_retention for sr in record.stage_records],
         "stage_records": [sr.to_dict() for sr in record.stage_records],
         "model_transcript": list(hook.model_transcript),
-        "finish_reasons": channel_state() if channel_state else [],
+        "finish_reasons": channel_state()[finish_reasons_before:] if channel_state else [],
         "final_state": {
             k: v
             for k, v in hook.state.items()
@@ -252,8 +353,15 @@ def _policy_loadable(policy_text: str) -> bool:
 
 
 def _researcher_unassisted_round(
-    baseline_policy: str, dev_experience: dict, live: bool
-) -> tuple[str, dict]:
+    baseline_policy: str,
+    dev_experience: dict[str, Any],
+    live: bool,
+    *,
+    max_output_tokens: int = 16384,
+    max_attempts: int = 5,
+    backoff_seconds: float = 10.0,
+    thinking: bool | None = None,
+) -> tuple[str, dict[str, Any]]:
     """One researcher round: rewrite the policy from EXPERIENCE ONLY.
 
     Unassisted (stats-contract §4 + review): the task prompt names the
@@ -304,11 +412,13 @@ def _researcher_unassisted_round(
             },
             {"role": "user", "content": prompt},
         ],
-        "max_tokens": 16384,
+        "max_tokens": max_output_tokens,
         "temperature": 0.0,
         "seed": 42,
         "stream": False,
     }
+    if thinking is False:
+        body["thinking"] = {"type": "disabled"}
     request = urllib.request.Request(
         READER_ENDPOINT,
         data=json.dumps(body).encode("utf-8"),
@@ -326,12 +436,16 @@ def _researcher_unassisted_round(
     # reasoning channel; retrying that would burn compute without
     # changing the outcome class.
     attempts: list[dict[str, object]] = []
+    started = time.monotonic()
     content = ""
-    usage: dict = {}
+    usage: object = None
     finish_reason = None
-    for attempt_index in range(5):
+    model_echo = None
+    system_fingerprint = None
+    for attempt_index in range(max_attempts):
         try:
-            with urllib.request.urlopen(request, timeout=600) as response:
+            # READER_ENDPOINT is a code-owned HTTPS constant.
+            with urllib.request.urlopen(request, timeout=600) as response:  # nosec B310
                 raw = json.loads(response.read())
         except (urllib.error.URLError, TimeoutError) as exc:
             attempts.append(
@@ -341,13 +455,44 @@ def _researcher_unassisted_round(
                     "cause": f"{type(exc).__name__}: {exc}",
                 }
             )
-            time.sleep(10.0)
+            if attempt_index + 1 < max_attempts:
+                time.sleep(backoff_seconds)
             continue
-        choice = raw["choices"][0]
-        finish_reason = choice.get("finish_reason")
-        content = choice["message"].get("content") or ""
-        usage = raw.get("usage", {})
-        reasoning = choice["message"].get("reasoning") or choice["message"].get("reasoning_content")
+        usage = raw.get("usage") if isinstance(raw, dict) else None
+        model_echo = raw.get("model") if isinstance(raw, dict) else None
+        system_fingerprint = raw.get("system_fingerprint") if isinstance(raw, dict) else None
+        try:
+            choice = raw["choices"][0]
+            message = choice["message"]
+            finish_reason = choice.get("finish_reason")
+            content = message.get("content") or ""
+            if not isinstance(content, str):
+                raise TypeError("researcher content must be a string")
+            reasoning = message.get("reasoning") or message.get("reasoning_content")
+        except (KeyError, IndexError, TypeError, AttributeError) as exc:
+            reported = _reported_usage(usage)
+            attempts.append(
+                {
+                    "attempt": attempt_index,
+                    "outcome": "protocol_error",
+                    "error_type": type(exc).__name__,
+                    "model_echo": model_echo,
+                    "system_fingerprint": system_fingerprint,
+                    **reported,
+                }
+            )
+            return "", {
+                "round_outcome": "failed: protocol_error",
+                "attempts": attempts,
+                "input_tokens": reported["prompt_tokens"],
+                "output_tokens": reported["completion_tokens"],
+                "total_tokens": reported["total_tokens"],
+                "usage_status": reported["usage_status"],
+                "model": RESEARCHER_MODEL,
+                "model_echo": model_echo,
+                "system_fingerprint": system_fingerprint,
+                "wall_seconds": round(time.monotonic() - started, 3),
+            }
         attempts.append(
             {
                 "attempt": attempt_index,
@@ -355,29 +500,42 @@ def _researcher_unassisted_round(
                 "finish_reason": finish_reason,
                 "reply_chars": len(content),
                 "reasoning_present": bool(reasoning),
+                "model_echo": model_echo,
+                "system_fingerprint": system_fingerprint,
+                **_reported_usage(usage),
             }
         )
         break
     else:
         return "", {
-            "round_outcome": "failed: transport after 5 attempts",
+            "round_outcome": f"failed: transport after {max_attempts} attempts",
             "attempts": attempts,
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "wall_seconds": 0.0,
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+            "usage_status": "missing",
+            "model": RESEARCHER_MODEL,
+            "model_echo": None,
+            "wall_seconds": round(time.monotonic() - started, 3),
         }
     # Extract the python block.
     if "```python" in content:
         block = content.split("```python", 1)[1]
         block = block.split("```", 1)[0]
         content = block.strip() + "\n"
+    reported = _reported_usage(usage)
     return content, {
         "round_outcome": "ok" if "def on_turn" in content else "no-policy",
         "finish_reason": finish_reason,
         "attempts": attempts,
-        "input_tokens": int(usage.get("prompt_tokens", 0)),
-        "output_tokens": int(usage.get("completion_tokens", 0)),
-        "wall_seconds": 0.0,
+        "input_tokens": reported["prompt_tokens"],
+        "output_tokens": reported["completion_tokens"],
+        "total_tokens": reported["total_tokens"],
+        "usage_status": reported["usage_status"],
+        "model": RESEARCHER_MODEL,
+        "model_echo": model_echo,
+        "system_fingerprint": system_fingerprint,
+        "wall_seconds": round(time.monotonic() - started, 3),
     }
 
 
@@ -447,7 +605,7 @@ def main() -> int:
     eval_updated = _run_arm(updated_policy, eval_inst, responder)
 
     # Four-outcome state + per-decision deltas (descriptive, n=1 family).
-    def _overall(run: dict) -> int:
+    def _overall(run: dict[str, Any]) -> int:
         return int(run["passed"])
 
     delta_dev = _overall(dev_updated) - _overall(dev_fixed)

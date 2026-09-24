@@ -12,6 +12,8 @@ legal set is derived per world from its own material.
 
 from __future__ import annotations
 
+from typing import cast
+
 from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.material_v3 import build_research_v3_instance
 from rsicontext.lifecycle.material_v3_variant import (
@@ -21,6 +23,33 @@ from rsicontext.lifecycle.material_v3_variant import (
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
 
 _COMMIT = "migration_commit"
+
+
+def _spec_id(spec: dict[str, object]) -> str:
+    value = spec["spec_id"]
+    assert isinstance(value, str)
+    return value
+
+
+def _required_checks(spec: dict[str, object]) -> dict[str, str]:
+    value = spec["required_checks"]
+    assert isinstance(value, dict)
+    assert all(isinstance(key, str) and isinstance(check, str) for key, check in value.items())
+    return cast(dict[str, str], value)
+
+
+def _candidates(spec: dict[str, object]) -> tuple[dict[str, object], ...]:
+    value = spec["candidates"]
+    assert isinstance(value, tuple)
+    assert all(isinstance(candidate, dict) for candidate in value)
+    return cast(tuple[dict[str, object], ...], value)
+
+
+def _legal_plans(precondition: dict[str, object]) -> list[str]:
+    value = precondition["legal_plans"]
+    assert isinstance(value, list)
+    assert all(isinstance(plan, str) for plan in value)
+    return cast(list[str], value)
 
 
 class _LegalPathHook:
@@ -37,7 +66,7 @@ class _LegalPathHook:
         plan: str,
         *,
         request_at: dict[str, str],
-        checks: dict[str, tuple[str, ...]],
+        checks: dict[str, str],
     ) -> None:
         self.plan = plan
         self.request_at = request_at
@@ -99,7 +128,7 @@ def test_variant_worlds_cover_the_structural_axes() -> None:
     # More than one independent material set, all sharing the v3 grammar.
     assert len(specs) >= 2
     for spec in specs:
-        inst = build_research_v3_variant(spec["spec_id"])
+        inst = build_research_v3_variant(_spec_id(spec))
         assert inst.family == "research-v3"
         assert [stage.kind for stage in inst.stages] == [
             "survey",
@@ -123,12 +152,11 @@ def test_variant_worlds_differ_in_material_not_structure() -> None:
     legal_sets = []
     plans = []
     for spec in specs:
-        inst = build_research_v3_variant(spec["spec_id"])
+        inst = build_research_v3_variant(_spec_id(spec))
         precondition = inst.stages[4].commit_precondition
         assert isinstance(precondition, dict)
-        legal_sets.append(set(precondition["legal_plans"]))
-        candidates = spec["candidates"]
-        assert isinstance(candidates, tuple)
+        legal_sets.append(set(_legal_plans(precondition)))
+        candidates = _candidates(spec)
         titles = {str(candidate["title"]) for candidate in candidates}
         plans.append(titles)
     # Different material: no two worlds share their legal set or
@@ -143,14 +171,15 @@ def test_variant_worlds_differ_in_material_not_structure() -> None:
 def test_variant_legal_path_passes_the_gate() -> None:
     specs = variant_world_specs()
     spec = specs[0]
-    inst = build_research_v3_variant(spec["spec_id"])
+    inst = build_research_v3_variant(_spec_id(spec))
     precondition = inst.stages[4].commit_precondition
     assert isinstance(precondition, dict)
-    plan = precondition["legal_plans"][0]
+    plan = _legal_plans(precondition)[0]
+    checks = _required_checks(spec)
     hook = _LegalPathHook(
         plan,
-        request_at={record: "current" for record in spec["required_checks"]},
-        checks=dict(spec["required_checks"]),
+        request_at={record: "current" for record in checks},
+        checks=checks,
     )
     record = run_lifecycle(inst, hook, ProjectState())
     # The finalize itself is plain; the EVALUATOR gate must pass the
@@ -161,13 +190,16 @@ def test_variant_legal_path_passes_the_gate() -> None:
 def test_variant_stale_evidence_fails_the_gate() -> None:
     specs = variant_world_specs()
     spec = specs[0]
-    inst = build_research_v3_variant(spec["spec_id"])
+    inst = build_research_v3_variant(_spec_id(spec))
     precondition = inst.stages[4].commit_precondition
     assert isinstance(precondition, dict)
-    plan = precondition["legal_plans"][0]
-    scope_checks = set(precondition["revision_scope"])
+    plan = _legal_plans(precondition)[0]
+    scope = precondition["revision_scope"]
+    assert isinstance(scope, (tuple, list))
+    scope_checks = set(scope)
     request_at = {}
-    for record_id, check in spec["required_checks"].items():
+    checks = _required_checks(spec)
+    for record_id, check in checks.items():
         # The in-scope check is requested EARLY (the env stamps revision 1
         # — evidence that aged past the rule change); out-of-scope checks
         # stay current. A revision label can no longer be self-declared:
@@ -176,7 +208,7 @@ def test_variant_stale_evidence_fails_the_gate() -> None:
     hook = _LegalPathHook(
         plan,
         request_at=request_at,
-        checks=dict(spec["required_checks"]),
+        checks=checks,
     )
     record = run_lifecycle(inst, hook, ProjectState())
     assert not record.final_check.passed
@@ -188,11 +220,12 @@ def test_variant_stale_evidence_fails_the_gate() -> None:
 def test_variant_illegal_plan_fails_the_gate() -> None:
     specs = variant_world_specs()
     spec = specs[0]
-    inst = build_research_v3_variant(spec["spec_id"])
+    inst = build_research_v3_variant(_spec_id(spec))
+    checks = _required_checks(spec)
     hook = _LegalPathHook(
         "not-a-plan",
-        request_at={record: "current" for record in spec["required_checks"]},
-        checks=dict(spec["required_checks"]),
+        request_at={record: "current" for record in checks},
+        checks=checks,
     )
     record = run_lifecycle(inst, hook, ProjectState())
     assert not record.final_check.passed
@@ -203,14 +236,13 @@ def test_variant_illegal_plan_fails_the_gate() -> None:
 
 def test_main_world_remains_a_variant_of_the_same_grammar() -> None:
     main = build_research_v3_instance()
-    variant = build_research_v3_variant(variant_world_specs()[0]["spec_id"])
+    variant = build_research_v3_variant(_spec_id(variant_world_specs()[0]))
     # Same stage grammar, same axes semantics, disjoint candidate material.
     assert main.family == variant.family == "research-v3"
-    from rsicontext.lifecycle.material_v3 import _CANDIDATES  # type: ignore[reportPrivateUsage]
+    from rsicontext.lifecycle.material_v3 import _CANDIDATES
 
     main_titles = {str(candidate["title"]) for candidate in _CANDIDATES}
     specs = variant_world_specs()
-    candidates = specs[0]["candidates"]
-    assert isinstance(candidates, tuple)
+    candidates = _candidates(specs[0])
     variant_titles = {str(candidate["title"]) for candidate in candidates}
     assert main_titles.isdisjoint(variant_titles)

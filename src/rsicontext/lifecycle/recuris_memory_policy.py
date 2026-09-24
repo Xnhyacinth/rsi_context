@@ -12,7 +12,7 @@ and live.
 What this policy adds over strong_model_fixed:
 - the delivery renderer (reads the package's invocation rule + cards;
   prepends a '## Prior-failure memory' section to matching prompts);
-- delivery logging (state['memory_delivered'][stage] = [card ids]) —
+- delivery logging (stage id, kind, and card ids per turn) —
   the trace's E_t and the gate's fingerprint evidence;
 - an observation log (state['obs'] = receipts seen) — the trace's o_t;
 - it NEVER writes the 'recuris_memory' key (memory is the improver's).
@@ -80,6 +80,14 @@ def _log(turn, key, value):
     log.append(value)
 
 
+def _log_delivery(turn, cards):
+    _log(turn, DELIVERED_KEY, {
+        "stage_id": turn.view.stage_id,
+        "stage_kind": turn.view.kind,
+        "card_ids": [str(c.get("id")) for c in cards],
+    })
+
+
 def on_turn(turn):
     kind = turn.view.kind
     state = turn.state
@@ -92,7 +100,7 @@ def on_turn(turn):
         docs = turn.view.documents
         state.setdefault("notes", {})
         cards = _deliver(turn, kind)
-        _log(turn, DELIVERED_KEY, [kind] + [str(c.get("id")) for c in cards])
+        _log_delivery(turn, cards)
         for start in range(0, len(docs), BATCH_DOCS):
             batch = docs[start : start + BATCH_DOCS]
             body = "\\n\\n".join(d.text for d in batch)
@@ -114,7 +122,7 @@ def on_turn(turn):
     if kind == "constraint_injection":
         constraint = "\\n".join(d.text for d in turn.view.documents)
         cards = _deliver(turn, kind)
-        _log(turn, DELIVERED_KEY, [kind] + [str(c.get("id")) for c in cards])
+        _log_delivery(turn, cards)
         reply = _ask(
             turn,
             _render(cards)
@@ -130,7 +138,7 @@ def on_turn(turn):
     if kind == "rule_change":
         rule = "\\n".join(d.text for d in turn.view.documents)
         cards = _deliver(turn, kind)
-        _log(turn, DELIVERED_KEY, [kind] + [str(c.get("id")) for c in cards])
+        _log_delivery(turn, cards)
         reply = _ask(
             turn,
             _render(cards)
@@ -143,7 +151,7 @@ def on_turn(turn):
         return {"pack_text": "rule change analyzed"}
     if kind == "act_verify":
         cards = _deliver(turn, kind)
-        _log(turn, DELIVERED_KEY, [kind] + [str(c.get("id")) for c in cards])
+        _log_delivery(turn, cards)
         choice = _ask(
             turn,
             _render(cards)
@@ -190,7 +198,7 @@ def on_turn(turn):
     if kind == "follow_up":
         doc = turn.view.documents[0].text if turn.view.documents else ""
         cards = _deliver(turn, kind)
-        _log(turn, DELIVERED_KEY, [kind] + [str(c.get("id")) for c in cards])
+        _log_delivery(turn, cards)
         if "calibration" in doc:
             reply = _ask(
                 turn,
@@ -256,7 +264,7 @@ def _extract_value(text, key):
         value = tail.split()[0] if tail.split() else ""
         return value.strip(".,;'\\n")
     return ""
-""".lstrip()  # noqa: E501
+""".lstrip()
 
 
 def recuris_memory_policy_text() -> str:

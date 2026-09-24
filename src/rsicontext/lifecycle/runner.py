@@ -316,7 +316,7 @@ def run_lifecycle(
         cited: tuple[str, ...] = ()
         actions_applied = 0
         available = tuple(document.doc_id for document in stage.documents)
-        for turn_number in range(max_turns_per_stage):
+        for _turn_number in range(max_turns_per_stage):
             # RSI core v1 — the act->observe channel: this view carries
             # the receipts of everything the env said since the
             # participant's last turn (across stages AND within one
@@ -400,7 +400,10 @@ def run_lifecycle(
             record_key = str(currency.get("record_id", ""))
             field_name = str(currency.get("field", "status"))
             expected_follow = dict(expected_follow)
-            record_spec = dict(expected_follow.get(record_key, {}))
+            raw_record_spec = expected_follow.get(record_key, {})
+            if not isinstance(raw_record_spec, Mapping):
+                raise TypeError(f"expected follow-up record {record_key!r} must be a mapping")
+            record_spec = dict(raw_record_spec)
             record_spec[field_name] = derived
             expected_follow[record_key] = record_spec
         follow_check = ObjectiveChecker().check(
@@ -616,7 +619,7 @@ def _commit_gate_failures(
                 required_checks = tuple(str(entry) for entry in required_check)
             environment_evidence = [
                 (ref, record)
-                for ref, record in zip(referenced_ids, referenced)
+                for ref, record in zip(referenced_ids, referenced, strict=True)
                 if ref in env.verification_record_ids
             ]
             for check_name in required_checks:

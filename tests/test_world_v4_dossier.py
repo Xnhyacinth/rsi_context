@@ -15,6 +15,7 @@ labeled:
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -24,7 +25,7 @@ from rsicontext.lifecycle.material_v4_dossier import (
     build_research_v4_dossier,
 )
 from rsicontext.lifecycle.policy import PolicyHook
-from rsicontext.lifecycle.runner import run_lifecycle
+from rsicontext.lifecycle.runner import LifecycleRunRecord, run_lifecycle
 from rsicontext.lifecycle.tools import ToolBudget
 
 #: The memory-light path: retain almost nothing, re-read the registry at
@@ -147,7 +148,7 @@ def on_turn(turn):
 """
 
 
-def _run(policy_text):
+def _run(policy_text: str) -> tuple[LifecycleRunRecord, PolicyHook, ProjectState, ToolBudget]:
     env = ProjectState()
     budget = ToolBudget()
     hook = PolicyHook({}, policy_text, tool_budget=budget)
@@ -157,7 +158,7 @@ def _run(policy_text):
 
 
 def test_reread_path_solves_the_world() -> None:
-    record, hook, env, budget = _run(REREAD_POLICY)
+    record, hook, _env, budget = _run(REREAD_POLICY)
     assert record.final_check.passed, record.final_check.failures
     assert hook.policy_errors == []
     # The reread path actually PAID for its re-reads (metered).
@@ -169,7 +170,7 @@ def test_remember_path_solves_with_zero_rereads() -> None:
     # request_verification ACTIONS are billed through the unified
     # accounting (the old "zero tool calls" claim hid the free action
     # channel).
-    record, hook, env, budget = _run(REMEMBER_POLICY)
+    record, _hook, _env, budget = _run(REMEMBER_POLICY)
     assert record.final_check.passed, record.final_check.failures
     assert budget.receipts == []  # no tool-path receipts at all
     assert budget.calls >= 1  # the action-path verifications are billed
@@ -255,7 +256,6 @@ def test_removal_simulation_award_evidence() -> None:
 
     stripped = tuple(s for s in dossier_mod._SUPPLIERS if s["id"] != "card-03")
     original = dossier_mod._SUPPLIERS
-    original_gold = "card-03", "card-17", "card-05", "card-08"
     dossier_mod._SUPPLIERS = stripped
     try:
         inst = build_research_v4_dossier()
@@ -266,6 +266,7 @@ def test_removal_simulation_award_evidence() -> None:
         # The gate itself is unchanged (the oracle still covers the
         # subject): the ENV path remains legal.
         precondition = inst.stages[4].commit_precondition
+        assert precondition is not None
         assert precondition["legal_plans"] == ["atlas-carriage"]
     finally:
         dossier_mod._SUPPLIERS = original
@@ -286,10 +287,11 @@ def test_removal_simulation_calibration_evidence() -> None:
         inst = build_research_v4_dossier()
         survey = "\n".join(doc.text for doc in inst.stages[0].documents)
         assert "northern service hub" not in survey
-        assert (
-            inst.stages[5].expected_state_delta["followup_conclusion-calibration"]["supplier"]
-            == "vesper-instruments"
-        )
+        expected = inst.stages[5].expected_state_delta
+        assert expected is not None
+        calibration = expected["followup_conclusion-calibration"]
+        assert isinstance(calibration, Mapping)
+        assert calibration["supplier"] == "vesper-instruments"
     finally:
         dossier_mod._SUPPLIERS = original
 
@@ -301,17 +303,17 @@ def test_irrelevant_perturbation_leaves_decisions_stable() -> None:
 
     inst_small = build_research_v4_dossier()
     inst_bulk = build_research_v4_dossier(bulk_cards=50)
-    assert (
-        inst_small.stages[4].commit_precondition["legal_plans"]
-        == inst_bulk.stages[4].commit_precondition["legal_plans"]
-    )
+    small_precondition = inst_small.stages[4].commit_precondition
+    bulk_precondition = inst_bulk.stages[4].commit_precondition
+    assert small_precondition is not None and bulk_precondition is not None
+    assert small_precondition["legal_plans"] == bulk_precondition["legal_plans"]
     assert inst_small.stages[5].expected_state_delta == inst_bulk.stages[5].expected_state_delta
 
 
 def test_followup_grading_names_the_broken_stage() -> None:
     # A policy that fails follow-up 2 shows WHICH horizon link broke.
     broken_policy = REREAD_POLICY.replace('"status": "reverify"', '"status": "current"')
-    record, hook, env, budget = _run(broken_policy)
+    record, _hook, _env, _budget = _run(broken_policy)
     assert not record.final_check.passed
     assert any("follow_up[" in failure for failure in record.final_check.failures)
 
@@ -364,7 +366,7 @@ def on_turn(turn):
         }
     return {"pack_text": "ok"}
 """
-    record, hook, env, _ = _run(policy)
+    record, _hook, env, _ = _run(policy)
     # The s5 award gate (graded IN TIME, before s7) passes on the
     # revision-1 evidence: the doc update at s4 did not stale it.
     assert not any("commit gate" in failure for failure in record.final_check.failures), (

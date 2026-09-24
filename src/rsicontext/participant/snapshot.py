@@ -51,7 +51,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import cast
 
-from rsicontext.lifecycle.runner import ParticipantHook
+from rsicontext.lifecycle.runner import LifecycleRunRecord, ParticipantHook
 from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.session.state import (
     canonical_state_bytes,
@@ -389,7 +389,7 @@ class BranchRecord:
     branch_kind: BranchKind
     session_id: str
     snapshot_digest: str
-    run_records: tuple[object, ...]
+    run_records: tuple[LifecycleRunRecord, ...]
     transcript_digests: tuple[str | None, ...]
     store: SessionStateStore | None = None
 

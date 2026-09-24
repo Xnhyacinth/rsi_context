@@ -4,6 +4,8 @@ import importlib.util
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 SCRIPT_PATH = Path(__file__).parents[1] / "scripts" / "hy3_popqa_frozen_landscape.py"
 
 
@@ -17,7 +19,7 @@ def _load_script() -> ModuleType:
 
 
 def test_frozen_landscape_script_records_missing_credentials(
-    monkeypatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     script = _load_script()
     output = tmp_path / "landscape.json"

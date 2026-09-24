@@ -19,11 +19,11 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-from rsicontext.lifecycle.env import Action, ProjectState, Receipt
-from rsicontext.lifecycle.runner import run_lifecycle
+from rsicontext.lifecycle.env import ProjectState
+from rsicontext.lifecycle.runner import ParticipantHook, run_lifecycle
 from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
-from rsicontext.session.state import canonical_state_bytes, validate_state_bytes
+from rsicontext.session.state import canonical_state_bytes
 from rsicontext.session.store import SessionKind, SessionStateStore
 
 #: The persistence contract: the ONE state subtree that survives the
@@ -120,13 +120,13 @@ class SequenceRecord:
 
 def run_session_sequence(
     sessions: list[LifecycleInstance],
-    hook_factory: Callable[[dict[str, object]], object],
+    hook_factory: Callable[[dict[str, object]], ParticipantHook],
     *,
     envs: list[ProjectState] | None = None,
     budget: ToolBudget | None = None,
     registry: DocumentRegistry | None = None,
     max_turns_per_stage: int = 2,
-    decision_rules: "Callable[[SequenceRecord, list[LifecycleInstance]], None] | None" = None,
+    decision_rules: Callable[[SequenceRecord, list[LifecycleInstance]], None] | None = None,
 ) -> SequenceRecord:
     """Run the sessions in order with the persistence contract enforced.
 
@@ -211,7 +211,7 @@ def run_session_sequence(
                 persist_cause=persist_cause,
                 carry_bytes=carry_bytes,
                 passed=lifecycle_record.final_check.passed,
-                failures=list(lifecycle_record.final_check.failures)[:10],
+                failures=list(lifecycle_record.final_check.failures),
                 policy_errors=getattr(hook, "policy_errors", [])[:8],
                 model_calls=getattr(hook, "model_calls", 0),
                 model_tokens_in=getattr(hook, "model_tokens_in", 0),
@@ -251,7 +251,7 @@ def _derive_decisions(
 
     if not record.sessions:
         return
-    s1, s2, s3 = (record.sessions + [None, None, None])[:3]
+    s1, s2, s3 = [*record.sessions, None, None, None][:3]
 
     def _decision(key: str, session: SessionRecord | None, needle: str) -> None:
         failures = session.failures if session else []

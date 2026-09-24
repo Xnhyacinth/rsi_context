@@ -26,24 +26,11 @@ import argparse
 import json
 import sys
 import time
+from collections.abc import Mapping
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
-
-from rsicontext.lifecycle.env import ProjectState
-from rsicontext.lifecycle.dossier_variants import build_dossier_variant
-from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
-from rsicontext.lifecycle.policy import PolicyHook
-from rsicontext.lifecycle.runner import run_lifecycle
-from rsicontext.lifecycle.recuris_memory_policy import recuris_memory_policy_text
-from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
-from rsicontext.lifecycle.tools import ToolBudget
-from rsicontext.participant.recuris_real_arm import (
-    R2B_NEUTRAL_SEED,
-    RecurisAdaptedImprover,
-    package_to_state,
-)
 
 from r2a_compare import (
     READER_ENDPOINT,
@@ -55,14 +42,26 @@ from r2a_compare import (
     _run_arm,
 )
 
+from rsicontext.lifecycle.dossier_variants import build_dossier_variant
+from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
+from rsicontext.lifecycle.recuris_memory_policy import recuris_memory_policy_text
+from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
+from rsicontext.participant.recuris_real_arm import (
+    R2B_NEUTRAL_SEED,
+    RecurisAdaptedImprover,
+    package_to_state,
+)
+
 SEARCH_CANDIDATES = 3  # K — declared in advance (stats-contract §6)
 
 
-def _search_candidate_rounds(baseline, dev_experience, live: bool):
+def _search_candidate_rounds(
+    baseline: str, dev_experience: dict[str, object], live: bool
+) -> list[tuple[str, dict[str, object]]]:
     """K INDEPENDENT proposals: identical prompt, no cross-candidate
     state (each call re-derives from baseline + experience only)."""
 
-    rounds = []
+    rounds: list[tuple[str, dict[str, object]]] = []
     for candidate_index in range(SEARCH_CANDIDATES):
         policy, record = _researcher_unassisted_round(baseline, dev_experience, live)
         record = dict(record, candidate_index=candidate_index)
@@ -131,16 +130,16 @@ def main() -> int:
             if had_on_turn
             else "no-policy (kept baseline)"
         )
-        update_record["round_outcome"] = (
-            f"{prefix}: {update_record.get('round_outcome')}"
-        )
+        update_record["round_outcome"] = f"{prefix}: {update_record.get('round_outcome')}"
     dev_update = _run_arm(updated_policy, dev_inst, responder)
     eval_update = _run_arm(updated_policy, eval_inst, responder)
 
     # Arm 3: non-adaptive strategy search.
     candidate_rounds = _search_candidate_rounds(baseline, dev_experience, live)
-    candidates = []
-    for policy, record in candidate_rounds:
+    candidates: list[dict[str, object]] = []
+    selected_index: int | None = None
+    selected_run: dict[str, object] | None = None
+    for index, (policy, record) in enumerate(candidate_rounds):
         if not _policy_loadable(policy):
             candidates.append({"usable": False, "record": record, "dev_run": None})
             continue
@@ -153,54 +152,52 @@ def main() -> int:
                 "dev_run": dev_run,
             }
         )
+        if selected_index is None and dev_run["policy_errors"] == []:
+            selected_index = index
+            selected_run = dev_run
     # DECLARED selection rule (fixed before running): first usable
     # candidate in proposal order with zero policy errors on dev; if
     # none qualify, the baseline stands (recorded).
-    selected = None
-    for candidate in candidates:
-        if candidate["usable"] and candidate["dev_run"]["policy_errors"] == []:
-            selected = candidate
-            break
-    if selected is None:
+    if selected_index is None:
         search_policy = baseline
         selection_note = "no usable zero-error candidate; baseline stands"
     else:
-        search_policy = None  # resolved below from the candidate head only
-        selection_note = (
-            f"candidate #{selected['record']['candidate_index']} selected (declared rule)"
-        )
-    # The search arm's POLICY is the selected candidate's — but we only
-    # kept its head; re-run selection from the kept rounds.
-    if selected is not None:
-        idx = selected["record"]["candidate_index"]
-        search_policy, _ = candidate_rounds[idx]
+        search_policy, _ = candidate_rounds[selected_index]
+        selection_note = f"candidate #{selected_index} selected (declared rule)"
     eval_search = _run_arm(search_policy, eval_inst, responder)
 
     # Arm 4: recuris_adapted (the REAL Recuris loop) + its S0-MATCHED
     # control cell. The control: the SAME frozen memory-aware policy
     # with the NEUTRAL package, never updated — Δ_update_recuris =
-    # J(S_k) − J(S0-matched) isolates MEMORY EVOLUTION (the policy form
+    # J(S_k) - J(S0-matched) isolates MEMORY EVOLUTION (the policy form
     # is constant), exactly the confound the spec names.
     import json as _json
 
     recuris_policy = recuris_memory_policy_text()
     dev_s0_matched = _run_arm(
-        recuris_policy, dev_inst, responder,
+        recuris_policy,
+        dev_inst,
+        responder,
         initial_state=package_to_state(R2B_NEUTRAL_SEED),
     )
     eval_s0_matched = _run_arm(
-        recuris_policy, eval_inst, responder,
+        recuris_policy,
+        eval_inst,
+        responder,
         initial_state=package_to_state(R2B_NEUTRAL_SEED),
     )
 
-    def recuris_dev_runner(package: dict) -> dict:
+    def recuris_dev_runner(package: dict[str, object]) -> dict[str, object]:
         return _run_arm(
-            recuris_policy, dev_inst, responder,
+            recuris_policy,
+            dev_inst,
+            responder,
             initial_state=package_to_state(package),
         )
 
     if live:
-        def recuris_meta_agent(prompt: str):
+
+        def recuris_meta_agent(prompt: str) -> str | tuple[str, Mapping[str, object]]:
             # The live Meta-Agent: the researcher model over the package +
             # trace prompt. Robustness per the wiring audit (contract §6):
             # TRANSPORT-only retries (5 attempts / 10s backoff — a
@@ -237,10 +234,11 @@ def main() -> int:
             )
             for _attempt in range(5):
                 try:
-                    with urllib.request.urlopen(request, timeout=600) as response:
+                    # READER_ENDPOINT is the fixed HTTPS URL from r2a_compare.
+                    with urllib.request.urlopen(request, timeout=600) as response:  # nosec B310
                         raw = json.loads(response.read())
                     break
-                except (urllib.error.URLError, TimeoutError) as exc:
+                except (urllib.error.URLError, TimeoutError):
                     if _attempt == 4:
                         raise
                     _time.sleep(10.0)
@@ -257,7 +255,8 @@ def main() -> int:
             usage["finish_reason"] = choice.get("finish_reason")
             return content, usage
     else:
-        def recuris_meta_agent(prompt: str) -> str:
+
+        def recuris_meta_agent(prompt: str) -> str | tuple[str, Mapping[str, object]]:
             # Offline deterministic stub: proposes a placeholder card for
             # the FIRST failed decision cited in the trace (evidence
             # cites a real failure; the body is a placeholder — passes
@@ -290,11 +289,11 @@ def main() -> int:
     improver = RecurisAdaptedImprover(
         meta_agent=recuris_meta_agent, dev_runner=recuris_dev_runner, rounds=2
     )
-    final_package, recuris_record = improver.improve(
-        _json.loads(_json.dumps(R2B_NEUTRAL_SEED))
-    )
+    final_package, recuris_record = improver.improve(_json.loads(_json.dumps(R2B_NEUTRAL_SEED)))
     eval_recuris = _run_arm(
-        recuris_policy, eval_inst, responder,
+        recuris_policy,
+        eval_inst,
+        responder,
         initial_state=package_to_state(final_package),
     )
     # The dev-side numbers come from the improver's OWN final incumbent
@@ -303,8 +302,11 @@ def main() -> int:
     # that would silently inflate the arm's dev-run column.
     dev_recuris = recuris_record["final_incumbent_run"]
 
-    def _score(run: dict) -> int:
-        return int(run["passed"])
+    def _score(run: dict[str, object]) -> int:
+        passed = run["passed"]
+        if not isinstance(passed, bool):
+            raise TypeError("arm run must report a boolean passed field")
+        return int(passed)
 
     delta_update = _score(eval_update) - _score(eval_fixed)
     delta_practical = _score(eval_search) - _score(eval_fixed)
@@ -329,7 +331,7 @@ def main() -> int:
             "non_adaptive_search": {
                 "selection_note": selection_note,
                 "candidates": [{k: v for k, v in c.items() if k != "dev_run"} for c in candidates],
-                "dev": selected["dev_run"] if selected else dev_fixed,
+                "dev": selected_run if selected_run is not None else dev_fixed,
                 "eval_mirror": eval_search,
             },
             "recuris_s0_matched": {

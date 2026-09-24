@@ -22,6 +22,75 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any, TypedDict, cast
+
+
+class _FinalCheck(TypedDict):
+    passed: bool
+    failures: list[str]
+
+
+class _RunRecord(TypedDict):
+    instance_id: str
+    final_check: _FinalCheck
+
+
+class _RecordSet(TypedDict):
+    run_records: list[_RunRecord]
+
+
+class _LeakProbe(TypedDict):
+    entries_scanned: int
+
+
+class _Replay(TypedDict):
+    transcript_equal: bool
+
+
+class _ArmPayload(TypedDict):
+    visible: _RecordSet
+    gate: _RecordSet
+    leak_probe: _LeakProbe
+    replay: _Replay
+
+
+class _ArmSummary(TypedDict):
+    n: int
+    correct: int
+    accuracy: float
+    visible_accuracy: float
+    gate_accuracy: float
+    failure_classes: dict[str, int]
+    leak_probe_entries: int
+    replay_transcript_equal: bool
+
+
+def _load_arm(path: Path) -> _ArmPayload:
+    raw: object = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError(f"{path}: arm artifact must be a JSON object")
+    for section in ("visible", "gate"):
+        records = raw.get(section)
+        if not isinstance(records, dict) or not isinstance(records.get("run_records"), list):
+            raise ValueError(f"{path}: {section}.run_records must be a list")
+        for record in records["run_records"]:
+            if not isinstance(record, dict) or not isinstance(record.get("instance_id"), str):
+                raise ValueError(f"{path}: {section} has an invalid run record")
+            check = record.get("final_check")
+            if (
+                not isinstance(check, dict)
+                or not isinstance(check.get("passed"), bool)
+                or not isinstance(check.get("failures"), list)
+                or not all(isinstance(failure, str) for failure in check["failures"])
+            ):
+                raise ValueError(f"{path}: {section} has an invalid final_check")
+    leak_probe = raw.get("leak_probe")
+    replay = raw.get("replay")
+    if not isinstance(leak_probe, dict) or not isinstance(leak_probe.get("entries_scanned"), int):
+        raise ValueError(f"{path}: leak_probe.entries_scanned must be an integer")
+    if not isinstance(replay, dict) or not isinstance(replay.get("transcript_equal"), bool):
+        raise ValueError(f"{path}: replay.transcript_equal must be a boolean")
+    return cast(_ArmPayload, raw)
 
 
 def _failure_class(answer: str, expected: str, failures: list[str]) -> str:
@@ -44,11 +113,11 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
-    arms: dict[str, dict] = {}
+    arms: dict[str, _ArmPayload] = {}
     for arm, path in (("fixed", args.fixed), ("experience", args.experience), ("ds", args.ds)):
-        arms[arm] = json.loads(path.read_text(encoding="utf-8"))
+        arms[arm] = _load_arm(path)
 
-    per_arm: dict[str, dict[str, object]] = {}
+    per_arm: dict[str, _ArmSummary] = {}
     for arm, payload in arms.items():
         vis = payload["visible"]["run_records"]
         gate = payload["gate"]["run_records"]
@@ -105,7 +174,7 @@ def main() -> int:
     disagreement = sum(1 for k in common if keys_a[k] != keys_b[k]) / len(common) if common else 0.0
 
     fixed_failure_rate = 1.0 - per_arm["fixed"]["accuracy"]
-    report = {
+    report: dict[str, Any] = {
         "schema_version": 1,
         "panel": "research-v1-difficulty-qualification",
         "arms": per_arm,

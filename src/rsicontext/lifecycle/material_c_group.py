@@ -88,6 +88,8 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
 
     from rsicontext.lifecycle.material_v4_dossier import (
         _SUPPLIERS,
+    )
+    from rsicontext.lifecycle.material_v4_dossier import (
         _doc as mother_doc,
     )
 

@@ -18,9 +18,12 @@ from __future__ import annotations
 
 import contextlib
 import json
+from pathlib import Path
 
 import pytest
 
+from rsicontext.lifecycle.runner import StageResponse, StageView
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.participant.registration import (
     EvidenceTier,
     ImprovementRoundInput,
@@ -41,7 +44,7 @@ from rsicontext.participant.usage import UsageReport
 from rsicontext.session import SessionKind, SessionStateStore
 
 
-def _build_rows(rows: list[dict[str, object]]) -> list[object]:
+def _build_rows(rows: list[dict[str, object]]) -> list[LifecycleInstance]:
     """PopQA-shaped rows -> lifecycle instances (the existing constructor)."""
 
     from rsicontext.lifecycle import build_example_instance
@@ -89,13 +92,13 @@ class _ScriptedHook:
         self.carried = carried
         self.used: list[str] = []
 
-    def on_stage(self, stage: object) -> object:  # StageView duck type
+    def on_stage(self, stage: StageView) -> StageResponse:
         rule = self.carried.memory.get("rule")
         if isinstance(rule, str) and rule not in self.used:
             self.used.append(rule)
         notes = self.state.setdefault("notes", [])
-        notes.append(f"branch-note:{stage.stage_id}")  # type: ignore[attr-defined]
-        from rsicontext.lifecycle.runner import StageResponse
+        assert isinstance(notes, list)
+        notes.append(f"branch-note:{stage.stage_id}")
 
         return StageResponse(pack_text=f"branch [[doc:anchor]] {rule or 'none'}")
 
@@ -103,7 +106,7 @@ class _ScriptedHook:
 # --- freeze -------------------------------------------------------------------
 
 
-def test_freeze_captures_code_skills_and_memory_together(tmp_path) -> None:
+def test_freeze_captures_code_skills_and_memory_together(tmp_path: Path) -> None:
     store = SessionStateStore(schema=_SCHEMA)
     store.begin_session(SessionKind.VISIBLE, "dev-1", _CAP)
     store.write("dev-1", {"notes": ["keep exceptions", "verify sources"], "rule": "cite doc ids"})
@@ -157,7 +160,7 @@ def test_freeze_requires_a_begun_session_with_state() -> None:
 # --- branch construction -------------------------------------------------------
 
 
-def test_same_rule_in_code_skill_and_memory_gets_identical_carry(tmp_path) -> None:
+def test_same_rule_in_code_skill_and_memory_gets_identical_carry(tmp_path: Path) -> None:
     store = SessionStateStore(schema=_SCHEMA)
     store.begin_session(SessionKind.VISIBLE, "dev-1", _CAP)
     store.write("dev-1", {"rule": "R1"})
@@ -198,7 +201,7 @@ def test_same_rule_in_code_skill_and_memory_gets_identical_carry(tmp_path) -> No
     assert all(c.skill_files.get("skill_rule.md") == "Use R1.\n" for c in seen)
 
 
-def test_branch_state_never_writes_back(tmp_path) -> None:
+def test_branch_state_never_writes_back(tmp_path: Path) -> None:
     store = SessionStateStore(schema=_SCHEMA)
     store.begin_session(SessionKind.VISIBLE, "dev-1", _CAP)
     store.write("dev-1", {"rule": "R1"})
@@ -236,7 +239,7 @@ def test_branch_state_never_writes_back(tmp_path) -> None:
     assert snapshot.memory == {"rule": "R1"}
 
 
-def test_in_place_nested_mutation_does_not_reach_snapshot_or_siblings(tmp_path) -> None:
+def test_in_place_nested_mutation_does_not_reach_snapshot_or_siblings(tmp_path: Path) -> None:
     # Reviewer 1.1: dict() is a shallow copy — a hook using the natural
     # in-place forms (state['nested']['k'] = v, notes.append(...)) must
     # NOT reach the snapshot's memory or a later sibling branch.
@@ -252,15 +255,14 @@ def test_in_place_nested_mutation_does_not_reach_snapshot_or_siblings(tmp_path) 
         def __init__(self, state: dict[str, object], carry: LearningCarry) -> None:
             super().__init__(state, carry)
 
-        def on_stage(self, stage: object) -> object:
+        def on_stage(self, stage: StageView) -> StageResponse:
             # In-place nested mutation — the reviewer's reproduced shape.
             nested = self.state.setdefault("nested", {})
             if isinstance(nested, dict):
                 nested["keep"] = 999
             notes = self.state.setdefault("notes", [])
+            assert isinstance(notes, list)
             notes.append("branch-A note")
-            from rsicontext.lifecycle.runner import StageResponse
-
             return StageResponse(pack_text="in-place mutation")
 
     run_evaluation_branch(
@@ -301,7 +303,7 @@ def test_in_place_nested_mutation_does_not_reach_snapshot_or_siblings(tmp_path) 
     assert observed[0]["notes"] == ["kept from dev"]
 
 
-def test_carry_survives_a_crash_before_first_save(tmp_path) -> None:
+def test_carry_survives_a_crash_before_first_save(tmp_path: Path) -> None:
     # Reviewer 1.2: if the hook raises before the first save, a LATER
     # load must still receive the carry (the flag may not flip at load
     # time and read an empty session).
@@ -342,7 +344,7 @@ def test_carry_survives_a_crash_before_first_save(tmp_path) -> None:
     assert load() == {"rule": "R1"}
 
 
-def test_leak_probe_composes_over_branch_store(tmp_path) -> None:
+def test_leak_probe_composes_over_branch_store(tmp_path: Path) -> None:
     # Reviewer 1.3: the branch store is exposed on BranchRecord so the
     # pre-registered leak probe composes on top of evaluation branches
     # exactly as over plain sessions — and a leaking branch is caught.
@@ -413,7 +415,7 @@ def test_safe_relative_path_parity_with_registration() -> None:
             assert not snapshot_ok, case
 
 
-def test_branches_carry_schema_and_cap_discipline(tmp_path) -> None:
+def test_branches_carry_schema_and_cap_discipline(tmp_path: Path) -> None:
     store = SessionStateStore(schema=_SCHEMA)
     store.begin_session(SessionKind.VISIBLE, "dev-1", _CAP)
     store.write("dev-1", {"rule": "R1"})
@@ -445,7 +447,7 @@ def test_branches_carry_schema_and_cap_discipline(tmp_path) -> None:
         )
 
 
-def test_same_name_entity_across_worlds_is_not_auto_cleared(tmp_path) -> None:
+def test_same_name_entity_across_worlds_is_not_auto_cleared(tmp_path: Path) -> None:
     # Review case 4: a new world reusing an old world's entity name must
     # meet the carried state, not a silently wiped one. The framework
     # provides the carry; discrimination is the participant's problem.
@@ -481,7 +483,7 @@ class _NoopImprover:
         return ImprovementRoundOutput(agent_files_changed={}, state_update=None, usage=_usage())
 
 
-def _registration(tmp_path, state_spec: StateSpec) -> Registration:
+def _registration(tmp_path: Path, state_spec: StateSpec) -> Registration:
     agent_dir = tmp_path / "agent"
     agent_dir.mkdir(exist_ok=True)
     return Registration(
@@ -502,7 +504,7 @@ def _registration(tmp_path, state_spec: StateSpec) -> Registration:
     )
 
 
-def test_snapshot_advances_s0_to_s1(tmp_path) -> None:
+def test_snapshot_advances_s0_to_s1(tmp_path: Path) -> None:
     # The improvement round's state_update becomes the S1 snapshot's
     # memory: the frozen-snapshot contract applies to the improver's own
     # output, so an update that is legal state travels as state.
@@ -557,7 +559,7 @@ def test_snapshot_advances_s0_to_s1(tmp_path) -> None:
     assert s1.schema == s0.schema
 
 
-def test_branch_store_adapters_read_snapshot_memory_on_first_load(tmp_path) -> None:
+def test_branch_store_adapters_read_snapshot_memory_on_first_load(tmp_path: Path) -> None:
     # The first load of a branch session returns the SNAPSHOT's memory —
     # the legitimate carry — not byte-empty state. Later loads read the
     # branch's own evolving state.

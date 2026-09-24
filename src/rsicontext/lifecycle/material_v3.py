@@ -294,7 +294,7 @@ def build_research_v3_instance(*, instance_id: str = "research-v3-main-0001") ->
                 documents=(rule_change_doc,),
                 gold_evidence_ids=(),
                 rule_change_effect=_PROTOCOL_REVISION_NEW,
-                rule_change_scope=list(_REVISION_SCOPE),
+                rule_change_scope=tuple(_REVISION_SCOPE),
             ),
             StageSpec(
                 stage_id="s5-act-verify",

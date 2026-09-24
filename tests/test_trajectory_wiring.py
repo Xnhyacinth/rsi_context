@@ -15,6 +15,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -45,7 +46,7 @@ def test_offline_trajectory_closes_the_loop(tmp_path: Path) -> None:
     assert payload["reference_executor"]["final_check_passed"] is True
     assert payload["reference_executor"]["committed_plan"] == "aurora"
 
-    def _final_check_passed(variant: dict) -> bool:
+    def _final_check_passed(variant: dict[str, Any]) -> bool:
         checks = variant.get("final_checks", [])
         return bool(checks) and all(entry["passed"] for entry in checks)
 
@@ -238,9 +239,7 @@ def test_multi_round_state_update_accumulates(tmp_path: Path) -> None:
     # present in the FINAL snapshot's accumulated memory — later rounds
     # appended, they did not replace.
     final_notes = payload["ds_arm"]["rounds"][-1]["memory_notes"]
-    assert any(
-        "invalidate only in-scope" in str(note) for note in final_notes
-    ), final_notes
+    assert any("invalidate only in-scope" in str(note) for note in final_notes), final_notes
     # And every round's own note survives to the end.
     for round_record in payload["ds_arm"]["rounds"]:
         for note in round_record["state_update"].get("notes", []):
@@ -253,7 +252,7 @@ def test_seed_does_not_reach_material(tmp_path: Path) -> None:
     # results once the seed field, session/instance ids, and elapsed
     # time are normalized away — same surfaces, same worlds, same
     # final-check outcomes.
-    def run(seed: int) -> dict:
+    def run(seed: int) -> dict[str, Any]:
         out = tmp_path / f"seed-{seed}.json"
         result = subprocess.run(
             [
@@ -271,12 +270,14 @@ def test_seed_does_not_reach_material(tmp_path: Path) -> None:
             timeout=120,
         )
         assert result.returncode == 0, result.stderr[-2000:]
-        return json.loads(out.read_text(encoding="utf-8"))
+        payload = json.loads(out.read_text(encoding="utf-8"))
+        assert isinstance(payload, dict)
+        return payload
 
     a = run(11)
     b = run(29)
 
-    def normalized(payload: dict) -> dict:
+    def normalized(payload: dict[str, Any]) -> dict[str, Any]:
         copy = json.loads(json.dumps(payload))
         copy.pop("seed", None)
         copy.pop("elapsed_seconds", None)
@@ -285,7 +286,9 @@ def test_seed_does_not_reach_material(tmp_path: Path) -> None:
         import re
 
         text = re.sub(r"-s\d+-", "-X-", text)
-        return json.loads(text)
+        normalized_payload = json.loads(text)
+        assert isinstance(normalized_payload, dict)
+        return normalized_payload
 
     assert normalized(a) == normalized(b)
 
@@ -379,10 +382,7 @@ def test_reader_reply_feeds_plan_and_check_decisions() -> None:
         DocumentRef(
             doc_id="doc-verif-db",
             title="Verification protocol",
-            text=(
-                "The protocol defines the replica-lag check and the "
-                "disk-encryption check."
-            ),
+            text=("The protocol defines the replica-lag check and the disk-encryption check."),
             source_url="test",
             retrieved_date="2026-09-21",
         ),
@@ -410,7 +410,9 @@ def test_reader_reply_feeds_plan_and_check_decisions() -> None:
     assert plan == "cumulus"  # from the READER's reply, not the doc stub
     assert "replica-lag" in checks and "disk-encryption" in checks
     # And the replies are recorded as the decision evidence.
-    assert any("cumulus" in str(n) for n in hook.state.get("notes", []))
+    notes = hook.state.get("notes", [])
+    assert isinstance(notes, list)
+    assert any("cumulus" in str(n) for n in notes)
 
 
 def test_variance_floor_and_gate_failure_counts(tmp_path: Path) -> None:

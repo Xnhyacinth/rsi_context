@@ -309,7 +309,7 @@ _VERIFICATION_ORACLE: dict[str, dict[str, bool]] = {
     },
 }
 
-_LEGAL_PLANS = ("atlas-carriage",)
+_LEGAL_PLANS: tuple[str, ...] = ("atlas-carriage",)
 
 
 def _doc(doc_id: str, title: str, text: str) -> DocumentRef:
@@ -498,12 +498,14 @@ def build_research_v4_dossier(
                 # Gold ids are DERIVED from the supplier tuple (minus the
                 # protocol doc) so corpus modifications (removal
                 # simulations) stay grammar-consistent automatically.
-                gold_evidence_ids=tuple(
-                    str(supplier["id"])
-                    for supplier in suppliers
-                    if str(supplier["id"]) in ("card-03", "card-17", "card-05", "card-08")
-                )
-                + ("doc-v4-verif-db",),
+                gold_evidence_ids=(
+                    *(
+                        str(supplier["id"])
+                        for supplier in suppliers
+                        if str(supplier["id"]) in ("card-03", "card-17", "card-05", "card-08")
+                    ),
+                    "doc-v4-verif-db",
+                ),
             ),
             StageSpec(
                 stage_id="s2-constraint",

@@ -21,10 +21,10 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import cast
 
 DevRunner = Callable[[dict[str, object]], dict[str, object]]
-MetaAgent = Callable[[str], str]
+MetaAgent = Callable[[str], str | tuple[str, Mapping[str, object]]]
 
 #: The patch vocabulary (the component/action menus the validator pins).
 COMPONENTS = ("E", "W", "RHO")
@@ -72,6 +72,26 @@ class RoundRecord:
         }
 
 
+def _delivery_records(logs: object) -> list[tuple[str, str | None, list[str]]]:
+    """Normalize stage-identified logs and historical [kind, card-id...] logs."""
+
+    if not isinstance(logs, list):
+        return []
+    records: list[tuple[str, str | None, list[str]]] = []
+    for log in logs:
+        if isinstance(log, dict):
+            kind = log.get("stage_kind")
+            stage_id = log.get("stage_id")
+            card_ids = log.get("card_ids")
+            if isinstance(kind, str) and isinstance(stage_id, str) and isinstance(card_ids, list):
+                records.append(
+                    (kind, stage_id, [card for card in card_ids if isinstance(card, str)])
+                )
+        elif isinstance(log, list) and log and isinstance(log[0], str):
+            records.append((log[0], None, [card for card in log[1:] if isinstance(card, str)]))
+    return records
+
+
 def build_trace_doc(run: Mapping[str, object]) -> dict[str, object]:
     """(w_t, E_t, a_t, o_t) per turn, from the run's own records.
 
@@ -81,13 +101,24 @@ def build_trace_doc(run: Mapping[str, object]) -> dict[str, object]:
     o_t = the receipts the policy logged + the graded failures.
     """
 
-    state = run.get("final_state") if isinstance(run.get("final_state"), dict) else {}
-    delivered = state.get("memory_delivered") if isinstance(state, dict) else []
-    obs = state.get("obs") if isinstance(state, dict) else []
+    state_value = run.get("final_state")
+    state = state_value if isinstance(state_value, dict) else {}
+    delivered = state.get("memory_delivered")
+    delivery_records = _delivery_records(delivered)
+    legacy_by_kind: dict[str, list[list[str]]] = {}
+    for kind, stage_id, card_ids in delivery_records:
+        if stage_id is None:
+            legacy_by_kind.setdefault(kind, []).append(card_ids)
+    legacy_positions: dict[str, int] = {}
+    obs = state.get("obs") or []
     transcript = run.get("model_transcript") or []
+    assert isinstance(obs, list)
+    assert isinstance(transcript, list)
     turns: list[dict[str, object]] = []
     stage_records = run.get("stage_records") or []
-    for index, stage in enumerate(stage_records):
+    assert isinstance(stage_records, list)
+    for stage in stage_records:
+        assert isinstance(stage, dict)
         stage_id = stage.get("stage_id", "?")
         stage_kind = stage.get("kind", "?")
         # Prefer stage_id matching (stage KINDS repeat across sessions —
@@ -102,6 +133,8 @@ def build_trace_doc(run: Mapping[str, object]) -> dict[str, object]:
             }
             for call in transcript
             if isinstance(call, dict)
+            and isinstance(call.get("prompt_head") or "", str)
+            and isinstance(call.get("reply_head") or "", str)
             and (
                 (stage_id != "?" and call.get("stage_id") == stage_id)
                 or (
@@ -111,16 +144,25 @@ def build_trace_doc(run: Mapping[str, object]) -> dict[str, object]:
                 )
             )
         ]
-        delivered_here = [
-            entry
-            for entry in delivered or []
-            if isinstance(entry, list) and entry and entry[0] == stage_kind
+        matched = [
+            card_ids
+            for kind, logged_stage_id, card_ids in delivery_records
+            if kind == stage_kind and logged_stage_id == stage_id
         ]
+        if not matched:
+            # Historical logs have no stage id. Pair repeated kinds in order;
+            # multiple turns within one old stage cannot be disambiguated.
+            legacy = legacy_by_kind.get(stage_kind, [])
+            position = legacy_positions.get(stage_kind, 0)
+            if position < len(legacy):
+                matched = [legacy[position]]
+                legacy_positions[stage_kind] = position + 1
+        delivered_cards = list(dict.fromkeys(card for card_ids in matched for card in card_ids))
         turns.append(
             {
                 "stage": stage_kind,
                 "stage_id": stage_id,
-                "delivered_cards": (delivered_here[0][1:] if delivered_here else []),
+                "delivered_cards": delivered_cards,
                 "actions": stage.get("actions_applied", 0),
                 "model_calls": calls,
             }
@@ -128,14 +170,14 @@ def build_trace_doc(run: Mapping[str, object]) -> dict[str, object]:
     return {
         "world": run.get("instance_id"),
         "run_result": "passed" if run.get("passed") else "failed",
-        "decisions": dict(run.get("decisions") or {}),
-        "failures": list(run.get("failures") or []),
-        "policy_errors": list(run.get("policy_errors") or []),
+        "decisions": dict(_mapping_or_empty(run.get("decisions"))),
+        "failures": list(_list_or_empty(run.get("failures"))),
+        "policy_errors": list(_list_or_empty(run.get("policy_errors"))),
         "usage": {
             "model_calls": run.get("model_calls", 0),
             "tokens_in": run.get("model_tokens_in", 0),
         },
-        "obs_sample": [list(o) for o in (obs or [])[:20] if isinstance(o, list)],
+        "obs_sample": [list(o) for o in obs[:20] if isinstance(o, list)],
         "turns": turns,
     }
 
@@ -145,6 +187,29 @@ def _digest(package: dict[str, object]) -> str:
 
     blob = json.dumps(package, sort_keys=True, ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(blob).hexdigest()[:12]
+
+
+def _mapping_or_empty(value: object) -> Mapping[str, object]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise TypeError("expected a mapping")
+    return value
+
+
+def _list_or_empty(value: object) -> list[object]:
+    if value is None:
+        return []
+    if not isinstance(value, (list, tuple)):
+        raise TypeError("expected a list")
+    return list(value)
+
+
+def _entry_ids(package: Mapping[str, object]) -> set[str]:
+    entries = _list_or_empty(package.get("entries"))
+    if not all(isinstance(entry, Mapping) for entry in entries):
+        raise PlanBounce("package entries must be objects")
+    return {str(entry.get("id")) for entry in cast(list[Mapping[str, object]], entries)}
 
 
 def validate_plan(
@@ -180,9 +245,10 @@ def validate_plan(
     if component not in COMPONENTS or action not in COMPONENT_ACTIONS.get(str(component), ()):
         raise PlanBounce(f"component/action pair ({component!r}, {action!r}) not in the menu")
     evidence = cluster.get("evidence") or []
-    failed_decisions = [
-        key for key, value in (trace.get("decisions") or {}).items() if value is False
-    ]
+    if not isinstance(evidence, list):
+        raise PlanBounce("evidence must be a list")
+    decisions = _mapping_or_empty(trace.get("decisions"))
+    failed_decisions = [key for key, value in decisions.items() if value is False]
     if not failed_decisions:
         raise PlanBounce("nothing failed on the dev run; no repair target")
     cited = [str(item) for item in evidence if isinstance(item, str)]
@@ -192,7 +258,7 @@ def validate_plan(
     # valid if it contains a failed decision's NAME or any of that
     # decision's failure strings from the trace.
     failure_by_decision: dict[str, list[str]] = {}
-    for failure in trace.get("failures") or []:
+    for failure in _list_or_empty(trace.get("failures")):
         text_failure = str(failure)
         for decision in failed_decisions:
             if decision in ("award",) and "commit gate" in text_failure:
@@ -224,17 +290,19 @@ def validate_plan(
         raise PlanBounce(f"ledger: {key} was already tried (do-not-repeat)")
     if action == "add_card":
         card = cluster.get("card") or {}
+        if not isinstance(card, Mapping):
+            raise PlanBounce("add_card requires a card object")
         body = str(card.get("body", ""))
         if not body.strip():
             raise PlanBounce("add_card requires a card body")
         field = card.get("requires_field")
         if field is not None and field not in disclosure.get("state_fields", ()):
             raise PlanBounce(f"capability disclosure: state field {field!r} is not tracked")
-        existing = {str(e.get("id")) for e in package.get("entries", ())}
+        existing = _entry_ids(package)
         if target in existing:
             raise PlanBounce(f"card id {target!r} already exists (use edit_card)")
     if action == "edit_card":
-        existing = {str(e.get("id")) for e in package.get("entries", ())}
+        existing = _entry_ids(package)
         if target not in existing:
             raise PlanBounce(f"edit_card target {target!r} does not exist")
     return dict(cluster)
@@ -257,31 +325,35 @@ def validate_plan(
 def apply_patch(package: dict[str, object], cluster: Mapping[str, object]) -> dict[str, object]:
     """ONE component-scoped patch (pure data; the package is a mapping)."""
 
-    component = str(cluster.get("component"))
     action = str(cluster.get("action"))
     target = str(cluster.get("target"))
-    patched = json.loads(json.dumps(package))
+    patched = cast(dict[str, object], json.loads(json.dumps(package)))
     if action in ("add_card", "edit_card"):
-        card = dict(cluster.get("card") or {})
+        card = dict(_mapping_or_empty(cluster.get("card")))
         card.setdefault("id", target)
         card.setdefault("stage", "*")
         card.setdefault("requires_field", None)
-        entries = list(patched.get("entries") or [])
+        entries = list(_list_or_empty(patched.get("entries")))
+        if not all(isinstance(entry, Mapping) for entry in entries):
+            raise PlanBounce("package entries must be objects")
         if action == "add_card":
             entries.append(card)
         else:
-            entries = [card if str(e.get("id")) == target else e for e in entries]
+            entries = [
+                card if str(e.get("id")) == target else e
+                for e in cast(list[Mapping[str, object]], entries)
+            ]
         patched["entries"] = entries
     elif action == "set_max_cards":
         value = cluster.get("value")
         if not isinstance(value, int) or isinstance(value, bool) or value < 1:
             raise PlanBounce("set_max_cards needs a positive integer value")
-        rho = dict(patched.get("invocation") or {})
+        rho = dict(_mapping_or_empty(patched.get("invocation")))
         rho["max_cards_per_stage"] = value
         patched["invocation"] = rho
     elif action == "add_state_field":
-        w = dict(patched.get("working_memory") or {})
-        fields = dict(w.get("state_fields") or {})
+        w = dict(_mapping_or_empty(patched.get("working_memory")))
+        fields = dict(_mapping_or_empty(w.get("state_fields")))
         fields[target] = True
         w["state_fields"] = fields
         patched["working_memory"] = w
@@ -299,8 +371,8 @@ def run_gate(
     meaningless; the declared rule is strict improvement.
     """
 
-    inc_dec = dict(incumbent.get("decisions") or {})
-    cand_dec = dict(candidate.get("decisions") or {})
+    inc_dec = dict(_mapping_or_empty(incumbent.get("decisions")))
+    cand_dec = dict(_mapping_or_empty(candidate.get("decisions")))
     inc_sum = sum(1 for v in inc_dec.values() if v)
     cand_sum = sum(1 for v in cand_dec.values() if v)
     gate: dict[str, object] = {
@@ -314,22 +386,26 @@ def run_gate(
     regressed = [k for k in inc_dec if inc_dec.get(k) and not cand_dec.get(k)]
     if regressed:
         return False, f"regression on {regressed}", gate
-    inc_err = set(incumbent.get("policy_errors") or [])
-    cand_err = set(candidate.get("policy_errors") or [])
+    inc_errors = _list_or_empty(incumbent.get("policy_errors"))
+    cand_errors = _list_or_empty(candidate.get("policy_errors"))
+    if not all(isinstance(error, str) for error in (*inc_errors, *cand_errors)):
+        raise TypeError("policy_errors must contain strings")
+    inc_err = set(cast(list[str], inc_errors))
+    cand_err = set(cast(list[str], cand_errors))
     if not cand_err <= inc_err:
         return False, f"new policy errors: {sorted(cand_err - inc_err)}", gate
     # Fingerprint: the patched mechanism must have FIRED in the candidate.
     action = str(patch.get("action"))
     cand_state = candidate.get("final_state") or {}
     delivered = (cand_state.get("memory_delivered") if isinstance(cand_state, dict) else []) or []
-    delivered_ids = {entry for log in delivered if isinstance(log, list) for entry in log[1:]}
+    delivery_records = _delivery_records(delivered)
+    delivered_ids = {card for _, _, card_ids in delivery_records for card in card_ids}
     if action in ("add_card", "edit_card"):
         target = str(patch.get("target"))
         if target not in delivered_ids:
             return False, f"fingerprint: card {target!r} never fired", gate
-    if action == "set_max_cards":
-        if not delivered:
-            return False, "fingerprint: no cards delivered at all", gate
+    if action == "set_max_cards" and not delivery_records:
+        return False, "fingerprint: no cards delivered at all", gate
     gate["fingerprint_delivered_ids"] = sorted(delivered_ids)
     return True, "strict repair, no regression, fingerprint fired", gate
 
@@ -364,7 +440,7 @@ class RecurisAdaptedImprover:
     def improve(self, package: dict[str, object]) -> tuple[dict[str, object], dict[str, object]]:
         """Run the declared rounds; return (final package, run record)."""
 
-        current = json.loads(json.dumps(package))
+        current = cast(dict[str, object], json.loads(json.dumps(package)))
         incumbent_run = self._dev_runner(current)
         self.dev_runs_internal.append(incumbent_run)
         for round_index in range(self.rounds):
@@ -393,16 +469,21 @@ class RecurisAdaptedImprover:
                 # or (content, usage_dict) — the live caller's shape.
                 if isinstance(reply_raw, tuple) and len(reply_raw) == 2:
                     reply, usage = reply_raw
-                    self.meta_tokens_in += int(usage.get("prompt_tokens", 0) or 0)
-                    self.meta_tokens_out += int(usage.get("completion_tokens", 0) or 0)
+                    input_tokens = int(cast(int | float | str, usage.get("prompt_tokens", 0) or 0))
+                    output_tokens = int(
+                        cast(int | float | str, usage.get("completion_tokens", 0) or 0)
+                    )
+                    self.meta_tokens_in += input_tokens
+                    self.meta_tokens_out += output_tokens
                     self.meta_attempts.append(
                         {
                             "round": round_index,
                             "outcome": "ok",
                             "finish_reason": usage.get("finish_reason"),
+                            "model_echo": usage.get("model_echo"),
                             "reply_chars": len(str(reply)),
-                            "prompt_tokens": int(usage.get("prompt_tokens", 0) or 0),
-                            "completion_tokens": int(usage.get("completion_tokens", 0) or 0),
+                            "prompt_tokens": input_tokens,
+                            "completion_tokens": output_tokens,
                         }
                     )
                 else:
@@ -452,7 +533,7 @@ class RecurisAdaptedImprover:
             "meta_attempts": list(self.meta_attempts),
             "dev_runs_internal": [
                 {
-                    "decisions": dict(run.get("decisions") or {}),
+                    "decisions": dict(_mapping_or_empty(run.get("decisions"))),
                     "model_calls": run.get("model_calls", 0),
                     "model_tokens_in": run.get("model_tokens_in", 0),
                     "model_tokens_out": run.get("model_tokens_out", 0),
@@ -461,7 +542,7 @@ class RecurisAdaptedImprover:
                 for run in self.dev_runs_internal
             ],
             "final_incumbent_run": {
-                "decisions": dict(incumbent_run.get("decisions") or {}),
+                "decisions": dict(_mapping_or_empty(incumbent_run.get("decisions"))),
                 "model_calls": incumbent_run.get("model_calls", 0),
                 "model_tokens_in": incumbent_run.get("model_tokens_in", 0),
                 "model_tokens_out": incumbent_run.get("model_tokens_out", 0),
@@ -503,7 +584,7 @@ class RecurisAdaptedImprover:
                 return None
             parsed = json.loads(reply[start : end + 1])
             if isinstance(parsed, dict) and isinstance(parsed.get("clusters"), list):
-                return parsed
+                return cast(dict[str, object], parsed)
             return None
         except json.JSONDecodeError:
             return None
@@ -555,12 +636,12 @@ R2B_NEUTRAL_SEED: dict[str, object] = {
 
 __all__ = [
     "R2B_NEUTRAL_SEED",
+    "PlanBounce",
     "RecurisAdaptedImprover",
     "RoundRecord",
+    "apply_patch",
     "build_trace_doc",
+    "package_to_state",
     "run_gate",
     "validate_plan",
-    "apply_patch",
-    "package_to_state",
-    "PlanBounce",
 ]

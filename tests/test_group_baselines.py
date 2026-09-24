@@ -81,7 +81,7 @@ def test_b_baseline_passes_b1() -> None:
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             group_b_basline_policy_text(),
@@ -140,7 +140,7 @@ def test_c_baseline_passes_c1() -> None:
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             group_c_baseline_policy_text(),
@@ -224,7 +224,7 @@ def on_turn(turn):
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             naive,
@@ -264,7 +264,7 @@ def test_strong_fixed_is_a_strawman_on_b_and_c() -> None:
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def b_hook(state):
+    def b_hook(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             strong_model_fixed_policy_text(),
@@ -294,7 +294,7 @@ def test_strong_fixed_is_a_strawman_on_b_and_c() -> None:
     c_budget = ToolBudget()
     c_registry = DocumentRegistry()
 
-    def c_hook(state):
+    def c_hook(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             strong_model_fixed_policy_text(),

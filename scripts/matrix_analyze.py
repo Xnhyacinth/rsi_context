@@ -16,9 +16,10 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 
-def _cell_pass(variant: dict) -> bool | None:
+def _cell_pass(variant: dict[str, Any]) -> bool | None:
     checks = variant.get("final_checks", [])
     if not checks:
         return None
@@ -54,7 +55,7 @@ def summarize(path: Path) -> None:
     if failed:
         print(f"  FAILED ROUNDS: {failed}")
 
-    def table(name: str, branches: dict) -> None:
+    def table(name: str, branches: dict[str, Any]) -> None:
         rows: list[tuple[str, str]] = []
         gate_counts: list[int] = []
         for branch in ("continuation", "new_world", "regression"):

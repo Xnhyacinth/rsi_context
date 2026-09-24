@@ -301,7 +301,10 @@ class APIResearcherImprover:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=self.config.timeout_seconds) as response:
+            # APIResearcherConfig rejects non-HTTPS endpoints at construction.
+            with urllib.request.urlopen(  # nosec B310
+                request, timeout=self.config.timeout_seconds
+            ) as response:
                 payload = response.read()
         except (urllib.error.URLError, TimeoutError) as exc:
             raise APIResearcherTransportError(f"researcher endpoint unreachable: {exc}") from exc

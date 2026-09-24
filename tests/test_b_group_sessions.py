@@ -15,20 +15,24 @@ Pins from the design (bgroup agent, 2026-09-23):
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+
+from r2a_compare import _offline_responder
 
 from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.material_b_group import build_b1_sessions
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
-from rsicontext.lifecycle.session_sequence import CARRY_KEY, run_session_sequence
+from rsicontext.lifecycle.session_sequence import CARRY_KEY, SequenceRecord, run_session_sequence
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
-
-from r2a_compare import _offline_responder
-
 
 #: A carry-capable scripted policy: distills at session_end, distrusts
 #: stale carry at resume, re-requests evidence for the re-award, and
@@ -146,7 +150,9 @@ def on_turn(turn):
 """
 
 
-def _run_sequence(policy_text: str, envs=None):
+def _run_sequence(
+    policy_text: str, envs: list[ProjectState] | None = None
+) -> tuple[SequenceRecord, ToolBudget, DocumentRegistry, dict[str, PolicyHook]]:
     sessions = build_b1_sessions()
     if envs is None:
         envs = [ProjectState(), ProjectState(), ProjectState()]
@@ -154,9 +160,9 @@ def _run_sequence(policy_text: str, envs=None):
         envs = [envs[0], envs[0], envs[2]]
     budget = ToolBudget()
     registry = DocumentRegistry()
-    hook_holder = {}
+    hook_holder: dict[str, PolicyHook] = {}
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         hook = PolicyHook(
             state,
             policy_text,
@@ -173,7 +179,10 @@ def _run_sequence(policy_text: str, envs=None):
     return record, budget, registry, hook_holder
 
 
-def _run_sequence_with(builder, policy_text: str):
+def _run_sequence_with(
+    builder: Callable[[], tuple[LifecycleInstance, LifecycleInstance, LifecycleInstance]],
+    policy_text: str,
+) -> SequenceRecord:
     """The same sequence shape, over any B-world builder (dev or eval)."""
     sessions = list(builder())
     envs = [ProjectState(), ProjectState(), ProjectState()]
@@ -207,7 +216,7 @@ def test_grammar_and_boundary_realism() -> None:
 
 
 def test_persist_then_recover_roundtrip() -> None:
-    record, budget, registry, holder = _run_sequence(CARRY_POLICY)
+    record, _budget, registry, _holder = _run_sequence(CARRY_POLICY)
     # The carry survived: session 2+3's hook state started with the
     # distilled facts (the policy's session-2 answers prove it read the
     # carried calibration value).
@@ -218,20 +227,27 @@ def test_persist_then_recover_roundtrip() -> None:
     # the sequence runner seeds ONLY the carry subtree; pinned next).
     # Session 3's fresh-project answer uses the MIRROR's facts (the
     # registry replaced the patched cards' text).
-    assert registry.get("card-03").text != registry.get("card-02").text
+    card_03 = registry.get("card-03")
+    card_02 = registry.get("card-02")
+    assert card_03 is not None and card_02 is not None
+    assert card_03.text != card_02.text
 
 
 def test_registry_replaces_on_content_change() -> None:
     registry = DocumentRegistry()
-    from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
     from rsicontext.lifecycle.dossier_variants import build_dossier_variant
+    from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
 
     mother = build_research_v4_dossier()
     mirror = build_dossier_variant("mirror")
     registry.reveal(mother.stages[0].documents)
-    before = registry.get("card-03").text
+    before_doc = registry.get("card-03")
+    assert before_doc is not None
+    before = before_doc.text
     registry.reveal(mirror.stages[0].documents)
-    after = registry.get("card-03").text
+    after_doc = registry.get("card-03")
+    assert after_doc is not None
+    after = after_doc.text
     assert before != after, "the registry must serve the CURRENT world's text"
     assert "No exceptional clauses apply" in after
 
@@ -267,7 +283,7 @@ def on_turn(turn):
     return {"pack_text": "ok"}
 """
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             PROBE_POLICY,
@@ -332,7 +348,9 @@ def on_turn(turn):
             state["carry"]["winner"] = "atlas-carriage"
             state["carry"]["calibration"] = "vesper-instruments"
         return {"pack_text": "survey (mother-facts only)"}
-    if kind in ("session_end", "session_start", "rule_change", "constraint_injection", "delegation"):
+    if kind in (
+        "session_end", "session_start", "rule_change", "constraint_injection", "delegation"
+    ):
         return {"pack_text": "boundary"}
     if kind == "act_verify":
         winner = "atlas-carriage"
@@ -341,7 +359,9 @@ def on_turn(turn):
             "pack_text": "blind award",
             "actions": (
                 turn.actions.request_verification(ver, "customs-preclearance", winner),
-                turn.actions.create_record("candidate_status", {"plan": winner, "domain": "shipping"}),
+                turn.actions.create_record(
+                    "candidate_status", {"plan": winner, "domain": "shipping"}
+                ),
                 turn.actions.create_record("migration_commit", {"plan": winner}),
                 turn.actions.finalize(
                     "migration_commit",
@@ -371,7 +391,6 @@ def on_turn(turn):
 
 
 def test_oversized_carry_refused_with_cause() -> None:
-    big = CARRY_POLICY + "\n" + ("def _fill():\n    state = {}\n")
     # A policy that stuffs the carry beyond the cap: simulate directly.
     sessions = build_b1_sessions()
     env = ProjectState()
@@ -379,9 +398,9 @@ def test_oversized_carry_refused_with_cause() -> None:
     class Stuffer:
         # Stuffs ONLY session 1's end (later sessions behave): the next
         # session must start from the LAST SUCCESSFUL flush (empty).
-        def __init__(self, state):
+        def __init__(self, state: dict[str, object]) -> None:
             self.state = state
-            self.policy_errors = []
+            self.policy_errors: list[str] = []
             self.seen_session_end = False
 
         def on_stage(self, stage: StageView) -> StageResponse:
@@ -411,7 +430,7 @@ def test_sequence_record_exports_cost_and_transcript() -> None:
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             strong_model_fixed_policy_text(),
@@ -421,13 +440,15 @@ def test_sequence_record_exports_cost_and_transcript() -> None:
         )
 
     record = run_session_sequence(
-        sessions,
+        list(sessions),
         hook_factory,
         envs=[env, env, ProjectState()],
         budget=budget,
         registry=registry,
     )
     cost = record.cost()
+    assert isinstance(cost["model_calls"], int)
+    assert isinstance(cost["model_tokens_in"], int)
     assert cost["model_calls"] > 0  # the model channel was exercised
     assert cost["model_tokens_in"] > 0
     assert cost["tool_ledger"] is not None
@@ -436,7 +457,9 @@ def test_sequence_record_exports_cost_and_transcript() -> None:
     assert session0.model_transcript[0]["stage_kind"] == "survey"
     # The serialized record carries it too.
     payload = record.to_dict()
-    assert payload["cost"]["model_calls"] == cost["model_calls"]
+    payload_cost = payload["cost"]
+    assert isinstance(payload_cost, dict)
+    assert payload_cost["model_calls"] == cost["model_calls"]
 
 
 def test_r3_record_gaps_stage_records_and_hook_snapshot() -> None:
@@ -444,7 +467,7 @@ def test_r3_record_gaps_stage_records_and_hook_snapshot() -> None:
     # end-of-session hook-state snapshot (memory_delivered/obs/carry);
     # (5) decision_rules parameter overrides the B-shaped default; (3)
     # the audit transcript keys calls by stage_id.
-    record, budget, registry, holder = _run_sequence(CARRY_POLICY)
+    record, _budget, _registry, _holder = _run_sequence(CARRY_POLICY)
     session0 = record.sessions[0]
     # GAP 1: stage records present, dict-shaped, stage-tagged.
     assert session0.stage_records, "the trace's turn source"
@@ -471,7 +494,7 @@ def test_r3_record_gaps_stage_records_and_hook_snapshot() -> None:
     # GAP 5: decision_rules override (C-style: per-session passed).
     from rsicontext.lifecycle.session_sequence import run_session_sequence
 
-    def c_rules(rec, sessions):
+    def c_rules(rec: SequenceRecord, _sessions: list[LifecycleInstance]) -> None:
         rec.decisions = {f"session_{i}_passed": s.passed for i, s in enumerate(rec.sessions)}
 
     record2 = run_session_sequence(
@@ -524,11 +547,16 @@ def test_b1_reverse_grammar_and_swap() -> None:
     assert "suspended" not in rev3_text
     # The s5 gate's legal set is the mirror's winner; session 3's gate is
     # the mother's.
-    assert rev1.stages[3].commit_precondition["legal_plans"] == ["harborline-freight"]
-    assert rev3.stages[3].commit_precondition["legal_plans"] == ["atlas-carriage"]
+    rev1_gate = rev1.stages[3].commit_precondition
+    rev3_gate = rev3.stages[3].commit_precondition
+    assert rev1_gate is not None and rev3_gate is not None
+    assert rev1_gate["legal_plans"] == ["harborline-freight"]
+    assert rev3_gate["legal_plans"] == ["atlas-carriage"]
     # The s5 gate's oracle and session-2's calibration carry the mirror's
     # facts too.
-    assert rev1.stages[3].verification_oracle["customs-preclearance"]["harborline-freight"] is True
+    rev1_oracle = rev1.stages[3].verification_oracle
+    assert rev1_oracle is not None
+    assert rev1_oracle["customs-preclearance"]["harborline-freight"] is True
     assert rev2.stages[2].expected_state_delta == {
         "followup_conclusion-calibration": {"supplier": "orbit-hosting"}
     }
@@ -617,3 +645,32 @@ def test_reverse_world_is_passable_by_a_correct_policy() -> None:
     assert record.decisions.get("s2_reaward_fresh") is True, record.failure_detail
     assert record.decisions.get("s3_award") is True, record.failure_detail
     assert record.decisions.get("s3_calibration") is True, record.failure_detail
+
+
+def test_late_session_failure_is_kept_for_scoring(monkeypatch: pytest.MonkeyPatch) -> None:
+    failures = [f"earlier failure {i}" for i in range(10)] + ["commit gate: late failure"]
+
+    def fake_run_lifecycle(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(
+            final_check=SimpleNamespace(passed=False, failures=failures),
+            stage_records=[],
+        )
+
+    def score_last_failure(record: SequenceRecord, _sessions: list[LifecycleInstance]) -> None:
+        record.decisions["late_commit"] = not any(
+            "commit gate" in failure for failure in record.sessions[0].failures
+        )
+
+    monkeypatch.setattr("rsicontext.lifecycle.session_sequence.run_lifecycle", fake_run_lifecycle)
+
+    class NoopHook:
+        def on_stage(self, _stage: StageView) -> StageResponse:
+            return StageResponse(pack_text="ok")
+
+    record = run_session_sequence(
+        [build_b1_sessions()[0]],
+        lambda _state: NoopHook(),
+        decision_rules=score_last_failure,
+    )
+    assert len(record.sessions[0].failures) == 11
+    assert record.decisions["late_commit"] is False

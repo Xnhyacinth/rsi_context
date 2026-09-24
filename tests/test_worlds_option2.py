@@ -51,16 +51,27 @@ _V2_WORLD_IDS = {
 }
 
 
+def _candidates(definition: dict[str, object]) -> list[dict[str, object]]:
+    value = definition["candidates"]
+    assert isinstance(value, (list, tuple))
+    assert all(isinstance(candidate, dict) for candidate in value)
+    return list(value)
+
+
+def _string_set(definition: dict[str, object], key: str) -> set[str]:
+    value = definition[key]
+    assert isinstance(value, (list, tuple, set, frozenset))
+    assert all(isinstance(item, str) for item in value)
+    return set(value)
+
+
 # --- Option-2 gates --------------------------------------------------------------
 
 
 def test_option2_rows_disjoint_from_v2_pool_and_each_other() -> None:
     all_ids = option2_row_ids()
     assert all_ids.isdisjoint(_V2_WORLD_IDS)
-    assert len(all_ids) == sum(
-        len(world["candidates"])  # type: ignore[arg-type]
-        for world in WORLD_DEFS.values()
-    )
+    assert len(all_ids) == sum(len(_candidates(world)) for world in WORLD_DEFS.values())
 
 
 def test_option2_double_solve_against_corpus() -> None:
@@ -73,7 +84,7 @@ def test_option2_double_solve_against_corpus() -> None:
             rows[str(parsed["id"])] = parsed
     for world_id in option2_world_ids():
         definition = WORLD_DEFS[world_id]
-        for candidate in definition["candidates"]:  # type: ignore[union-attr]
+        for candidate in _candidates(definition):
             answers = json.loads(str(rows[str(candidate["row_id"])]["possible_answers"]))
             assert str(candidate["property"]) == str(answers[0])
     # Builds assert the legal-set derivation (a successful build passes).
@@ -91,7 +102,8 @@ def test_option2_grammar(world_id: str) -> None:
         "act_verify",
     ]
     assert inst.stages[4].documents == ()
-    assert inst.stages[3].documents[0].superseded_by.endswith("verif-db")
+    superseded_by = inst.stages[3].documents[0].superseded_by
+    assert superseded_by is not None and superseded_by.endswith("verif-db")
     precondition = inst.stages[4].commit_precondition
     assert isinstance(precondition, dict)
     # Real KILT material in the survey; authored event docs separate.
@@ -167,10 +179,10 @@ class _Option2Hook:
 
 def _commit_matrix(world_id: str) -> list[tuple[str, int, bool, str]]:
     definition = WORLD_DEFS[world_id]
-    permitted = set(definition["permitted"])  # type: ignore[arg-type]
-    scope = set(definition["revision_scope_properties"])  # type: ignore[arg-type]
+    permitted = _string_set(definition, "permitted")
+    scope = _string_set(definition, "revision_scope_properties")
     cases: list[tuple[str, int, bool, str]] = []
-    for candidate in definition["candidates"]:  # type: ignore[union-attr]
+    for candidate in _candidates(definition):
         key = str(candidate["candidate"])
         prop = str(candidate["property"])
         if prop not in permitted:

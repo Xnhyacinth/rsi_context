@@ -59,18 +59,21 @@ def _doc(doc_id: str, title: str, text: str, source: str) -> DocumentRef:
 def build_b1_sessions() -> tuple[LifecycleInstance, LifecycleInstance, LifecycleInstance]:
     """Build the three session instances of task b1 (in order)."""
 
+    from rsicontext.lifecycle.dossier_variants import build_dossier_variant
     from rsicontext.lifecycle.material_v4_dossier import (
         _SUPPLIERS as MOTHER_SUPPLIERS,
-        _VERIFICATION_ORACLE as MOTHER_ORACLE,
+    )
+    from rsicontext.lifecycle.material_v4_dossier import (
         _doc as mother_doc,
     )
-    from rsicontext.lifecycle.dossier_variants import build_dossier_variant
 
     # --- Session 1: the original project, phase one (mother facts) ----
-    survey_docs = tuple(
+    supplier_docs = tuple(
         mother_doc(str(s["id"]), f"Supplier card: {s['name']}", str(s["text"]))
         for s in MOTHER_SUPPLIERS
-    ) + (
+    )
+    survey_docs = (
+        *supplier_docs,
         mother_doc(
             "doc-v4-verif-db",
             "Supplier verification protocol",

@@ -20,11 +20,11 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, cast
 
 from rsicontext.lifecycle.env import Action, ProjectState, Receipt
 from rsicontext.lifecycle.runner import StageResponse, StageView
-from rsicontext.lifecycle.tools import DocumentRegistry, ToolSurface
+from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget, ToolSurface
 
 #: Modules a policy may import (everything else is a freeze-time refusal).
 ALLOWED_POLICY_MODULES: frozenset[str] = frozenset({"json", "re", "math", "statistics"})
@@ -102,6 +102,7 @@ def _restricted_builtins() -> dict[str, Any]:
             "map",
             "max",
             "min",
+            "next",
             "range",
             "repr",
             "reversed",
@@ -175,7 +176,7 @@ class Turn:
     tools: ToolSurface
     state: dict[str, Any]
     actions: TurnActions = field(default_factory=TurnActions)
-    ask_model: Callable[[str], "ModelReply"] | None = None
+    ask_model: Callable[[str], ModelReply] | None = None
 
     @property
     def stage_kind(self) -> str:
@@ -243,11 +244,14 @@ def load_policy(strategy_text: str) -> Callable[[Turn], TurnDecision]:
             namespace[module_name] = importlib.import_module(module_name)
         except ImportError:  # pragma: no cover - stdlib always present
             continue
-    exec(compile(strategy_text, "<policy>", "exec"), namespace)  # noqa: S307
+    # Internal calibration policies run after the capability scan. This
+    # namespace is a hygiene filter, not a sandbox for untrusted code;
+    # official runs require separate process/container isolation.
+    exec(compile(strategy_text, "<policy>", "exec"), namespace)  # nosec B102
     policy = namespace.get("on_turn")
     if not callable(policy):
         raise PolicyBoundaryError("policy must define on_turn(turn) -> TurnDecision")
-    return policy
+    return cast(Callable[[Turn], TurnDecision], policy)
 
 
 class PolicyHook:
@@ -279,7 +283,7 @@ class PolicyHook:
         env: ProjectState | None = None,
         delegate_runner: Callable[[str, Sequence[str]], str] | None = None,
         responder: Callable[[str], str] | None = None,
-        registry: "DocumentRegistry | None" = None,
+        registry: DocumentRegistry | None = None,
     ) -> None:
         self.state = state
         self.policy_text = policy_text
@@ -327,9 +331,13 @@ class PolicyHook:
         try:
             content = self._responder(prompt)
         except Exception as exc:
-            self._audit(stage_kind=self._last_stage_kind, stage_id=self._last_stage_id,
-                        prompt=prompt, ok=False,
-                        cause=f"model call failed: {type(exc).__name__}: {exc}")
+            self._audit(
+                stage_kind=self._last_stage_kind,
+                stage_id=self._last_stage_id,
+                prompt=prompt,
+                ok=False,
+                cause=f"model call failed: {type(exc).__name__}: {exc}",
+            )
             return ModelReply(ok=False, cause=f"model call failed: {type(exc).__name__}: {exc}")
         tokens_out = max(1, len(str(content).split()))
         self.model_calls += 1

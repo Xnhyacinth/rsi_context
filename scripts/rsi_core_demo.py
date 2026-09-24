@@ -18,6 +18,7 @@ import argparse
 import json
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -28,11 +29,12 @@ from rsicontext.lifecycle.material_v3_segment import build_option2_world
 from rsicontext.lifecycle.material_v3_variant import build_research_v3_variant
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import run_lifecycle
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.strong_fixed_policy import strong_fixed_policy_text
 from rsicontext.lifecycle.tools import ToolBudget
 
 # The calibration pool: main + 2 authored variants + 6 Option-2 worlds.
-_WORLDS = [
+_WORLDS: list[tuple[str, Callable[[], LifecycleInstance]]] = [
     ("main", build_research_v3_instance),
     ("orinoco", lambda: build_research_v3_variant("orinoco")),
     ("parana", lambda: build_research_v3_variant("parana")),
@@ -43,7 +45,7 @@ _WORLDS = [
 ]
 
 
-def _world_identity(inst) -> dict[str, str]:
+def _world_identity(inst: LifecycleInstance) -> dict[str, str]:
     import hashlib
 
     payload = [stage.to_dict() for stage in inst.stages]
@@ -66,6 +68,7 @@ def main() -> int:
     started = time.monotonic()
 
     rows: list[dict[str, object]] = []
+    total_tool_calls = 0
     for world_id, build in _WORLDS:
         inst = build()
         env = ProjectState()
@@ -73,6 +76,10 @@ def main() -> int:
         hook = PolicyHook({}, strong_fixed_policy_text(), tool_budget=budget)
         hook.bind_env(env)
         record = run_lifecycle(inst, hook, env)
+        tool_ledger = budget.ledger()
+        tool_calls = tool_ledger["tool_calls"]
+        assert isinstance(tool_calls, int)
+        total_tool_calls += tool_calls
         rows.append(
             {
                 "world": world_id,
@@ -80,7 +87,7 @@ def main() -> int:
                 "passed": record.final_check.passed,
                 "failures": list(record.final_check.failures)[:6],
                 "policy_errors": list(hook.policy_errors),
-                "tool_ledger": budget.ledger(),
+                "tool_ledger": tool_ledger,
             }
         )
 
@@ -92,7 +99,7 @@ def main() -> int:
         "summary": {
             "passed": sum(1 for row in rows if row["passed"]),
             "total": len(rows),
-            "tool_calls": sum(row["tool_ledger"]["tool_calls"] for row in rows),
+            "tool_calls": total_tool_calls,
         },
         "elapsed_seconds": round(time.monotonic() - started, 1),
     }

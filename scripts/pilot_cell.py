@@ -23,13 +23,18 @@ import sys
 import time
 import urllib.request
 from pathlib import Path
+from typing import Any
 
+from rsicontext.lifecycle.env import Action
 from rsicontext.lifecycle.material import build_example_instance
+from rsicontext.lifecycle.runner import ParticipantHook, StageResponse, StageView
 from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.participant.registration import ImprovementRoundInput
 from rsicontext.session import SessionKind, SessionStateStore
-from rsicontext.wiring.replay import ReplayRecorder, replay
+from rsicontext.wiring.replay import ReaderCallable, ReplayRecorder, replay
 from rsicontext.wiring.session_lifecycle import (
+    SessionLifecycleRecord,
+    StateHookFactory,
     run_leak_probe_then_gate,
     run_session_flow,
 )
@@ -65,7 +70,8 @@ def _reader_call(query: str, pack: str) -> tuple[str, int, int]:
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=300) as response:
+    # READER_ENDPOINT is the fixed HTTPS Siflow chat-completions URL.
+    with urllib.request.urlopen(request, timeout=300) as response:  # nosec B310
         raw = json.loads(response.read())
     message = raw["choices"][0]["message"]
     content = (message.get("content") or "").strip() or (
@@ -75,10 +81,10 @@ def _reader_call(query: str, pack: str) -> tuple[str, int, int]:
     return content, int(usage["prompt_tokens"]), int(usage["completion_tokens"])
 
 
-def _act_verify_actions(stage, answer: str, provenance: tuple[str, ...]) -> tuple:
+def _act_verify_actions(
+    stage: StageView, answer: str, provenance: tuple[str, ...]
+) -> tuple[Action, ...]:
     """Create then finalize the answer record the act_verify stage asks for."""
-
-    from rsicontext.lifecycle.env import Action
 
     doc_ids = tuple(d.doc_id for d in stage.documents)
     fields = {
@@ -144,16 +150,14 @@ def _normalize_answer(raw: str) -> str:
     return text
 
 
-def _pack_hook(reader) -> object:
+def _pack_hook(reader: ReaderCallable) -> ParticipantHook:
     class _Hook:
-        def on_stage(self, stage) -> object:
-            from rsicontext.lifecycle.runner import StageResponse
-
+        def on_stage(self, stage: StageView) -> StageResponse:
             docs = "\n\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
             answer, _, _ = reader(stage.prompt_text, docs)
             answer = _normalize_answer(answer)
-            actions = ()
-            if getattr(stage, "kind", "") == "act_verify":
+            actions: tuple[Action, ...] = ()
+            if stage.kind == "act_verify":
                 doc_ids = tuple(d.doc_id for d in stage.documents)
                 actions = _act_verify_actions(stage, answer, doc_ids)
             return StageResponse(
@@ -164,30 +168,29 @@ def _pack_hook(reader) -> object:
     return _Hook()
 
 
-def _stateful_pack_hook(reader, state: dict) -> object:
+def _stateful_pack_hook(reader: ReaderCallable, state: dict[str, object]) -> ParticipantHook:
     """Participant whose working notes evolve across instances (state in/out)."""
 
     class _StatefulHook:
         def __init__(self, state: dict[str, object]) -> None:
             self._state = state
 
-        def on_stage(self, stage) -> object:
-            from rsicontext.lifecycle.runner import StageResponse
-
+        def on_stage(self, stage: StageView) -> StageResponse:
             docs = "\n\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
-            notes = "\n".join(str(n) for n in self._state.get("notes", []))
+            raw_notes = self._state.get("notes", [])
+            notes = "\n".join(str(n) for n in raw_notes) if isinstance(raw_notes, list) else ""
             answer, _, _ = reader(
                 stage.prompt_text,
                 f"Working notes so far:\n{notes or '(none)'}\n\n{stage.prompt_text}\n\n"
                 f"Evidence:\n{docs}",
             )
             answer = _normalize_answer(answer)
-            actions = ()
-            if getattr(stage, "kind", "") == "act_verify":
+            actions: tuple[Action, ...] = ()
+            if stage.kind == "act_verify":
                 doc_ids = tuple(d.doc_id for d in stage.documents)
                 actions = _act_verify_actions(stage, answer, doc_ids)
                 # The participant records what it learned in its own state:
-                notes_list = list(self._state.get("notes", []))
+                notes_list = list(raw_notes) if isinstance(raw_notes, list) else []
                 notes_list.append({"stage": str(getattr(stage, "stage_id", "")), "answer": answer})
                 self._state["notes"] = notes_list[-32:]
             return StageResponse(
@@ -198,7 +201,7 @@ def _stateful_pack_hook(reader, state: dict) -> object:
     return _StatefulHook(state)
 
 
-def _usable_row(row: dict) -> bool:
+def _usable_row(row: dict[str, Any]) -> bool:
     """A row is usable when it has a question, answers, and non-empty ctx texts
     (PopQA carries some retrieval blocks with empty bodies)."""
 
@@ -211,7 +214,11 @@ def _usable_row(row: dict) -> bool:
     if not isinstance(ctxs, list) or not ctxs:
         return False
     usable = [
-        c for c in ctxs if str(c.get("text") or "").strip() and str(c.get("title") or "").strip()
+        c
+        for c in ctxs
+        if isinstance(c, dict)
+        and str(c.get("text") or "").strip()
+        and str(c.get("title") or "").strip()
     ]
     return len(usable) >= 4 and any(c.get("has_answer") for c in usable)
 
@@ -219,11 +226,13 @@ def _usable_row(row: dict) -> bool:
 def _load_instances(
     n_visible: int, n_gate: int
 ) -> tuple[list[LifecycleInstance], list[LifecycleInstance]]:
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
     with POPQA_ROWS.open(encoding="utf-8") as handle:
         for line in handle:
-            row = json.loads(line)
+            row: Any = json.loads(line)
+            if not isinstance(row, dict):
+                continue
             row_key = str(row.get("id"))
             if row_key in seen_ids:
                 continue  # PopQA packs multiple relations under one entity id
@@ -309,7 +318,7 @@ def main() -> int:
     started = time.perf_counter()
 
     visible, gate = _load_instances(args.visible, args.gate)
-    schema = {"type": "object", "properties": {"notes": {"type": "array"}}}
+    schema: dict[str, object] = {"type": "object", "properties": {"notes": {"type": "array"}}}
     byte_cap = 65536
 
     results: dict[str, object] = {}
@@ -326,10 +335,10 @@ def main() -> int:
     def save_state(state: dict[str, object]) -> None:
         store.write("visible-1", state)
 
-    if args.arm == "fixed":
-        hook_factory = lambda state: _pack_hook(_reader_call)  # noqa: E731
-    else:
-        hook_factory = lambda state: _stateful_pack_hook(_reader_call, state)  # noqa: E731
+    def hook_factory(state: dict[str, object]) -> ParticipantHook:
+        if args.arm == "fixed":
+            return _pack_hook(_reader_call)
+        return _stateful_pack_hook(_reader_call, state)
 
     visible_record = run_session_flow(
         store,
@@ -347,9 +356,9 @@ def main() -> int:
     feedback = json.dumps(
         {
             "final_check_passed": [
-                r["final_check"]["passed"] for r in results["visible"]["run_records"]
+                record.final_check.passed for record in visible_record.run_records
             ],
-            "transcript_digests": list(results["visible"]["transcript_digests"]),
+            "transcript_digests": list(visible_record.transcript_digests),
         }
     ).encode()
     ds_changes = _improvement_round(args.arm, args.output.parent / "agent-workspace", feedback, 0)
@@ -361,7 +370,7 @@ def main() -> int:
     # --- Canary leak probe + gate session ----------------------------------
     canary_tokens = [visible[0].instance_id + "::GOLD-CANARY"]
 
-    def gate_runner() -> object:
+    def gate_runner() -> SessionLifecycleRecord:
         # Gate state also routes through the store: the gate session starts
         # byte-empty (split boundary) and its ops land in its own transcript.
         def gate_load() -> dict[str, object] | None:
@@ -370,17 +379,12 @@ def main() -> int:
         def gate_save(state: dict[str, object]) -> None:
             store.write("gate-1", state)
 
-        gate_hook = (
-            (lambda state: _pack_hook(_reader_call))
-            if args.arm == "fixed"
-            else (lambda state: _stateful_pack_hook(_reader_call, state))
-        )
         record = run_session_flow(
             store,
             SessionKind.GATE,
             "gate-1",
             gate,
-            gate_hook,
+            hook_factory,
             gate_load,
             gate_save,
             byte_cap=byte_cap,
@@ -390,6 +394,8 @@ def main() -> int:
     gate_result, probe_result = run_leak_probe_then_gate(
         store, canary_tokens, gate_runner, byte_cap=byte_cap
     )
+    if not isinstance(gate_result, SessionLifecycleRecord):
+        raise TypeError("gate runner returned an invalid session record")
     results["gate"] = gate_result.to_dict()
     results["leak_probe"] = {
         "gate_session": probe_result.gate_session_id,
@@ -410,11 +416,11 @@ def main() -> int:
     def rec_save(state: dict[str, object]) -> None:
         rec_store.write("record-1", state)
 
-    rec_hook = (
-        (lambda state: _pack_hook(recorder))
-        if args.arm == "fixed"
-        else (lambda state: _stateful_pack_hook(recorder, state))
-    )
+    def rec_hook(state: dict[str, object]) -> ParticipantHook:
+        if args.arm == "fixed":
+            return _pack_hook(recorder)
+        return _stateful_pack_hook(recorder, state)
+
     recorded_session = run_session_flow(
         rec_store,
         SessionKind.REPLAY,
@@ -434,15 +440,19 @@ def main() -> int:
     def replay_save(state: dict[str, object]) -> None:
         replay_store.write("replay-1", state)
 
+    def replay_hook_factory(reader: ReaderCallable) -> StateHookFactory:
+        def build_hook(state: dict[str, object]) -> ParticipantHook:
+            if args.arm == "fixed":
+                return _pack_hook(reader)
+            return _stateful_pack_hook(reader, state)
+
+        return build_hook
+
     replay_record = replay(
         replay_store,
         "replay-1",
         visible,
-        lambda reader: (
-            (lambda state: _stateful_pack_hook(reader, state))
-            if args.arm != "fixed"
-            else (lambda state: _pack_hook(reader))
-        ),
+        replay_hook_factory,
         recorder.transcript(),
         replay_load,
         replay_save,
@@ -474,8 +484,8 @@ def main() -> int:
         handle.write("\n")
     summary = {
         "arm": args.arm,
-        "visible_final_checks": results["visible"]["run_records"][0]["final_check"]["passed"],
-        "gate_final_checks": results["gate"]["run_records"][0]["final_check"]["passed"],
+        "visible_final_checks": visible_record.run_records[0].final_check.passed,
+        "gate_final_checks": gate_result.run_records[0].final_check.passed,
         "leak_probe_clean": True,
         "elapsed_seconds": round(elapsed, 1),
         "output": str(args.output),

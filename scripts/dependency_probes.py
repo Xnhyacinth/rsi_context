@@ -429,7 +429,8 @@ def siflow_reader(prompt: str) -> str:
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=300) as response:
+    # READER_ENDPOINT is the fixed HTTPS Siflow chat-completions URL.
+    with urllib.request.urlopen(request, timeout=300) as response:  # nosec B310
         raw = json.loads(response.read())
     message = raw["choices"][0]["message"]
     return (message.get("content") or "").strip() or (
@@ -557,9 +558,11 @@ class _OracleStatefulHook:
             return StageResponse(pack_text=f"working notes [[doc:{anchor}]]")
         answer = ""
         for note in reversed(notes):
-            if isinstance(note, dict) and isinstance(note.get("answer"), str) and note["answer"]:
-                answer = note["answer"]
-                break
+            if isinstance(note, dict):
+                candidate = note.get("answer")
+                if isinstance(candidate, str) and candidate:
+                    answer = candidate
+                    break
         doc_ids = tuple(document.doc_id for document in stage.documents)
         # research-v2 stage 5 carries NO documents: provenance must come
         # from the doc ids the oracle retained in its notes (the supports
@@ -568,9 +571,9 @@ class _OracleStatefulHook:
         retained: tuple[str, ...] = ()
         for note in reversed(notes):
             if isinstance(note, dict):
-                supports = note.get("supports")
-                if isinstance(supports, list) and supports:
-                    retained = tuple(str(entry) for entry in supports)
+                note_supports = note.get("supports")
+                if isinstance(note_supports, list) and note_supports:
+                    retained = tuple(str(entry) for entry in note_supports)
                     break
         provenance = doc_ids or retained
         if not provenance:

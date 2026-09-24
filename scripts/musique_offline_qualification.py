@@ -107,7 +107,7 @@ def _records(path: Path) -> Iterator[MuSiQueRecord]:
 
 
 def _token_counter(tokenizer_path: Path) -> Callable[[str], int]:
-    from transformers import AutoTokenizer
+    from transformers import AutoTokenizer  # type: ignore[import-not-found]  # optional tokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(
         str(tokenizer_path),

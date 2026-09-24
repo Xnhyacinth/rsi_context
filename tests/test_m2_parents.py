@@ -19,6 +19,7 @@ Pins for each new parent (the "genuinely different" axis):
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
@@ -35,8 +36,22 @@ from rsicontext.lifecycle.material_m2_parents import (
 )
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import run_lifecycle
-from rsicontext.lifecycle.session_sequence import run_session_sequence
+from rsicontext.lifecycle.session_sequence import SequenceRecord, run_session_sequence
+from rsicontext.lifecycle.spec import StageSpec
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
+
+
+def _precondition(stage: StageSpec) -> Mapping[str, object]:
+    precondition = stage.commit_precondition
+    assert precondition is not None
+    return precondition
+
+
+def _oracle(stage: StageSpec) -> Mapping[str, Mapping[str, bool]]:
+    oracle = stage.verification_oracle
+    assert oracle is not None
+    return oracle
+
 
 # ---------------------------------------------------------------------------
 # aurora-swap
@@ -49,8 +64,8 @@ def test_aurora_swap_inverts_the_dependency_graph() -> None:
     inst = build_aurora_swap()
     mother = build_research_v4_dossier()
     # The legal set FLIPS (a different card is now load-bearing).
-    assert inst.stages[4].commit_precondition["legal_plans"] == ["harborline-freight"]
-    assert mother.stages[4].commit_precondition["legal_plans"] == ["atlas-carriage"]
+    assert _precondition(inst.stages[4])["legal_plans"] == ["harborline-freight"]
+    assert _precondition(mother.stages[4])["legal_plans"] == ["atlas-carriage"]
     # The mother's winner card is now plain bulk (no qualification).
     survey = "\n".join(doc.text for doc in inst.stages[0].documents)
     mother_survey = "\n".join(doc.text for doc in mother.stages[0].documents)
@@ -69,7 +84,7 @@ def test_aurora_swap_load_bearing_ledger_single_source() -> None:
     assert survey.count("northern service hub") == 1  # card-08 only
     assert survey.count("mutual-aid annex") == 1  # card-05 only
     # The oracle agrees with the ledger (the winner passes, the decoy fails).
-    oracle = inst.stages[4].verification_oracle
+    oracle = _oracle(inst.stages[4])
     assert oracle["customs-preclearance"]["harborline-freight"] is True
     assert oracle["customs-preclearance"]["northwind-logistics"] is False
 
@@ -212,11 +227,14 @@ def on_turn(turn):
 
 def test_vector_decision_type_is_two_cumulative_checks() -> None:
     inst = build_vector()
-    requirement = inst.stages[4].commit_precondition["plan_requirements"]["atlas-carriage"]
+    requirements = _precondition(inst.stages[4])["plan_requirements"]
+    assert isinstance(requirements, dict)
+    requirement = requirements["atlas-carriage"]
+    assert isinstance(requirement, dict)
     # The commit precondition gains the SECOND requires_check entry.
     assert requirement["requires_check"] == ["customs-preclearance", "cold-chain-integrity"]
     # The oracle covers BOTH checks.
-    oracle = inst.stages[4].verification_oracle
+    oracle = _oracle(inst.stages[4])
     assert oracle["customs-preclearance"]["atlas-carriage"] is True
     assert oracle["cold-chain-integrity"]["atlas-carriage"] is True
 
@@ -251,7 +269,7 @@ def test_vector_one_check_passer_fails_the_gate() -> None:
     )
     from rsicontext.lifecycle.runner import _commit_gate_failures
 
-    precondition = dict(inst.stages[4].commit_precondition)
+    precondition = dict(_precondition(inst.stages[4]))
     precondition["plan_requirements"] = {
         "delta-catering": {
             "domain": "shipping",
@@ -314,7 +332,7 @@ def test_vector_two_check_winner_passes_and_str_requires_check_still_works() -> 
             provenance=("v-str", "status"),
         )
     )
-    precondition = dict(inst.stages[4].commit_precondition)
+    precondition = dict(_precondition(inst.stages[4]))
     str_form = dict(
         precondition,
         plan_requirements={
@@ -399,12 +417,13 @@ def test_b2_second_mutation_stresses_the_carried_conclusions() -> None:
     sessions = build_b2_sessions()
     s3 = sessions[2]
     currency_stage = next(st for st in s3.stages if st.stage_id == "b2-s3-followup-currency")
-    spec = currency_stage.commit_precondition["evidence_currency"]
+    spec = _precondition(currency_stage)["evidence_currency"]
+    assert isinstance(spec, dict)
     assert spec["check"] == "customs-preclearance"
     # The re-award precondition demands rev-3 customs evidence (the
     # second notice did not bump it).
     reaward = next(st for st in s3.stages if st.stage_id == "b2-s3-re-award")
-    assert reaward.commit_precondition["current_revision"] == 3
+    assert _precondition(reaward)["current_revision"] == 3
 
 
 def test_b2_carry_aware_reference_policy_passes_every_decision() -> None:
@@ -614,23 +633,23 @@ def on_turn(turn):
 
 def test_c2_oracle_fails_the_top_two_ranked_candidates() -> None:
     s1, _ = build_c2_sessions()
-    oracle = s1.stages[2].verification_oracle
+    oracle = _oracle(s1.stages[2])
     assert oracle["customs-preclearance"]["atlas-carriage"] is False
     assert oracle["customs-preclearance"]["harborline-freight"] is False
     # The double-switch target passes.
     assert oracle["customs-preclearance"]["thule-carriage"] is True
     # The session-1 legal set is the THIRD carrier.
-    assert s1.stages[2].commit_precondition["legal_plans"] == ["thule-carriage"]
+    assert _precondition(s1.stages[2])["legal_plans"] == ["thule-carriage"]
 
 
 def test_c2_mutation_renews_only_one_leader() -> None:
     _s1, s2 = build_c2_sessions()
-    oracle2 = s2.stages[2].verification_oracle
+    oracle2 = _oracle(s2.stages[2])
     assert oracle2["customs-preclearance"]["atlas-carriage"] is True  # renewed
     assert oracle2["customs-preclearance"]["harborline-freight"] is False  # still pending
     assert oracle2["customs-preclearance"]["thule-carriage"] is True  # unaffected
     # The re-award legal set is the renewed leader (the SLA rule).
-    assert s2.stages[2].commit_precondition["legal_plans"] == ["atlas-carriage"]
+    assert _precondition(s2.stages[2])["legal_plans"] == ["atlas-carriage"]
 
 
 def test_c2_public_rules_match_the_gate() -> None:
@@ -642,7 +661,8 @@ def test_c2_public_rules_match_the_gate() -> None:
     s1, s2 = build_c2_sessions()
     survey_text = "\n".join(d.text for d in s1.stages[0].documents)
     assert "Supplier card: thule-carriage" in survey_text
-    legal_s1 = s1.stages[2].commit_precondition["legal_plans"]
+    legal_s1 = _precondition(s1.stages[2])["legal_plans"]
+    assert isinstance(legal_s1, list)
     assert set(legal_s1) <= {
         d.text.split("] ", 1)[1].split("\n", 1)[0].replace("Supplier card: ", "")
         for d in s1.stages[0].documents
@@ -663,18 +683,20 @@ def test_c2_public_rules_match_the_gate() -> None:
         for d in s1.stages[0].documents
         if d.text.startswith("[[doc:card-")
     }
-    slas = {}
+    slas: dict[str, int] = {}
     for name, text in cards.items():
         match = re.search(r"Standard SLA (\d+)h", text)
         if match:
             slas[name] = int(match.group(1))
     passing = [
         subject
-        for subject, ok in s2.stages[2].verification_oracle["customs-preclearance"].items()
+        for subject, ok in _oracle(s2.stages[2])["customs-preclearance"].items()
         if ok and subject in slas
     ]
     ranked = sorted(passing, key=lambda name: slas[name])
-    assert ranked[0] == s2.stages[2].commit_precondition["legal_plans"][0] == "atlas-carriage"
+    legal_s2 = _precondition(s2.stages[2])["legal_plans"]
+    assert isinstance(legal_s2, list)
+    assert ranked[0] == legal_s2[0] == "atlas-carriage"
 
 
 def test_c2_two_legal_recovery_paths_pass_session_one() -> None:
@@ -691,13 +713,13 @@ def test_c2_two_legal_recovery_paths_pass_session_one() -> None:
         assert env.records["corridor_reaward"]["plan"] == "atlas-carriage"
 
 
-def _run_c2(policy_text: str, turns: int = 5):
+def _run_c2(policy_text: str, turns: int = 5) -> tuple[SequenceRecord, ProjectState]:
     sessions = list(build_c2_sessions())
     env = ProjectState()
     budget = ToolBudget()
     registry = DocumentRegistry()
 
-    def hook_factory(state):
+    def hook_factory(state: dict[str, object]) -> PolicyHook:
         return PolicyHook(
             state,
             policy_text,
@@ -1080,7 +1102,7 @@ def test_vector_responder_fact_swap_probe_breaks_hardcoding() -> None:
     # gate ('not in the legal set').
     import dataclasses
 
-    from m2_validity_panel import PolicyHook, ToolBudget, _vector_policy_text, _vector_responder
+    from m2_validity_panel import _vector_policy_text, _vector_responder
 
     import rsicontext.lifecycle.material_v4_dossier as dossier
     from rsicontext.lifecycle.runner import run_lifecycle

@@ -15,8 +15,6 @@ vocabulary), never from a table.
 
 from __future__ import annotations
 
-import re
-
 STRONG_FIXED_POLICY = """
 import re
 

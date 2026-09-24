@@ -157,7 +157,7 @@ def _parser() -> argparse.ArgumentParser:
 
 
 def _load_tokenizer(tokenizer_path: Path) -> EncodedWindowTokenizer:
-    from transformers import AutoTokenizer
+    from transformers import AutoTokenizer  # type: ignore[import-not-found]  # optional tokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(
         str(tokenizer_path),

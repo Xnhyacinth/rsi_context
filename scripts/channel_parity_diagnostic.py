@@ -36,6 +36,22 @@ import os
 import sys
 import urllib.request
 from pathlib import Path
+from typing import TypedDict
+
+
+class _Item(TypedDict):
+    id: str
+    question: str
+    answer: str
+    gold_text: str
+
+
+class _ConditionResult(TypedDict):
+    hits: int
+    n: int
+    rate: float
+    per_item: list[dict[str, object]]
+
 
 POPQA_ROWS = Path("data/helmet-data/data/kilt/popqa_test_1000_k1000_dep6.jsonl")
 ENDPOINT = "https://api.siflow.cn/model-api/chat/completions"
@@ -68,14 +84,15 @@ def _reader(prompt: str) -> str:
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=300) as response:
+    # ENDPOINT is the fixed HTTPS Siflow chat-completions URL.
+    with urllib.request.urlopen(request, timeout=300) as response:  # nosec B310
         raw = json.loads(response.read())
     message = raw["choices"][0]["message"]
     return (message.get("content") or "").strip()
 
 
-def _load_items(n: int) -> list[dict]:
-    items: list[dict] = []
+def _load_items(n: int) -> list[_Item]:
+    items: list[_Item] = []
     seen: set[str] = set()
     with POPQA_ROWS.open(encoding="utf-8") as handle:
         for line in handle:
@@ -97,9 +114,9 @@ def _load_items(n: int) -> list[dict]:
             items.append(
                 {
                     "id": key,
-                    "question": row["question"],
-                    "answer": answers[0],
-                    "gold_text": gold[0]["text"],
+                    "question": str(row["question"]),
+                    "answer": str(answers[0]),
+                    "gold_text": str(gold[0]["text"]),
                 }
             )
             if len(items) >= n:
@@ -132,7 +149,7 @@ def main() -> int:
         "When several genres are listed, the question usually targets the named "
         "entity's field; prefer the phrase adjacent to the entity mention."
     )
-    results = {"conditions": {}}
+    conditions: dict[str, _ConditionResult] = {}
     for condition, template in (
         ("A_bare", "Question:\n{q}\n\nEvidence:\n{g}"),
         ("B_preamble", "Working notes so far:\n(none)\n\nQuestion:\n{q}\n\nEvidence:\n{g}"),
@@ -142,7 +159,7 @@ def main() -> int:
         ),
     ):
         hits = 0
-        per_item = []
+        per_item: list[dict[str, object]] = []
         for item in items:
             prompt = template.format(q=item["question"], g=item["gold_text"], note=method_note)
             reply = _reader(prompt)
@@ -151,24 +168,25 @@ def main() -> int:
             per_item.append(
                 {"id": item["id"], "reply": reply[:120], "expected": item["answer"], "hit": hit}
             )
-        results["conditions"][condition] = {
+        conditions[condition] = {
             "hits": hits,
             "n": len(items),
             "rate": round(hits / len(items), 3) if items else 0.0,
             "per_item": per_item,
         }
-    a = results["conditions"]["A_bare"]["rate"]
-    b = results["conditions"]["B_preamble"]["rate"]
-    c = results["conditions"]["C_notes"]["rate"]
-    results["verdict"] = {
+    a = conditions["A_bare"]["rate"]
+    b = conditions["B_preamble"]["rate"]
+    c = conditions["C_notes"]["rate"]
+    verdict = {
         "channel_format_sensitive": (b - a) >= 0.25 or (c - a) >= 0.25,
         "rates": {"A_bare": a, "B_preamble": b, "C_notes": c},
     }
+    results = {"conditions": conditions, "verdict": verdict}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as handle:
         json.dump(results, handle, indent=1, sort_keys=True)
         handle.write("\n")
-    print(json.dumps(results["verdict"], indent=2, sort_keys=True))
+    print(json.dumps(verdict, indent=2, sort_keys=True))
     return 0
 
 

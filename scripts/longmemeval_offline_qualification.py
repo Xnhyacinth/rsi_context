@@ -88,7 +88,7 @@ def main() -> int:
     tokenizer_snapshot = verify_tokenizer_snapshot(args.tokenizer_path, _TOKENIZER_FILES)
     tokenizer_id = f"{_TOKENIZER_REVISION}#tokenizer-files-sha256:{tokenizer_snapshot}"
 
-    from transformers import AutoTokenizer
+    from transformers import AutoTokenizer  # type: ignore[import-not-found]  # optional tokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(
         str(args.tokenizer_path),

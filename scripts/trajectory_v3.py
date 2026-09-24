@@ -45,16 +45,19 @@ import os
 import sys
 import time
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import TypedDict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.material_v3 import build_research_v3_instance
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.participant.snapshot import (
     BranchKind,
+    FrozenSnapshot,
     LearningCarry,
     freeze_session,
     run_evaluation_branch,
@@ -82,6 +85,17 @@ _OPTION2_IDS = ("zephyr", "quill", "atlas", "lumen", "swift", "mirror")
 #: as the dev surface: transfer probes in the loop, never final-evaluation
 #: worlds.
 _DEV_UNSEEN_POOL: tuple[str, ...] = ()
+
+
+class _RoundPayload(TypedDict):
+    round: int
+    snapshot_id: str
+    authored_by: str
+    researcher_record: dict[str, object] | None
+    strategy_text: str
+    state_update: dict[str, object]
+    memory_notes: list[object]
+
 
 #: T2 variance-floor ceiling (design-t2floor): the minimal reportable
 #: contrast is 0.20 (hy3 precedent); the rejection ceiling sits at a
@@ -131,7 +145,7 @@ def _first_plan_name(survey_text: str) -> str:
     return "aurora"
 
 
-def _rebind_instance_id(inst, instance_id: str):
+def _rebind_instance_id(inst: LifecycleInstance, instance_id: str) -> LifecycleInstance:
     """A copy of the instance with a fresh instance id (branch-distinct)."""
 
     from dataclasses import replace
@@ -163,7 +177,7 @@ def _survey_checks(survey_text: str) -> list[str]:
     return names
 
 
-def _pass_fraction(branch_results: dict) -> float:
+def _pass_fraction(branch_results: Mapping[str, object]) -> float:
     """The pass fraction over ALL branch cells — crashed cells count as 0.
 
     Rethinking-the-harness-evolution rule (spec Part 2.2):
@@ -197,7 +211,7 @@ def _sample_sd(values: list[float]) -> float:
     if len(values) < 2:
         return 0.0
     mean = sum(values) / len(values)
-    return (sum((value - mean) ** 2 for value in values) / (len(values) - 1)) ** 0.5
+    return float((sum((value - mean) ** 2 for value in values) / (len(values) - 1)) ** 0.5)
 
 
 def _modal_share(values: list[float]) -> float:
@@ -289,7 +303,8 @@ def reader_call(
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=300) as response:
+    # READER_ENDPOINT is the fixed HTTPS Siflow chat-completions URL.
+    with urllib.request.urlopen(request, timeout=300) as response:  # nosec B310
         raw = json.loads(response.read())
     message = raw["choices"][0]["message"]
     content = (message.get("content") or "").strip()
@@ -436,7 +451,8 @@ class TrajectoryHook:
 
     def on_stage(self, stage: StageView) -> StageResponse:
         docs = "\n\n".join(f"[[doc:{d.doc_id}]] {d.title}\n{d.text}" for d in stage.documents)
-        notes = "\n".join(str(n) for n in self.state.get("notes", []))  # type: ignore[union-attr]
+        raw_notes = self.state.get("notes", [])
+        notes = "\n".join(str(n) for n in raw_notes) if isinstance(raw_notes, list) else ""
         prompt = (
             f"Working notes so far:\n{notes or '(none)'}\n\n{stage.prompt_text}\n\n"
             f"Documents:\n{docs or '(none attached)'}"
@@ -461,7 +477,7 @@ class TrajectoryHook:
             # The reader's rule-change reply carries the check names the
             # re-read surfaced — the checks input for the commit.
             self._reader_protocol_reply = reply
-        notes_list = list(self.state.get("notes", []))  # type: ignore[union-attr]
+        notes_list = list(raw_notes) if isinstance(raw_notes, list) else []
         notes_list.append({"stage": stage.stage_id, "summary": reply[:160]})
         self.state["notes"] = notes_list[-24:]
 
@@ -689,8 +705,11 @@ def _reference_plan(survey_text: str) -> str:
 
 
 def run_dev_session(
-    hook_factory, *, session_id: str, online: bool = True
-) -> tuple[SessionStateStore, dict[str, object]]:
+    hook_factory: Callable[[dict[str, object]], TrajectoryHook],
+    *,
+    session_id: str,
+    online: bool = True,
+) -> tuple[SessionStateStore, dict[str, int]]:
     """One dev session on the v3 world; the participant state persists in-store."""
 
     store = SessionStateStore(schema=_SCHEMA)
@@ -708,14 +727,14 @@ def run_dev_session(
     run()
     store.write(session_id, {"notes": state.get("notes", [])})
     totals = {
-        "reader_calls": hook.calls if hasattr(hook, "calls") else 0,
-        "tokens_in": hook.tokens_in if hasattr(hook, "tokens_in") else 0,
-        "tokens_out": hook.tokens_out if hasattr(hook, "tokens_out") else 0,
+        "reader_calls": hook.calls,
+        "tokens_in": hook.tokens_in,
+        "tokens_out": hook.tokens_out,
     }
     return store, totals
 
 
-def _world_identity(inst) -> dict[str, str]:
+def _world_identity(inst: LifecycleInstance) -> dict[str, str]:
     """The reproducibility record for one world instance (external review
     4.1: the artifact must state WHICH world ran, not just a seed).
 
@@ -736,7 +755,7 @@ def _world_identity(inst) -> dict[str, str]:
 
 
 def evaluate_branches(
-    snapshot,
+    snapshot: FrozenSnapshot,
     *,
     strategy_text: str | None,
     offline: bool,
@@ -775,7 +794,7 @@ def evaluate_branches(
     variant_ids = _VARIANT_IDS
     option2_ids = _OPTION2_IDS if unseen_pool is None else unseen_pool
 
-    def _unseen_world(slot: int):
+    def _unseen_world(slot: int) -> LifecycleInstance:
         # Slot 0 runs one AUTHORED variant world; slot 1 runs one
         # OPTION-2 real-document world — both indexed by the rotation
         # counter (derived from the run's seed, deterministic within a
@@ -801,7 +820,7 @@ def evaluate_branches(
                 )
             world_identity = _world_identity(inst)
             try:
-                captured = {"hooks": []}
+                captured: dict[str, list[TrajectoryHook]] = {"hooks": []}
 
                 def make_hook_factory(
                     captured_box: dict[str, list[TrajectoryHook]],
@@ -1009,7 +1028,7 @@ def main() -> int:
     # authored variants — transfer probes inside the loop), NEVER the
     # held-out Option-2 evaluation worlds, so evaluation-pool failures
     # cannot enter the improver's input.
-    def probe(snapshot, strategy_text: str | None) -> dict[str, object]:
+    def probe(snapshot: FrozenSnapshot, strategy_text: str | None) -> dict[str, object]:
         return evaluate_branches(
             snapshot,
             strategy_text=strategy_text,
@@ -1025,11 +1044,11 @@ def main() -> int:
     # CUMULATIVE (round N's author sees round N-1's file in the stub
     # workspace); a failed or empty round keeps the previous strategy
     # (recorded, never silent).
-    rounds_payload: list[dict[str, object]] = []
+    rounds_payload: list[_RoundPayload] = []
     strategy_text: str = _STRATEGY_STUB if args.researcher else _SCRIPTED_STRATEGY
     current = s0
     current_strategy: str | None = None  # S0 runs WITHOUT a strategy
-    snapshots: dict[str, object] = {"S0": s0}
+    snapshots: dict[str, FrozenSnapshot] = {"S0": s0}
     branch_results: dict[str, dict[str, object]] = {}
 
     for round_index in range(args.rounds):
@@ -1108,6 +1127,7 @@ def main() -> int:
         current_strategy = strategy_text
         current = _freeze_from_parts(current, snapshot_id, strategy_text, ds_state_update)
         snapshots[snapshot_id] = current
+        current_notes = current.memory.get("notes", [])
         rounds_payload.append(
             {
                 "round": round_index,
@@ -1118,7 +1138,7 @@ def main() -> int:
                 "state_update": ds_state_update,
                 # The frozen snapshot's ACCUMULATED memory (audit view of
                 # the carry contract: earlier rounds' notes survive).
-                "memory_notes": list(current.memory.get("notes", [])),
+                "memory_notes": list(current_notes) if isinstance(current_notes, list) else [],
             }
         )
 
@@ -1298,12 +1318,13 @@ def main() -> int:
         }
 
     elapsed = time.monotonic() - started
-    failed_rounds = [
-        round_record["round"]
-        for round_record in rounds_payload
-        if isinstance(round_record.get("researcher_record"), dict)
-        and str(round_record["researcher_record"].get("round_outcome", "")).startswith("failed:")
-    ]
+    failed_rounds = []
+    for round_record in rounds_payload:
+        researcher_record = round_record["researcher_record"]
+        if isinstance(researcher_record, dict) and str(
+            researcher_record.get("round_outcome", "")
+        ).startswith("failed:"):
+            failed_rounds.append(round_record["round"])
     payload = {
         "mode": "offline" if args.offline else "live",
         "reader_model": None if args.offline else READER_MODEL,
@@ -1359,7 +1380,9 @@ def main() -> int:
     return 0
 
 
-def _freeze_from_parts(s0, snapshot_id: str, strategy_text: str, state_update: dict[str, object]):
+def _freeze_from_parts(
+    s0: FrozenSnapshot, snapshot_id: str, strategy_text: str, state_update: dict[str, object]
+) -> FrozenSnapshot:
     """Freeze S_n = S_{n-1}'s memory (ACCUMULATED) + this round's additions + strategy file.
 
     The carry contract: legitimate learned material accumulates across
@@ -1367,8 +1390,6 @@ def _freeze_from_parts(s0, snapshot_id: str, strategy_text: str, state_update: d
     notes APPEND (deduplicated, order-preserving); other memory keys from
     the parent survive unless the round's update names the same key.
     """
-
-    from rsicontext.participant.snapshot import FrozenSnapshot
 
     memory: dict[str, object] = dict(s0.memory)
     prior_notes = memory.get("notes")
@@ -1499,7 +1520,7 @@ def _researcher_round(
         # data must survive the exception path.
         attempts = [dict(entry) for entry in improver.attempts()]
         raise ResearcherRoundFailure(attempts) from None
-    usage = {
+    usage: dict[str, object] = {
         "input_tokens": output.usage.input_tokens,
         "output_tokens": output.usage.output_tokens,
         "wall_seconds": output.usage.wall_seconds,

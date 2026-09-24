@@ -66,7 +66,7 @@ def _parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = _parser().parse_args()
     tokenizer_snapshot = verify_tokenizer_snapshot(args.tokenizer_path, _TOKENIZER_FILES)
-    from transformers import AutoTokenizer
+    from transformers import AutoTokenizer  # type: ignore[import-not-found]  # optional tokenizer
 
     # The exact local tokenizer files were hash-verified immediately above.
     tokenizer = AutoTokenizer.from_pretrained(

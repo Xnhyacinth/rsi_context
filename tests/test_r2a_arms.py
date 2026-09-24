@@ -15,8 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 import r2a_compare
-from rsicontext.lifecycle.env import ProjectState
+
 from rsicontext.lifecycle.dossier_variants import build_dossier_variant
+from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import run_lifecycle
@@ -82,10 +83,10 @@ def test_eval_variant_changes_facts_not_structure() -> None:
     # Structure identical (8 stages, same kinds).
     assert [s.kind for s in mirror.stages] == [s.kind for s in mother.stages]
     # Facts permuted: different legal plan, different fu1 answer.
-    assert (
-        mirror.stages[4].commit_precondition["legal_plans"]
-        != mother.stages[4].commit_precondition["legal_plans"]
-    )
+    mirror_precondition = mirror.stages[4].commit_precondition
+    mother_precondition = mother.stages[4].commit_precondition
+    assert mirror_precondition is not None and mother_precondition is not None
+    assert mirror_precondition["legal_plans"] != mother_precondition["legal_plans"]
     assert mirror.stages[5].expected_state_delta != mother.stages[5].expected_state_delta
     # The supersession scope flips -> the derived fu2 diagnosis flips.
     assert mirror.stages[6].rule_change_scope != mother.stages[6].rule_change_scope
@@ -120,7 +121,7 @@ def test_last_snapshot_rule() -> None:
     # A failed researcher round keeps the PREVIOUS snapshot — never the
     # best-scoring one (stats-contract §3).
     dev_experience = {"stages": [], "failures": [], "run_result": "failed"}
-    policy, record = r2a_compare._researcher_unassisted_round(
+    policy, _record = r2a_compare._researcher_unassisted_round(
         strong_model_fixed_policy_text(), dev_experience, live=False
     )
     # Offline deterministic candidate is a legal edit; a no-policy
@@ -163,6 +164,22 @@ def test_denominator_counts_started_units() -> None:
         assert "model_calls" in run and "tool_ledger" in run
 
 
+def test_finish_reasons_are_local_to_each_run() -> None:
+    reasons: list[str] = []
+
+    def responder(prompt: str) -> str:
+        reasons.append("stop")
+        return r2a_compare._offline_responder(prompt)
+
+    responder.channel_state = lambda: list(reasons)  # type: ignore[attr-defined]
+    policy = strong_model_fixed_policy_text()
+    first = r2a_compare._run_arm(policy, build_research_v4_dossier(), responder)
+    second = r2a_compare._run_arm(policy, build_research_v4_dossier(), responder)
+    assert len(first["finish_reasons"]) == first["model_calls"]
+    assert len(second["finish_reasons"]) == second["model_calls"]
+    assert len(reasons) == first["model_calls"] + second["model_calls"]
+
+
 def test_mirror_award_gate_demands_evidence_for_its_own_winner() -> None:
     # Late-report fix (2026-09-23): the variant's s5 plan_requirements
     # was still keyed to the MOTHER world's winner — the variant's own
@@ -176,5 +193,3 @@ def test_mirror_award_gate_demands_evidence_for_its_own_winner() -> None:
     requirements = precondition["plan_requirements"]
     assert winner in requirements, requirements
     assert requirements[winner]["requires_check"]
-
-

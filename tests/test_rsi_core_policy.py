@@ -26,12 +26,15 @@ from rsicontext.lifecycle.policy import (
     load_policy,
     scan_policy,
 )
-from rsicontext.lifecycle.tools import ToolBudget
-from rsicontext.lifecycle.runner import run_lifecycle
+from rsicontext.lifecycle.runner import LifecycleRunRecord, run_lifecycle
+from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.strong_fixed_policy import strong_fixed_policy_text
+from rsicontext.lifecycle.tools import ToolBudget
 
 
-def _run_policy(policy_text: str, inst) -> tuple:
+def _run_policy(
+    policy_text: str, inst: LifecycleInstance
+) -> tuple[LifecycleRunRecord, PolicyHook, ToolBudget]:
     env = ProjectState()
     budget = ToolBudget()
     hook = PolicyHook({}, policy_text, tool_budget=budget)
@@ -41,7 +44,7 @@ def _run_policy(policy_text: str, inst) -> tuple:
 
 
 def test_strong_fixed_passes_the_main_world() -> None:
-    record, hook, budget = _run_policy(strong_fixed_policy_text(), build_research_v3_instance())
+    record, hook, _budget = _run_policy(strong_fixed_policy_text(), build_research_v3_instance())
     assert record.final_check.passed, record.final_check.failures
     assert hook.policy_errors == []
 
@@ -53,6 +56,18 @@ def test_strong_fixed_is_world_generic() -> None:
         )
         assert record.final_check.passed, (spec_id, record.final_check.failures)
         assert hook.policy_errors == []
+
+
+def test_restricted_policy_can_select_from_generator_with_next() -> None:
+    policy = """
+def on_turn(turn):
+    choice = next((value for value in ("first", "second") if value == "second"), "missing")
+    turn.state["choice"] = choice
+    return {"pack_text": choice}
+"""
+    _record, hook, _budget = _run_policy(policy, build_research_v3_instance())
+    assert hook.policy_errors == []
+    assert hook.state["choice"] == "second"
 
 
 def test_policy_boundary_scans_forbidden_capabilities() -> None:
@@ -115,6 +130,6 @@ def on_turn(turn):
         turn.state["reread_ok"] = r.ok
     return {"pack_text": "ok"}
 """
-    record, hook, budget = _run_policy(policy, build_research_v3_instance())
+    _record, hook, budget = _run_policy(policy, build_research_v3_instance())
     assert hook.state["reread_ok"] is True
     assert budget.calls == 1 and budget.tokens_in > 0

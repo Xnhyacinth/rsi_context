@@ -113,7 +113,7 @@ class Action:
     precondition_refs: tuple[str, ...] = ()
     precondition_current_revision: int | None = None
     precondition_revision_scope: tuple[str, ...] = ()
-    precondition_scope_constraint: Mapping[str, str] | None = None
+    precondition_scope_constraint: Mapping[str, object] | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.kind, str) or self.kind not in _ACTION_KINDS:
@@ -389,6 +389,10 @@ class ProjectState:
                 )
             check = action.fields["check"]
             subject = action.fields["subject"]
+            # Action validates these fields on construction, but keep the
+            # environment's trust boundary explicit before using them.
+            if not isinstance(check, str) or not isinstance(subject, str):
+                raise ProjectStateError("verification check and subject must be strings")
             record = self._environment_verification(action.record_id, check, subject)
             self.records[action.record_id] = record
             self.verification_record_ids = self.verification_record_ids | frozenset(
