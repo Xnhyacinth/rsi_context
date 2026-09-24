@@ -408,20 +408,34 @@ def _derive_evidence_currency(env: ProjectState, spec: Mapping[str, object]) -> 
     """Derive the correct evidence-currency diagnosis from the sandbox.
 
     R1.1 Option A: the follow-up grades a DIAGNOSIS. The expected value
-    is computed from what actually happened: the ``commit_record``'s
-    referenced verifications carrying the named ``check`` are compared
-    against the env's CURRENT revision for that check. If any referenced
-    evidence is older than the check's current revision -> the stale
-    verdict (e.g. "reverify"); otherwise -> the current verdict (e.g.
-    "current"). A participant whose evidence was acquired AFTER the
-    supersession legitimately answers "current" — different legal
-    histories, different correct answers.
+    is computed from what actually happened — ALL of it, ORDER-FREE
+    (review 892f1d0 M1): every referenced record carrying the named
+    ``check`` is compared against the env's CURRENT revision for that
+    check, mirroring ``_commit_gate_failures``' scoped-currency rule.
+
+    - ANY referenced in-scope evidence older than the current revision
+      -> ``stale_value`` (e.g. "reverify") — a stale citation fails the
+      diagnosis exactly as it fails the scoped commit gate, regardless
+      of provenance order.
+    - otherwise (at least one current, none stale) -> ``current_value``
+      (e.g. "current"). A participant whose evidence was acquired AFTER
+      the supersession legitimately answers "current" — different legal
+      histories, different correct answers.
+    - NO referenced record carries the named check -> the explicit
+      ``missing_value`` (default "no-evidence"): "current" would be the
+      optimistic guess, the opposite of a diagnosis with nothing to
+      diagnose; the ObjectiveChecker then grades the participant's
+      answer as a mismatch.
+
+    A malformed spec or a missing commit record is evidence FOR the
+    stale verdict, never neutral.
     """
 
     commit_id = spec.get("commit_record")
     check = spec.get("check")
     stale_value = str(spec.get("stale_value", "reverify"))
     current_value = str(spec.get("current_value", "current"))
+    missing_value = str(spec.get("missing_value", "no-evidence"))
     if not isinstance(commit_id, str) or not isinstance(check, str):
         return stale_value
     commit = env.records.get(commit_id)
@@ -430,17 +444,21 @@ def _derive_evidence_currency(env: ProjectState, spec: Mapping[str, object]) -> 
     refs = commit.get("provenance")
     if not isinstance(refs, list):
         return stale_value
+    matched = [
+        record
+        for ref in refs
+        if isinstance(ref, str)
+        and isinstance((record := env.records.get(ref)), dict)
+        and record.get("check") == check
+    ]
+    if not matched:
+        return missing_value
     current = env.check_revisions.get(check, 1)
-    for ref in refs:
-        if not isinstance(ref, str):
-            continue
-        record = env.records.get(ref)
-        if isinstance(record, dict) and record.get("check") == check:
-            revision = record.get("protocol_revision")
-            if isinstance(revision, int) and revision < current:
-                return stale_value
-            if isinstance(revision, int) and revision >= current:
-                return current_value
+    if any(
+        isinstance(revision := record.get("protocol_revision"), int) and revision < current
+        for record in matched
+    ):
+        return stale_value
     return current_value
 
 

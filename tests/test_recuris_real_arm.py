@@ -11,9 +11,10 @@ The crux (memory→behavior), three ways:
 
 The gate: strict repair / tie reject / regression reject / fingerprint
 reject / new-error reject. The plan validator: menu, evidence citation,
-capability disclosure, ledger, leak screen, edit_card. Meta-agent
-failure admits nothing. Wiring: the improver's rounds + package
-carry.
+capability disclosure, ledger, edit_card — and NO content screen on
+card bodies (the dev/eval split, not eval-answer token filtering, is
+the leak defense). Meta-agent failure admits nothing. Wiring: the
+improver's rounds + package carry.
 """
 
 from __future__ import annotations
@@ -254,11 +255,15 @@ def test_plan_validator_bounces() -> None:
             {("E", "add_card", "c1")},
             disclosure,
         )
-    # Leak screen: the eval world's answer token.
-    with pytest_wrap(PlanBounce, "leak"):
-        validate_plan(
-            _plan(body="prefer harborline-freight"), _trace(["award"]), pkg, set(), disclosure
-        )
+    # No leak screen (review 892f1d0 M1): a card body carrying the
+    # mirror variant's words is NOT bounced — those words are dev-world
+    # material for the B-group, and filtering candidate bodies against
+    # eval-answer tokens would leak eval facts into the improvement
+    # loop. The dev/eval split is the defense.
+    cluster = validate_plan(
+        _plan(body="prefer harborline-freight"), _trace(["award"]), pkg, set(), disclosure
+    )
+    assert cluster["target"] == "c1"
     # add_card on an existing id.
     pkg2 = json.loads(json.dumps(NEUTRAL))
     pkg2["entries"] = [_card("c1", "x")]
@@ -422,7 +427,9 @@ def test_citation_accepts_failure_strings_not_just_decision_names() -> None:
     cluster = validate_plan(plan_by_string, trace, NEUTRAL, set(), {"state_fields": ()})
     assert cluster["action"] == "add_card"
     # The name form still passes too.
-    cluster2 = validate_plan(_plan(evidence=("award",)), trace, NEUTRAL, set(), {"state_fields": ()})
+    cluster2 = validate_plan(
+        _plan(evidence=("award",)), trace, NEUTRAL, set(), {"state_fields": ()}
+    )
     assert cluster2["target"] == "c1"
     # And citing a PASSING decision by name still bounces.
     with pytest.raises(PlanBounce):

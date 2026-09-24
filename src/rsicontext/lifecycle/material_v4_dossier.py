@@ -617,8 +617,9 @@ def build_research_v4_dossier(
                     # Placeholder: overridden at grade time by the
                     # evidence_currency derivation (R1.1 Option A) —
                     # the correct answer depends on the ACTUAL evidence
-                    # history (pre-supersession evidence -> reverify;
-                    # post-supersession re-verification -> current).
+                    # history (any stale in-scope citation -> reverify;
+                    # all current -> current; no in-scope evidence
+                    # cited -> no-evidence).
                     f"{_CONCLUSION_RECORD}-corridor": {"status": "reverify"}
                 },
                 commit_precondition={
@@ -629,6 +630,11 @@ def build_research_v4_dossier(
                         "field": "status",
                         "stale_value": "reverify",
                         "current_value": "current",
+                        # A commit citing no in-scope evidence: an
+                        # explicit third diagnosis (never the optimistic
+                        # 'current' default) — the participant's answer
+                        # mismatches it and the follow-up fails.
+                        "missing_value": "no-evidence",
                     }
                 },
             ),

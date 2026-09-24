@@ -286,9 +286,10 @@ def test_removal_simulation_calibration_evidence() -> None:
         inst = build_research_v4_dossier()
         survey = "\n".join(doc.text for doc in inst.stages[0].documents)
         assert "northern service hub" not in survey
-        assert inst.stages[5].expected_state_delta[
-            "followup_conclusion-calibration"
-        ]["supplier"] == "vesper-instruments"
+        assert (
+            inst.stages[5].expected_state_delta["followup_conclusion-calibration"]["supplier"]
+            == "vesper-instruments"
+        )
     finally:
         dossier_mod._SUPPLIERS = original
 
@@ -304,10 +305,7 @@ def test_irrelevant_perturbation_leaves_decisions_stable() -> None:
         inst_small.stages[4].commit_precondition["legal_plans"]
         == inst_bulk.stages[4].commit_precondition["legal_plans"]
     )
-    assert (
-        inst_small.stages[5].expected_state_delta
-        == inst_bulk.stages[5].expected_state_delta
-    )
+    assert inst_small.stages[5].expected_state_delta == inst_bulk.stages[5].expected_state_delta
 
 
 def test_followup_grading_names_the_broken_stage() -> None:
@@ -369,9 +367,9 @@ def on_turn(turn):
     record, hook, env, _ = _run(policy)
     # The s5 award gate (graded IN TIME, before s7) passes on the
     # revision-1 evidence: the doc update at s4 did not stale it.
-    assert not any(
-        "commit gate" in failure for failure in record.final_check.failures
-    ), record.final_check.failures
+    assert not any("commit gate" in failure for failure in record.final_check.failures), (
+        record.final_check.failures
+    )
     # The evidence record itself carries the CHECK's revision: 1 (never
     # superseded at acquisition time).
     assert env.records["early-customs"]["protocol_revision"] == 1
@@ -379,6 +377,124 @@ def on_turn(turn):
     # for new decisions now (the followup-2 derivation would say
     # 'reverify' for a commit citing this record).
     assert env.check_revisions["customs-preclearance"] == 3
+
+
+def _currency_env(commit_refs: tuple[str, ...]) -> ProjectState:
+    """A sandbox whose commit cites ``commit_refs``, over a real history.
+
+    One env-issued customs verification at revision 1, the s7
+    supersession (customs -> revision 3), then a second customs
+    verification stamped at revision 3 — so a commit may cite old
+    evidence, new evidence, both, or neither, by provenance choice.
+    """
+
+    env = ProjectState()
+    inst = build_research_v4_dossier()
+    env.begin_instance(inst.stages[4].verification_oracle)
+    env.submit(
+        Action(
+            kind="request_verification",
+            record_id="v-old",
+            fields={"check": "customs-preclearance", "subject": "atlas-carriage"},
+        )
+    )
+    env.apply_protocol_revision(3, ("customs-preclearance",))
+    env.submit(
+        Action(
+            kind="request_verification",
+            record_id="v-new",
+            fields={"check": "customs-preclearance", "subject": "atlas-carriage"},
+        )
+    )
+    env.submit(
+        Action(
+            kind="create_record",
+            record_id="migration_commit",
+            fields={"plan": "atlas-carriage"},
+        )
+    )
+    env.submit(
+        Action(
+            kind="finalize",
+            record_id="migration_commit",
+            fields={"plan": "atlas-carriage", "status": "final"},
+            provenance=commit_refs,
+        )
+    )
+    return env
+
+
+_CURRENCY_SPEC: dict[str, object] = {
+    "commit_record": "migration_commit",
+    "check": "customs-preclearance",
+    "stale_value": "reverify",
+    "current_value": "current",
+}
+
+
+def test_currency_derivation_is_order_independent() -> None:
+    """Review 892f1d0 M1: a commit citing BOTH rev-1 and rev-3 customs
+    evidence derives 'reverify' regardless of provenance order — the old
+    first-match loop answered 'current' when the fresh record came
+    first. ANY stale in-scope reference fails the diagnosis, exactly as
+    the scoped commit gate treats the same commit."""
+
+    from rsicontext.lifecycle.runner import _derive_evidence_currency
+
+    stale_first = _derive_evidence_currency(_currency_env(("v-old", "v-new")), _CURRENCY_SPEC)
+    fresh_first = _derive_evidence_currency(_currency_env(("v-new", "v-old")), _CURRENCY_SPEC)
+    assert stale_first == fresh_first == "reverify"
+    # All-fresh and all-stale citations keep their answers.
+    assert _derive_evidence_currency(_currency_env(("v-new",)), _CURRENCY_SPEC) == "current"
+    assert _derive_evidence_currency(_currency_env(("v-old",)), _CURRENCY_SPEC) == "reverify"
+
+
+def test_currency_derivation_names_missing_evidence_explicitly() -> None:
+    """Review 892f1d0 M1: a commit citing NO in-scope evidence must NOT
+    default to 'current' (the optimistic guess). The derivation returns
+    the explicit missing value, so the ObjectiveChecker grades the
+    participant's diagnosis as a mismatch — diagnosing currency with
+    nothing to diagnose is wrong."""
+
+    from rsicontext.lifecycle.runner import _derive_evidence_currency
+
+    env = ProjectState()
+    inst = build_research_v4_dossier()
+    env.begin_instance(inst.stages[4].verification_oracle)
+    # Out-of-scope env evidence + a bare participant record: no
+    # referenced record carries the customs check.
+    env.submit(
+        Action(
+            kind="request_verification",
+            record_id="v-cold",
+            fields={"check": "cold-chain-integrity", "subject": "atlas-carriage"},
+        )
+    )
+    env.submit(
+        Action(
+            kind="create_record",
+            record_id="candidate_status",
+            fields={"plan": "atlas-carriage", "domain": "shipping"},
+        )
+    )
+    env.submit(
+        Action(
+            kind="create_record",
+            record_id="migration_commit",
+            fields={"plan": "atlas-carriage"},
+        )
+    )
+    env.submit(
+        Action(
+            kind="finalize",
+            record_id="migration_commit",
+            fields={"plan": "atlas-carriage", "status": "final"},
+            provenance=("v-cold", "candidate_status"),
+        )
+    )
+    assert _derive_evidence_currency(env, _CURRENCY_SPEC) == "no-evidence"
+    overridden = dict(_CURRENCY_SPEC, missing_value="nothing-to-diagnose")
+    assert _derive_evidence_currency(env, overridden) == "nothing-to-diagnose"
 
 
 def test_followup2_diagnosis_matches_derivation_not_memory() -> None:

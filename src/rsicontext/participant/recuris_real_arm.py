@@ -6,11 +6,11 @@ Design (recuris agent, 2026-09-23). One improvement round:
   → build_trace_doc (w_t/E_t/a_t/o_t from the run's own records)
   → Meta-Agent plan (injected callable; the module is network-free)
   → deterministic plan validation (menus, evidence citations,
-    capability disclosure, ledger, leak screen)
+    capability disclosure, ledger)
   → ONE component-scoped patch (add_card / edit_card / set_max_cards /
     add_state_field)
   → run_gate over REAL dev runs (strict improvement + no-regression +
-    no-new-policy-errors + fingerprint + leak) — ties reject
+    no-new-policy-errors + fingerprint) — ties reject
   → ledger + package commit or discard.
 
 Every failure is a NAMED round outcome that admits nothing.
@@ -158,9 +158,13 @@ def validate_plan(
 
     Checks: shape; component/action menu; ONE cluster; evidence cites a
     decision that actually failed; the target is not ledger-blocked; the
-    card (if any) has a placeholder-only body (leak screen) and grounds
-    on a disclosed state field; the target id is not already present
-    (add) / IS present (edit).
+    card (if any) has a body and grounds on a disclosed state field; the
+    target id is not already present (add) / IS present (edit).
+
+    No card-body content screen: the dev/eval split is the leak defense
+    (eval material never enters improvement input); screening candidate
+    bodies against eval-answer tokens would itself leak eval facts into
+    the improvement loop (see the module-level note).
     """
 
     if not isinstance(plan, dict) or "clusters" not in plan:
@@ -223,9 +227,6 @@ def validate_plan(
         body = str(card.get("body", ""))
         if not body.strip():
             raise PlanBounce("add_card requires a card body")
-        for token in _leak_tokens():
-            if token in body:
-                raise PlanBounce(f"leak screen: card body contains {token!r}")
         field = card.get("requires_field")
         if field is not None and field not in disclosure.get("state_fields", ()):
             raise PlanBounce(f"capability disclosure: state field {field!r} is not tracked")
@@ -236,22 +237,21 @@ def validate_plan(
         existing = {str(e.get("id")) for e in package.get("entries", ())}
         if target not in existing:
             raise PlanBounce(f"edit_card target {target!r} does not exist")
-        body = str((cluster.get("card") or {}).get("body", ""))
-        for token in _leak_tokens():
-            if token in body:
-                raise PlanBounce(f"leak screen: card body contains {token!r}")
     return dict(cluster)
 
 
-def _leak_tokens() -> tuple[str, ...]:
-    """The eval-leak screen: the mirror variant's distinctive answers."""
-
-    return (
-        "harborline-freight",
-        "orbit-hosting",
-        "northwind-logistics",
-        "suspended",
-    )
+#: No leak screen here (review 892f1d0 M1). The former token screen
+#: rejected candidate card bodies containing the EVAL world's answer
+#: words ('harborline-freight' etc.) — but those words appear in the
+#: MIRROR VARIANT'S OWN MATERIAL, which for the B-group's dev world IS
+#: legitimate dev input (session 3 runs the mirror in dev). Filtering
+#: improvement input against eval-answer tokens lets hidden evaluation
+#: information influence the improvement process — the exact leak the
+#: dev/eval split exists to prevent. The structural defense stands:
+#: eval material never enters any improvement input (see
+#: dossier_variants: "Nothing from them enters any improvement input"),
+#: and run_gate only ever accepts plans whose evidence cites the DEV
+#: run's own failures.
 
 
 def apply_patch(package: dict[str, object], cluster: Mapping[str, object]) -> dict[str, object]:

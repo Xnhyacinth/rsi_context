@@ -324,6 +324,10 @@ def build_b1_sessions() -> tuple[LifecycleInstance, LifecycleInstance, Lifecycle
                         "field": "status",
                         "stale_value": "reverify",
                         "current_value": "current",
+                        # Explicit no-evidence diagnosis (review 892f1d0
+                        # M1): a commit citing no in-scope evidence is
+                        # not optimistically 'current'.
+                        "missing_value": "no-evidence",
                     }
                 },
             ),
