@@ -59,7 +59,7 @@ class StageView:
     #: said since the participant's last turn (action receipts: verdicts,
     #: refusals with named causes). Evaluator-only fields stay excluded;
     #: receipts carry env ANSWERS, never oracle internals.
-    receipts: tuple["Receipt", ...] = ()
+    receipts: tuple[Receipt, ...] = ()
 
     def cited_doc_ids(self, pack_text: str) -> tuple[str, ...]:
         """Doc ids referenced by ``[[doc:ID]]`` markers in ``pack_text``."""
@@ -536,6 +536,10 @@ def _commit_gate_failures(
     - ``plan_requirements`` (mapping plan -> {domain, requires_check}):
       the committed plan's required verification, keyed by the sandbox
       records the commit references (its ``provenance`` list).
+      ``requires_check`` may be ONE check name (str) or SEVERAL (list
+      of str — the M2 "vector" decision type: the commit must cite a
+      passing env-issued verification for EVERY named check; a plan
+      passing only one of them fails).
     - ``current_revision`` (int) + ``revision_scope`` (list[str]):
       referenced records carrying a ``check`` in the scope must carry
       ``protocol_revision == current_revision``.
@@ -601,35 +605,45 @@ def _commit_gate_failures(
                 "records; the required verifications are missing"
             )
         required_check = requirement.get("requires_check")
-        if isinstance(required_check, str):
+        # M2 "vector": ONE check (str) or SEVERAL (list/tuple). The gate
+        # demands a passing env-issued verification for the committed
+        # subject on EVERY named check — a plan passing only one of a
+        # two-check requirement fails, with the MISSING check named.
+        if isinstance(required_check, (str, list, tuple)):
+            if isinstance(required_check, str):
+                required_checks: tuple[str, ...] = (required_check,)
+            else:
+                required_checks = tuple(str(entry) for entry in required_check)
             environment_evidence = [
                 (ref, record)
                 for ref, record in zip(referenced_ids, referenced)
                 if ref in env.verification_record_ids
             ]
-            qualifying = [
-                record
-                for _ref, record in environment_evidence
-                if record.get("check") == required_check
-                and record.get("subject") == plan
-                and record.get("verdict") == "pass"
-            ]
-            if not qualifying:
-                if environment_evidence:
-                    failures.append(
-                        f"commit gate: plan {plan!r} lacks an environment-issued "
-                        f"{required_check!r} verification for subject {plan!r} "
-                        "with a passing verdict among its referenced records"
-                    )
-                else:
-                    # Keyed by the COMMITTED PLAN, never by a participant-supplied
-                    # domain field: the requirement applies because the world's
-                    # precondition names this plan, not because the participant
-                    # labeled it.
-                    failures.append(
-                        f"commit gate: plan {plan!r} lacks a "
-                        f"{required_check!r} verification among its referenced records"
-                    )
+            for check_name in required_checks:
+                qualifying = [
+                    record
+                    for _ref, record in environment_evidence
+                    if record.get("check") == check_name
+                    and record.get("subject") == plan
+                    and record.get("verdict") == "pass"
+                ]
+                if not qualifying:
+                    if environment_evidence:
+                        failures.append(
+                            f"commit gate: plan {plan!r} lacks an environment-issued "
+                            f"{check_name!r} verification for subject {plan!r} "
+                            "with a passing verdict among its referenced records"
+                        )
+                    else:
+                        # Keyed by the COMMITTED PLAN, never by a
+                        # participant-supplied domain field: the
+                        # requirement applies because the world's
+                        # precondition names this plan, not because the
+                        # participant labeled it.
+                        failures.append(
+                            f"commit gate: plan {plan!r} lacks a "
+                            f"{check_name!r} verification among its referenced records"
+                        )
     current_revision = precondition.get("current_revision")
     scope = precondition.get("revision_scope")
     if (
