@@ -15,11 +15,17 @@ agent's policy for reading, remembering, verifying, and acting can
 improve from its own project experience — through an honest
 measurement environment whose evidence, costs, and feedback boundaries
 cannot be gamed by the participant — and whether such improvement is
-retained on unseen projects, at what resource cost. It is a benchmark +
-analytic study, not a method: the deliverables are the task family, the
-measurement protocol, and the comparative findings (including negative
-ones) about when improvement beats a competent fixed system, matched
-search, or simply more deployment compute.
+retained on unseen projects, at what resource cost. The three
+organizing scientific questions (2026-09-24 review): does experience
+improve robustness to growing information scale, changing memory
+state, and lengthening action dependency — and does the improvement
+TRANSFER, or merely repair the current template? Does the gain come
+from better information strategy, or from more compute and stronger
+candidate selection? It is a benchmark + analytic study, not a method:
+the deliverables are the task family, the measurement protocol, and
+the comparative findings (including negative ones) about when
+improvement beats a competent fixed system, matched search, or simply
+more deployment compute.
 
 ## 2. Value / contribution claims (honest, three)
 
@@ -91,14 +97,19 @@ provably unassisted (prompt carries no diagnosis — pinned), with the
 non-adaptive search arm (stateful_control's first real implementation)
 reporting both Δ_update and Δ_practical.
 
-**Why the neighbors don't cover it**: Rethinking contributes the
-matched-feedback/compute discipline (we adopt it — attributed);
-AgentStream the no-evolution control delta (adopted — attributed);
-what is ours is the COMPOSITION with C1/C2: the controls run inside an
-environment where evidence validity and time-point semantics are
-pinned, on tasks with an auditable ledger, under a contract that also
-governs the improvement arms' failure handling (the live no-policy
-round kept the baseline per contract §3, recorded).
+**Position vs the neighbors (narrowed per the 2026-09-24 review)**:
+matched feedback/compute, held-out evaluation, failure recording, and
+paired controls are Rethinking's and AgentStream's contributions —
+ADOPTED WITH ATTRIBUTION, not ours. The composition with C1/C2 is a
+complete research design; a combination does not automatically become
+a paper contribution. The paper-level claim structure is therefore
+threefold: (1) the task-and-data contribution — a controlled
+long-context memory-action dependency task family (prototype stage);
+(2) the measurement-and-comparison contribution — open participation
+with acquisition/retention/transfer/cost separation (partially in
+place); (3) the empirical-findings contribution — which improvements
+hold, fail, or cost more than they return (NOT YET FORMED; no positive
+result is required, but the result must be valid and generalizable).
 
 **Evidence**: [implemented+pinned for the protocol] —
 stats-contract-v1.md + test_r2a_arms (6) + test_r2b (5). [evidence
