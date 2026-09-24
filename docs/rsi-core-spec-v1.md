@@ -284,8 +284,12 @@ Correction record: Dream-RSI and MGM were earlier marked "NOT
 independently verified" when search tooling failed; the literature
 subagent's primary-source reads landed after the spec was first
 committed, and this section is corrected accordingly. Remaining
-verification debt: everything is arXiv-preprint or blog (zero peer
-review); Recuris/FinEvo/PROCTOR-family details are abstract-level.
+verification debt: all reads are arXiv/blog-level — PUBLICATION
+STATUS NOT VERIFIED (an arXiv read does not establish the absence
+of peer review); Recuris/FinEvo/PROCTOR-family details are
+abstract-level. gpt-5.4's "nonexistence" claim is WITHDRAWN
+(2026-09-24: OpenAI announced it 2026-03-05 — see
+docs/worker2-research-20260923.md).
 
 ## Part 5 — Implementation order (this worktree)
 

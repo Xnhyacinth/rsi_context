@@ -6,10 +6,15 @@ record + the profile entry below are the durable outputs.
 
 ## Verified corrections to earlier assumptions
 
-- **`gpt-5.4` does not exist** — OpenAI's deprecations page lists only
-  `gpt-5.4-cyber`, deprecated with shutdown Oct 1, 2026. The earlier
-  review's "gpt-5.4-2026-03-05 snapshot" was stale. The current
-  documented chat family is GPT-6 (`gpt-6-astra/sol/luna`).
+- **WITHDRAWN (2026-09-24 review): the "gpt-5.4 does not exist" claim
+  was wrong.** OpenAI announced GPT-5.4 on 2026-03-05; the deprecations
+  page's `gpt-5.4-cyber` entry showed a DEPRECATED VARIANT, not the
+  family's nonexistence. "Model exists", "our account can access it",
+  "Siflow offers it", and "the variant is deprecated" are four
+  distinct questions — the original reasoning conflated them. The
+  current documented chat family is GPT-6 (`gpt-6-astra/sol/luna`);
+  gpt-5.4's API availability from this account remains UNVERIFIED —
+  verify before any closed-source provisioning decision.
 - **Siflow is not Qwen-only**: live `/v1/models` query (HTTP 200) shows
   16 models across 6 families (Qwen, DeepSeek, Z.ai GLM, Gemma, Kimi,
   gpt-oss-120b) — but NO closed-source frontier family.

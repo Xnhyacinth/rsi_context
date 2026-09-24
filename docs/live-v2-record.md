@@ -11,13 +11,17 @@ the artifact path is gitignored.
 The first non-ties outcome in the project's history — an HONEST
 negative, reported as measured.
 
-| Arm | dev | eval_mirror |
+| Arm | dev (project / decisions) | eval_mirror (project / decisions) |
 | --- | --- | --- |
-| strong_model_fixed | 0/3 (award ✗, fu1 ✓, fu2 ✗) | **3/3** |
-| unassisted_update (round: ok, 15,176 out tokens) | 0/3 (award ✗, fu1 ✗, fu2 ✓) | 0/3 (award ✗) |
-| non_adaptive_search (no usable candidate; baseline stands) | 0/3 | 3/3 |
-| recuris_s0_matched | 0/3 | 3/3 |
-| recuris_adapted (2 rounds, both BOUNCED — see the bug) | — | 3/3 |
+| strong_model_fixed | 0/1 (decisions 1/3: award ✗, fu1 ✓, fu2 ✗) | **1/1 (3/3)** |
+| unassisted_update (round: ok, 15,176 out tokens) | 0/1 (0/3) | 0/1 (2/3: award ✗) |
+| non_adaptive_search (no usable candidate; baseline stands) | 0/1 (1/3) | 1/1 (3/3) |
+| recuris_s0_matched | 0/1 (1/3) | 1/1 (3/3) |
+| recuris_adapted (2 rounds, both BOUNCED — see the bug) | — | 1/1 (3/3) |
+
+(The earlier table's bare "0/3" mixed denominators: a cell's PROJECT
+completion is 0/1 while its DECISION count may be 1/3 — both are
+reported, never merged into one number.)
 
 Deltas: Δ_update = −1 (the rewritten policy lost the mirror's award,
 which the baseline wins); Δ_search = 0; Δ_recuris = 0 (both bounce —
