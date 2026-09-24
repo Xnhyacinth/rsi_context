@@ -228,6 +228,33 @@ def _run_c1(policy_text: str, turns: int = 3):
     return record, env
 
 
+def _run_c1_with(builder, policy_text: str, turns: int = 3):
+    """The same two-session sequence, over any C-world builder."""
+    sessions = list(builder())
+    env = ProjectState()
+    budget = ToolBudget()
+    registry = DocumentRegistry()
+
+    def hook_factory(state):
+        return PolicyHook(
+            state,
+            policy_text,
+            tool_budget=budget,
+            responder=_offline_responder,
+            registry=registry,
+        )
+
+    record = run_session_sequence(
+        sessions,
+        hook_factory,
+        envs=[env, env],
+        budget=budget,
+        registry=registry,
+        max_turns_per_stage=turns,
+    )
+    return record, env
+
+
 def test_naive_agent_fails_both_decisions() -> None:
     record, env = _run_c1(NAIVE_POLICY)
     s1, s2 = record.sessions
@@ -312,3 +339,165 @@ def test_receipts_deliver_the_fail_verdict_in_stage() -> None:
     record = run_lifecycle(s1, spy, env, max_turns_per_stage=3)
     probe = [r for r in spy.seen if r.record_id == "probe"]
     assert probe and probe[0].applied and probe[0].verdict == "fail"
+
+
+# ---------------------------------------------------------------------------
+# c1-mirror (the r3 EVAL world: the C machinery PERMUTED over the mirror
+# corpus — harborline is the reading-level best that FAILS in session 1;
+# the mutation renews harborline and the re-award legal set is
+# {harborline-freight} at rev 2).
+# ---------------------------------------------------------------------------
+
+
+def test_c1_mirror_grammar_and_flip() -> None:
+    from rsicontext.lifecycle.material_c_group import build_c1_mirror_sessions
+
+    dev1, dev2 = build_c1_sessions()
+    m1, m2 = build_c1_mirror_sessions()
+    # Same two-session SHAPE: the same stage ids/kinds per session.
+    for dev, mir in ((dev1, m1), (dev2, m2)):
+        assert [s.stage_id for s in dev.stages] == [s.stage_id for s in mir.stages]
+        assert [s.kind for s in dev.stages] == [s.kind for s in mir.stages]
+    assert m1.instance_id == "research-v5-c1m-s1-0001"
+    assert m2.instance_id == "research-v5-c1m-s2-0001"
+    # The survey carries the MIRROR corpus (the mirror decoy's 'suspended'
+    # clause, not the mother's 'bonded corridor' winner phrasing).
+    survey_text = "\n".join(d.text for d in m1.stages[0].documents)
+    assert "suspended" in survey_text
+    assert "bonded corridor" not in survey_text
+    # Session-1 oracle FAILS the mirror's reading-level best
+    # (harborline) and PASSES a recovery target (atlas).
+    oracle = m1.stages[2].verification_oracle
+    assert oracle["customs-preclearance"]["harborline-freight"] is False
+    assert oracle["customs-preclearance"]["atlas-carriage"] is True
+    # The mutation renews harborline: session-2's oracle flips it to pass
+    # and the re-award legal set is {harborline-freight} at rev 2.
+    oracle2 = m2.stages[2].verification_oracle
+    assert oracle2["customs-preclearance"]["harborline-freight"] is True
+    assert m2.stages[2].commit_precondition["legal_plans"] == ["harborline-freight"]
+    assert m2.stages[2].commit_precondition["current_revision"] == 2
+
+
+#: NAIVE (mirror): commits the mirror's reading-level best (harborline)
+#: WITHOUT reading the outcome; on resume, re-awards the carried atlas
+#: recovery (stale).
+MIRROR_NAIVE_POLICY = """
+def on_turn(turn):
+    kind = turn.view.kind
+    if kind == "act_verify":
+        if turn.view.stage_id == "c1-re-award":
+            winner = "atlas-carriage"  # the carried session-1 recovery, stale
+            record = "corridor_reaward"
+            ver = "vm-stale"
+        else:
+            winner = "harborline-freight"
+            record = "migration_commit"
+            ver = "vm-naive"
+        return {
+            "pack_text": "commit " + winner,
+            "actions": (
+                turn.actions.request_verification(ver, "customs-preclearance", winner),
+                turn.actions.create_record(record, {"plan": winner}),
+                turn.actions.finalize(record, {"plan": winner, "status": "final"}, (ver,)),
+            ),
+        }
+    return {"pack_text": "ok"}
+"""
+
+
+#: RECOVER (mirror): verify the mirror's preferred candidate, READ the
+#: receipt; on fail, switch to atlas and re-verify; on resume,
+#: re-verify the mutation's winner (harborline) post-mutation.
+MIRROR_RECOVER_POLICY = """
+def on_turn(turn):
+    kind = turn.view.kind
+    state = turn.state
+    if kind == "act_verify":
+        if turn.view.stage_id == "c1-re-award":
+            # Post-mutation: re-verify the renewed carrier.
+            winner = "harborline-freight"
+            return {
+                "pack_text": "re-award " + winner,
+                "actions": (
+                    turn.actions.request_verification(
+                        "vm-rev2", "customs-preclearance", winner
+                    ),
+                    turn.actions.create_record("corridor_reaward", {"plan": winner}),
+                    turn.actions.finalize(
+                        "corridor_reaward",
+                        {"plan": winner, "status": "final"},
+                        ("vm-rev2",),
+                    ),
+                ),
+            }
+        seen = state.setdefault("seen_receipts", [])
+        seen.extend((r.record_id, r.verdict) for r in turn.receipts)
+        known = dict(seen)
+        probed = "vm-pre" in known
+        probe_fail = known.get("vm-pre") == "fail"
+        fallback_ok = known.get("vm-fallback") == "pass"
+        if not probed:
+            return {
+                "pack_text": "verify preferred",
+                "actions": (
+                    turn.actions.request_verification(
+                        "vm-pre", "customs-preclearance", "harborline-freight"
+                    ),
+                ),
+            }
+        if probe_fail and not fallback_ok:
+            return {
+                "pack_text": "switch to fallback",
+                "actions": (
+                    turn.actions.request_verification(
+                        "vm-fallback", "customs-preclearance", "atlas-carriage"
+                    ),
+                ),
+            }
+        plan = "atlas-carriage" if probe_fail else "harborline-freight"
+        ver = "vm-fallback" if probe_fail else "vm-pre"
+        return {
+            "pack_text": "commit " + plan,
+            "actions": (
+                turn.actions.create_record(
+                    "candidate_status-" + plan, {"plan": plan, "domain": "shipping"}
+                ),
+                turn.actions.create_record("migration_commit", {"plan": plan}),
+                turn.actions.finalize(
+                    "migration_commit",
+                    {"plan": plan, "status": "final"},
+                    (ver, "candidate_status-" + plan),
+                ),
+            ),
+        }
+    return {"pack_text": "ok"}
+"""
+
+
+def test_c1_mirror_two_legal_paths() -> None:
+    # The RECOVER-style policy (adapted to the mirror facts) passes BOTH
+    # sessions: session 1 via read-receipt-and-switch (harborline fails
+    # -> commit atlas), session 2 via re-verify-on-resume (harborline
+    # renewed -> commit harborline with rev-2 evidence). The naive one
+    # fails both.
+    from rsicontext.lifecycle.material_c_group import build_c1_mirror_sessions
+
+    record, env = _run_c1_with(build_c1_mirror_sessions, MIRROR_RECOVER_POLICY)
+    s1, s2 = record.sessions
+    assert s1.passed, s1.failures
+    assert s2.passed, s2.failures
+    # The award went to atlas (the session-1 oracle's passer).
+    assert env.records["migration_commit"]["plan"] == "atlas-carriage"
+    # The re-award went to harborline (the mutation's winner), citing
+    # post-mutation evidence (rev 2).
+    assert env.records["corridor_reaward"]["plan"] == "harborline-freight"
+    assert env.records["vm-rev2"]["protocol_revision"] == 2
+
+    naive_record, _ = _run_c1_with(build_c1_mirror_sessions, MIRROR_NAIVE_POLICY)
+    ns1, ns2 = naive_record.sessions
+    assert not ns1.passed
+    assert any(
+        "lacks an environment-issued" in f or "not in the legal set" in f for f in ns1.failures
+    ), ns1.failures
+    assert not ns2.passed
+    assert any("not in the legal set" in f for f in ns2.failures), ns2.failures

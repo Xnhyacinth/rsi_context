@@ -306,4 +306,217 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
     return session1, session2
 
 
-__all__ = ["build_c1_sessions"]
+def build_c1_mirror_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
+    """Build the two session instances of task c1-mirror (in order).
+
+    The EVAL twin of c1 (r3design §6 — the C machinery PERMUTED over the
+    mirror corpus, stage kinds and recovery paths IDENTICAL): the
+    mirror's own award oracle (dossier_variants._VARIANTS["mirror"])
+    passes harborline-freight and fails atlas-carriage, so the
+    reading-level best for c1-mirror session 1 is harborline — and the
+    session-1 oracle flips it to FAIL (a pending customs-bonding audit),
+    while a recovery target (atlas-carriage, the oracle's other passer
+    inverted to True here) passes. The session-2 mutation RENEWS
+    harborline's bonding, so the re-award legal set is
+    {harborline-freight} at rev 2 — an agent that re-awards on its
+    carried atlas recovery is refused. Stage ids stay c1-* so the
+    existing decision derivations keep working.
+    """
+
+    from rsicontext.lifecycle.dossier_variants import build_dossier_variant
+
+    c1 = build_c1_sessions()
+    mirror = build_dossier_variant("mirror")
+    # The mirror's supplier cards (patched facts) + c1's own protocol and
+    # constraint docs (world-neutral text — composed, never re-written).
+    mirror_cards = tuple(
+        d for d in mirror.stages[0].documents if d.doc_id not in ("doc-v4-verif-db", "doc-v4-memo")
+    )
+    c1_protocol = c1[0].stages[0].documents[-1]
+    c1_constraint = c1[0].stages[1].documents[0]
+
+    #: Session-1 oracle: the mirror's reading-level best (harborline)
+    #: FAILS (pending audit); atlas passes — the recovery target.
+    s1_oracle = {
+        "customs-preclearance": {
+            "harborline-freight": False,  # the pending-audit flip
+            "atlas-carriage": True,
+            "northwind-logistics": False,
+            "pinnacle-courier": False,
+        },
+    }
+    #: Session-2 oracle (the MUTATION): bonding renewed — harborline now
+    #: passes; atlas still passes. The re-award's legal set contains
+    #: ONLY harborline (the mutation's winner).
+    s2_oracle = {
+        "customs-preclearance": {
+            "harborline-freight": True,  # the renewal flip
+            "atlas-carriage": True,
+            "northwind-logistics": False,
+            "pinnacle-courier": False,
+        },
+    }
+
+    survey_docs = (*mirror_cards, c1_protocol)
+
+    session1 = LifecycleInstance(
+        instance_id="research-v5-c1m-s1-0001",
+        family=_FAMILY,
+        stages=(
+            StageSpec(
+                stage_id="c1-survey",
+                kind="survey",
+                prompt_text=c1[0].stages[0].prompt_text,
+                documents=survey_docs,
+                gold_evidence_ids=tuple(doc.doc_id for doc in survey_docs),
+            ),
+            StageSpec(
+                stage_id="c1-constraint",
+                kind="constraint_injection",
+                prompt_text=c1[0].stages[1].prompt_text,
+                documents=(c1_constraint,),
+                gold_evidence_ids=(),
+            ),
+            StageSpec(
+                stage_id="c1-act-verify",
+                kind="act_verify",
+                prompt_text=c1[0].stages[2].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+                expected_state_delta={_COMMIT: {"status": "final"}},
+                commit_precondition={
+                    "record_id": _COMMIT,
+                    "plan_field": "plan",
+                    "legal_plans": ["harborline-freight", "atlas-carriage"],
+                    "plan_requirements": {
+                        "harborline-freight": {
+                            "domain": "shipping",
+                            "requires_check": "customs-preclearance",
+                        },
+                        "atlas-carriage": {
+                            "domain": "shipping",
+                            "requires_check": "customs-preclearance",
+                        },
+                    },
+                    "current_revision": 1,
+                    "revision_scope": ["customs-preclearance"],
+                },
+                verification_oracle=s1_oracle,
+            ),
+            StageSpec(
+                stage_id="c1-session-end",
+                kind="session_end",
+                prompt_text=c1[0].stages[3].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+            ),
+        ),
+        axes=DescriptionAxes(
+            information_scale_tokens=sum(1 + len(d.text.split()) for d in survey_docs),
+            dependency_distance_stages=2,
+            persistence_span_resets=1,
+            action_dependency="strong",
+            environment_changes=1,
+        ),
+        answer_norm="atlas-carriage",
+        sandbox_spec={
+            "records": [_COMMIT, _REAWARD],
+            "action_kinds": [
+                "create_record",
+                "update_record",
+                "finalize",
+                "request_verification",
+            ],
+        },
+        answer_aliases=("atlas-carriage",),
+    )
+
+    session2 = LifecycleInstance(
+        instance_id="research-v5-c1m-s2-0001",
+        family=_FAMILY,
+        stages=(
+            StageSpec(
+                stage_id="c1-s2-start",
+                kind="session_start",
+                prompt_text=c1[1].stages[0].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+            ),
+            StageSpec(
+                stage_id="c1-mutation",
+                kind="rule_change",
+                prompt_text=c1[1].stages[1].prompt_text,
+                documents=(
+                    _doc(
+                        "doc-c1m-mutation",
+                        "Bonding renewal notice",
+                        (
+                            "Harborline Freight's customs bonding audit has "
+                            "CLEARED: their port-side cold chain is bonded "
+                            "under the northern customs corridor agreement "
+                            "and now satisfies the customs-preclearance "
+                            "check. Prior FAILED verifications for "
+                            "harborline-freight are superseded by this "
+                            "notice; re-verification reflects the renewed "
+                            "state. Atlas Carriage remains eligible."
+                        ),
+                        "v5:c1m:mutation",
+                    ),
+                ),
+                gold_evidence_ids=(),
+                rule_change_effect=2,
+                rule_change_scope=("customs-preclearance",),
+            ),
+            StageSpec(
+                stage_id="c1-re-award",
+                kind="act_verify",
+                prompt_text=c1[1].stages[2].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+                expected_state_delta={_REAWARD: {"status": "final"}},
+                commit_precondition={
+                    "record_id": _REAWARD,
+                    "plan_field": "plan",
+                    "legal_plans": ["harborline-freight"],
+                    "plan_requirements": {
+                        "harborline-freight": {
+                            "domain": "shipping",
+                            "requires_check": "customs-preclearance",
+                        }
+                    },
+                    "current_revision": 2,
+                    "revision_scope": ["customs-preclearance"],
+                },
+                verification_oracle=s2_oracle,
+            ),
+            StageSpec(
+                stage_id="c1-s2-end",
+                kind="session_end",
+                prompt_text=c1[1].stages[3].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+            ),
+        ),
+        axes=DescriptionAxes(
+            information_scale_tokens=1,
+            dependency_distance_stages=2,
+            persistence_span_resets=1,
+            action_dependency="strong",
+            environment_changes=1,
+        ),
+        answer_norm="harborline-freight",
+        sandbox_spec={
+            "records": [_COMMIT, _REAWARD],
+            "action_kinds": [
+                "create_record",
+                "update_record",
+                "finalize",
+                "request_verification",
+            ],
+        },
+        answer_aliases=("harborline-freight",),
+    )
+    return session1, session2
+
+
+__all__ = ["build_c1_mirror_sessions", "build_c1_sessions"]

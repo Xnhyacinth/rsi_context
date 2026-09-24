@@ -438,6 +438,14 @@ def build_b1_sessions() -> tuple[LifecycleInstance, LifecycleInstance, Lifecycle
                 gold_evidence_ids=(),
                 expected_state_delta={_COMMIT: {"status": "final"}},
                 commit_precondition=mirror.stages[4].commit_precondition,
+                # The mirror's own oracle, so the fresh env can ISSUE
+                # evidence for the mirror's winner (r3 fix, 2026-09-24):
+                # without it every session-3 verification came back
+                # 'unverifiable' and the award gate was unpassable for
+                # ANY policy — s3_award measured impossibility, not
+                # transfer. Misapplication still fails (the legal set
+                # rejects the carried winner regardless).
+                verification_oracle=mirror.stages[4].verification_oracle,
             ),
             StageSpec(
                 stage_id="n6-followup-calibration",
@@ -477,4 +485,268 @@ def build_b1_sessions() -> tuple[LifecycleInstance, LifecycleInstance, Lifecycle
     return session1, session2, session3
 
 
-__all__ = ["build_b1_sessions"]
+def build_b1_reverse_sessions() -> tuple[LifecycleInstance, LifecycleInstance, LifecycleInstance]:
+    """Build the three session instances of task b1-reverse (in order).
+
+    The EVAL twin of b1 (r3design §6 — same-family transfer, worlds
+    SWAPPED, structure identical): sessions 1-2 run the MIRROR variant's
+    facts as the continuing project (winner harborline-freight,
+    calibration orbit-hosting, the SAME between-session rev-3
+    customs supersession), session 3 is a fresh project on the MOTHER's
+    facts (atlas/vesper) — misapplying session-1's harborline
+    conclusions there must fail. Stage ids and decision keys are
+    IDENTICAL to b1 (the six-decision vector's needles are stage-id
+    based); every world-specific piece is COMPOSED from the existing
+    builders, never re-written.
+    """
+
+    from rsicontext.lifecycle.dossier_variants import build_dossier_variant
+    from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
+
+    b1 = build_b1_sessions()
+    mother = build_research_v4_dossier()
+    mirror = build_dossier_variant("mirror")
+
+    # Sessions 1-2's project: the MIRROR's facts (cards + protocol; the
+    # memo is excluded exactly as in b1's session-1 survey).
+    mirror_survey = tuple(d for d in mirror.stages[0].documents if d.doc_id != "doc-v4-memo")
+    # Session 3's fresh project: the MOTHER's facts (full survey, as in
+    # b1's session 3).
+    mother_survey = mother.stages[0].documents
+
+    # --- Session 1: the continuing project, phase one (MIRROR facts) --
+    session1 = LifecycleInstance(
+        instance_id="research-v5-b1r-s1-0001",
+        family=_FAMILY,
+        stages=(
+            StageSpec(
+                stage_id="s1-survey",
+                kind="survey",
+                prompt_text=b1[0].stages[0].prompt_text,
+                documents=mirror_survey,
+                gold_evidence_ids=tuple(doc.doc_id for doc in mirror_survey),
+            ),
+            StageSpec(
+                stage_id="s2-constraint",
+                kind="constraint_injection",
+                prompt_text=b1[0].stages[1].prompt_text,
+                documents=mirror.stages[1].documents,
+                gold_evidence_ids=(),
+            ),
+            StageSpec(
+                stage_id="s4-rule-change",
+                kind="rule_change",
+                prompt_text=b1[0].stages[2].prompt_text,
+                documents=mirror.stages[3].documents,
+                gold_evidence_ids=(),
+                rule_change_effect=2,
+                rule_change_scope=(),
+            ),
+            StageSpec(
+                stage_id="s5-act-verify",
+                kind="act_verify",
+                prompt_text=b1[0].stages[3].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+                expected_state_delta={_COMMIT: {"status": "final"}},
+                commit_precondition=mirror.stages[4].commit_precondition,
+                verification_oracle=mirror.stages[4].verification_oracle,
+            ),
+            StageSpec(
+                stage_id="s6-session-end",
+                kind="session_end",
+                prompt_text=b1[0].stages[4].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+            ),
+        ),
+        axes=DescriptionAxes(
+            information_scale_tokens=sum(1 + len(d.text.split()) for d in mirror_survey),
+            dependency_distance_stages=4,
+            persistence_span_resets=2,
+            action_dependency="strong",
+            environment_changes=2,
+        ),
+        answer_norm="harborline-freight",
+        sandbox_spec={
+            "records": [_COMMIT, _CONCLUSION, _REAWARD],
+            "action_kinds": [
+                "create_record",
+                "update_record",
+                "finalize",
+                "request_verification",
+            ],
+        },
+        answer_aliases=("harborline-freight",),
+    )
+
+    # --- Session 2: continue the project (MIRROR facts; rev-3 landed) -
+    # The between-session rule change KEEPS b1's rev-3 customs scope
+    # (the cross-session recovery machinery — the dossier variant's own
+    # cold-chain supersession is a v4-axis concern, not this one).
+    session2 = LifecycleInstance(
+        instance_id="research-v5-b1r-s2-0001",
+        family=_FAMILY,
+        stages=(
+            StageSpec(
+                stage_id="s7-session-start",
+                kind="session_start",
+                prompt_text=b1[1].stages[0].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+            ),
+            StageSpec(
+                stage_id="s8-rule-change-between",
+                kind="rule_change",
+                prompt_text=b1[1].stages[1].prompt_text,
+                documents=b1[1].stages[1].documents,
+                gold_evidence_ids=(),
+                rule_change_effect=3,
+                rule_change_scope=("customs-preclearance",),
+            ),
+            StageSpec(
+                stage_id="s9-followup-calibration",
+                kind="follow_up",
+                prompt_text=b1[1].stages[2].prompt_text,
+                documents=mirror.stages[5].documents,
+                gold_evidence_ids=(),
+                expected_state_delta=mirror.stages[5].expected_state_delta,
+            ),
+            StageSpec(
+                stage_id="s10-followup-currency",
+                kind="follow_up",
+                prompt_text=b1[1].stages[3].prompt_text,
+                documents=b1[1].stages[3].documents,
+                gold_evidence_ids=(),
+                expected_state_delta=b1[1].stages[3].expected_state_delta,
+                commit_precondition=b1[1].stages[3].commit_precondition,
+            ),
+            StageSpec(
+                stage_id="s11-re-award",
+                kind="act_verify",
+                prompt_text=b1[1].stages[4].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+                expected_state_delta={_REAWARD: {"status": "final"}},
+                commit_precondition={
+                    "record_id": _REAWARD,
+                    "plan_field": "plan",
+                    "legal_plans": ["harborline-freight"],
+                    "plan_requirements": {
+                        "harborline-freight": {
+                            "domain": "shipping",
+                            "requires_check": "customs-preclearance",
+                        }
+                    },
+                    "current_revision": 3,
+                    "revision_scope": ["customs-preclearance"],
+                },
+            ),
+            StageSpec(
+                stage_id="s12-session-end",
+                kind="session_end",
+                prompt_text=b1[1].stages[5].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+            ),
+        ),
+        axes=DescriptionAxes(
+            information_scale_tokens=1,
+            dependency_distance_stages=4,
+            persistence_span_resets=2,
+            action_dependency="strong",
+            environment_changes=1,
+        ),
+        answer_norm="harborline-freight",
+        sandbox_spec={
+            "records": [_COMMIT, _CONCLUSION, _REAWARD],
+            "action_kinds": [
+                "create_record",
+                "update_record",
+                "finalize",
+                "request_verification",
+            ],
+        },
+        answer_aliases=("harborline-freight",),
+    )
+
+    # --- Session 3: a NEW project (the MOTHER's facts) ---------------
+    # Fresh env; carry persists per participant. Misapplying session-1
+    # conclusions must fail (harborline not in the mother legal set;
+    # orbit not the mother calibration answer).
+    session3 = LifecycleInstance(
+        instance_id="research-v5-b1r-s3-0001",
+        family=_FAMILY,
+        stages=(
+            StageSpec(
+                stage_id="n1-survey",
+                kind="survey",
+                prompt_text=b1[2].stages[0].prompt_text,
+                documents=mother_survey,
+                gold_evidence_ids=tuple(doc.doc_id for doc in mother_survey),
+            ),
+            StageSpec(
+                stage_id="n2-constraint",
+                kind="constraint_injection",
+                prompt_text=b1[2].stages[1].prompt_text,
+                documents=mother.stages[1].documents,
+                gold_evidence_ids=(),
+            ),
+            StageSpec(
+                stage_id="n4-rule-change",
+                kind="rule_change",
+                prompt_text=b1[2].stages[2].prompt_text,
+                documents=mother.stages[3].documents,
+                gold_evidence_ids=(),
+                rule_change_effect=2,
+                rule_change_scope=(),
+            ),
+            StageSpec(
+                stage_id="n5-award",
+                kind="act_verify",
+                prompt_text=b1[2].stages[3].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+                expected_state_delta={_COMMIT: {"status": "final"}},
+                commit_precondition=mother.stages[4].commit_precondition,
+                verification_oracle=mother.stages[4].verification_oracle,
+            ),
+            StageSpec(
+                stage_id="n6-followup-calibration",
+                kind="follow_up",
+                prompt_text=b1[2].stages[4].prompt_text,
+                documents=mother.stages[5].documents,
+                gold_evidence_ids=(),
+                expected_state_delta=mother.stages[5].expected_state_delta,
+            ),
+            StageSpec(
+                stage_id="n7-session-end",
+                kind="session_end",
+                prompt_text=b1[2].stages[5].prompt_text,
+                documents=(),
+                gold_evidence_ids=(),
+            ),
+        ),
+        axes=DescriptionAxes(
+            information_scale_tokens=sum(1 + len(d.text.split()) for d in mother_survey),
+            dependency_distance_stages=4,
+            persistence_span_resets=1,
+            action_dependency="strong",
+            environment_changes=1,
+        ),
+        answer_norm="atlas-carriage",
+        sandbox_spec={
+            "records": [_COMMIT, _CONCLUSION],
+            "action_kinds": [
+                "create_record",
+                "update_record",
+                "finalize",
+                "request_verification",
+            ],
+        },
+        answer_aliases=("atlas-carriage",),
+    )
+    return session1, session2, session3
+
+
+__all__ = ["build_b1_reverse_sessions", "build_b1_sessions"]

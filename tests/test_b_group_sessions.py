@@ -173,6 +173,29 @@ def _run_sequence(policy_text: str, envs=None):
     return record, budget, registry, hook_holder
 
 
+def _run_sequence_with(builder, policy_text: str):
+    """The same sequence shape, over any B-world builder (dev or eval)."""
+    sessions = list(builder())
+    envs = [ProjectState(), ProjectState(), ProjectState()]
+    envs = [envs[0], envs[0], envs[2]]
+    budget = ToolBudget()
+    registry = DocumentRegistry()
+    record = run_session_sequence(
+        sessions,
+        lambda state: PolicyHook(
+            state,
+            policy_text,
+            tool_budget=budget,
+            responder=_offline_responder,
+            registry=registry,
+        ),
+        envs=envs,
+        budget=budget,
+        registry=registry,
+    )
+    return record
+
+
 def test_grammar_and_boundary_realism() -> None:
     s1, s2, s3 = build_b1_sessions()
     assert [s.kind for s in s1.stages][-1] == "session_end"
@@ -274,9 +297,9 @@ def on_turn(turn):
     assert record.decisions.get("s1_award") is True, "session-1 facts are correct"
     assert record.decisions.get("s2_calibration") is True, "carry works within the project"
     assert record.decisions.get("s3_award") is False, "the mirror gate must reject atlas"
-    assert (
-        record.decisions.get("s3_calibration") is False
-    ), "the mirror calibration must reject vesper"
+    assert record.decisions.get("s3_calibration") is False, (
+        "the mirror calibration must reject vesper"
+    )
 
 
 def test_oversized_carry_refused_with_cause() -> None:
@@ -330,8 +353,11 @@ def test_sequence_record_exports_cost_and_transcript() -> None:
         )
 
     record = run_session_sequence(
-        sessions, hook_factory, envs=[env, env, ProjectState()],
-        budget=budget, registry=registry,
+        sessions,
+        hook_factory,
+        envs=[env, env, ProjectState()],
+        budget=budget,
+        registry=registry,
     )
     cost = record.cost()
     assert cost["model_calls"] > 0  # the model channel was exercised
@@ -366,8 +392,10 @@ def test_r3_record_gaps_stage_records_and_hook_snapshot() -> None:
     sessions = build_b1_sessions()
     env = ProjectState()
     hook = PolicyHook(
-        {}, strong_model_fixed_policy_text(),
-        tool_budget=ToolBudget(), responder=_offline_responder,
+        {},
+        strong_model_fixed_policy_text(),
+        tool_budget=ToolBudget(),
+        responder=_offline_responder,
     )
     hook.bind_env(env)
     run_lifecycle(sessions[0], hook, env, max_turns_per_stage=1)
@@ -376,15 +404,15 @@ def test_r3_record_gaps_stage_records_and_hook_snapshot() -> None:
     from rsicontext.lifecycle.session_sequence import run_session_sequence
 
     def c_rules(rec, sessions):
-        rec.decisions = {
-            f"session_{i}_passed": s.passed for i, s in enumerate(rec.sessions)
-        }
+        rec.decisions = {f"session_{i}_passed": s.passed for i, s in enumerate(rec.sessions)}
 
     record2 = run_session_sequence(
         list(sessions),
         lambda state: PolicyHook(
-            state, strong_model_fixed_policy_text(),
-            tool_budget=ToolBudget(), responder=_offline_responder,
+            state,
+            strong_model_fixed_policy_text(),
+            tool_budget=ToolBudget(),
+            responder=_offline_responder,
         ),
         envs=[ProjectState(), ProjectState(), ProjectState()],
         decision_rules=c_rules,
@@ -394,3 +422,130 @@ def test_r3_record_gaps_stage_records_and_hook_snapshot() -> None:
         "session_1_passed",
         "session_2_passed",
     }
+
+
+# ---------------------------------------------------------------------------
+# b1-reverse (the r3 EVAL world: same three-session shape, worlds SWAPPED).
+# ---------------------------------------------------------------------------
+
+
+def test_b1_reverse_grammar_and_swap() -> None:
+    from rsicontext.lifecycle.material_b_group import build_b1_reverse_sessions
+
+    dev1, dev2, dev3 = build_b1_sessions()
+    rev1, rev2, rev3 = build_b1_reverse_sessions()
+    # Identical three-session SHAPE: the same stage kinds per session and
+    # the same stage-id set (the decision needles are stage-id based).
+    for dev, rev in ((dev1, rev1), (dev2, rev2), (dev3, rev3)):
+        assert [s.stage_id for s in dev.stages] == [s.stage_id for s in rev.stages]
+        assert [s.kind for s in dev.stages] == [s.kind for s in rev.stages]
+    assert [s.instance_id for s in (rev1, rev2, rev3)] == [
+        "research-v5-b1r-s1-0001",
+        "research-v5-b1r-s2-0001",
+        "research-v5-b1r-s3-0001",
+    ]
+    # Sessions 1-2 run the MIRROR's facts: the survey carries the mirror
+    # decoy's decisive clause ('suspended') and NOT the mother's winner
+    # clause ('bonded corridor' is the mother's card-03 phrasing).
+    rev12_text = "\n".join(d.text for d in rev1.stages[0].documents)
+    assert "suspended" in rev12_text
+    assert "bonded corridor" not in rev12_text
+    # Session 3 is the fresh project on the MOTHER's facts.
+    rev3_text = "\n".join(d.text for d in rev3.stages[0].documents)
+    assert "bonded corridor" in rev3_text
+    assert "suspended" not in rev3_text
+    # The s5 gate's legal set is the mirror's winner; session 3's gate is
+    # the mother's.
+    assert rev1.stages[3].commit_precondition["legal_plans"] == ["harborline-freight"]
+    assert rev3.stages[3].commit_precondition["legal_plans"] == ["atlas-carriage"]
+    # The s5 gate's oracle and session-2's calibration carry the mirror's
+    # facts too.
+    assert rev1.stages[3].verification_oracle["customs-preclearance"]["harborline-freight"] is True
+    assert rev2.stages[2].expected_state_delta == {
+        "followup_conclusion-calibration": {"supplier": "orbit-hosting"}
+    }
+    # The between-session rule change keeps b1's rev-3 customs scope.
+    between = next(s for s in rev2.stages if s.rule_change_effect == 3)
+    assert between.rule_change_scope == ("customs-preclearance",)
+    assert not any(s.rule_change_effect == 3 for s in rev1.stages)
+
+
+#: The reverse twin of the BLIND policy: acquires the MIRROR's
+#: session-1 conclusions (winner=harborline, calibration=orbit) and pins
+#: them forever — misapplies them in session 3 (the MOTHER's facts).
+BLIND_MIRROR_POLICY = """
+def on_turn(turn):
+    kind = turn.view.kind
+    state = turn.state
+    if kind == "survey":
+        state.setdefault("carry", {})
+        state["carry"]["winner"] = "harborline-freight"
+        state["carry"]["calibration"] = "orbit-hosting"
+        return {"pack_text": "survey (mirror-facts pinned)"}
+    if kind in (
+        "session_end",
+        "session_start",
+        "rule_change",
+        "constraint_injection",
+        "delegation",
+    ):
+        return {"pack_text": "boundary"}
+    if kind == "act_verify":
+        winner = "harborline-freight"
+        ver = "bvm-" + turn.view.stage_id
+        record = "corridor_reaward" if turn.view.stage_id == "s11-re-award" else "migration_commit"
+        return {
+            "pack_text": "blind award",
+            "actions": (
+                turn.actions.request_verification(ver, "customs-preclearance", winner),
+                turn.actions.create_record(record, {"plan": winner}),
+                turn.actions.finalize(record, {"plan": winner, "status": "final"}, (ver,)),
+            ),
+        }
+    if kind == "follow_up":
+        return {
+            "pack_text": "blind calibration",
+            "actions": (
+                turn.actions.create_record(
+                    "followup_conclusion-calibration", {"supplier": "orbit-hosting"}
+                ),
+            ),
+        }
+    return {"pack_text": "ok"}
+"""
+
+
+def test_reverse_transfer_punishes_carry_misapplication() -> None:
+    # The transfer axis is REAL and not one-directional: the SAME blind
+    # policy that misapplies session-1 conclusions in session 3. On
+    # b1-reverse the pinned mirror conclusions must FAIL session 3 (the
+    # mother's gate rejects harborline; the calibration delta expects
+    # vesper). On b1 (dev) the mirror-blind policy fails sessions 1-2
+    # — the symmetric evidence that it is the WORLD, not the stage
+    # grammar, that flips the answer.
+    from rsicontext.lifecycle.material_b_group import build_b1_reverse_sessions
+
+    rev = _run_sequence_with(build_b1_reverse_sessions, BLIND_MIRROR_POLICY)
+    assert rev.decisions.get("s1_award") is True, "mirror facts are correct in session 1"
+    assert rev.decisions.get("s2_calibration") is True, "carry works within the project"
+    assert rev.decisions.get("s3_award") is False, "the mother gate must reject harborline"
+    assert rev.decisions.get("s3_calibration") is False, "the mother calibration must reject orbit"
+    dev = _run_sequence_with(build_b1_sessions, BLIND_MIRROR_POLICY)
+    assert dev.decisions.get("s1_award") is False, "the mother gate rejects harborline in dev too"
+    assert dev.decisions.get("s3_award") is True, "the mirror gate accepts harborline in dev"
+
+
+def test_reverse_world_is_passable_by_a_correct_policy() -> None:
+    # The eval world must be PASSABLE: the CARRY policy (which re-derives
+    # the winner from each session's own survey) passes every decision on
+    # b1-reverse — the swap does not break the world, only the blind
+    # carry.
+    from rsicontext.lifecycle.material_b_group import build_b1_reverse_sessions
+
+    record = _run_sequence_with(build_b1_reverse_sessions, CARRY_POLICY)
+    assert record.decisions.get("s1_award") is True, record.failure_detail
+    assert record.decisions.get("s2_calibration") is True, record.failure_detail
+    assert record.decisions.get("s2_currency") is True, record.failure_detail
+    assert record.decisions.get("s2_reaward_fresh") is True, record.failure_detail
+    assert record.decisions.get("s3_award") is True, record.failure_detail
+    assert record.decisions.get("s3_calibration") is True, record.failure_detail
