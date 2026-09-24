@@ -438,6 +438,11 @@ def build_b1_sessions() -> tuple[LifecycleInstance, LifecycleInstance, Lifecycle
                 gold_evidence_ids=(),
                 expected_state_delta={_COMMIT: {"status": "final"}},
                 commit_precondition=mirror.stages[4].commit_precondition,
+                # The MIRROR's own oracle: a fresh-project session must
+                # be able to earn env-issued evidence for ITS winner
+                # (without this, every n5 verification lands
+                # 'unverifiable' and no policy can pass the gate).
+                verification_oracle=mirror.stages[4].verification_oracle,
             ),
             StageSpec(
                 stage_id="n6-followup-calibration",

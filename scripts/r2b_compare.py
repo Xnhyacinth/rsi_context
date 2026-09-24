@@ -50,6 +50,7 @@ from r2a_compare import (
     RESEARCHER_MODEL,
     _live_responder_factory,
     _offline_responder,
+    _policy_loadable,
     _researcher_unassisted_round,
     _run_arm,
 )
@@ -117,9 +118,22 @@ def main() -> int:
 
     # Arm 2: unassisted update (one round — same as R2a).
     updated_policy, update_record = _researcher_unassisted_round(baseline, dev_experience, live)
-    if "def on_turn" not in updated_policy:
+    # The LOAD gate (liveprep's material finding, ported from r2a): the
+    # R2b live failure mode was a mid-string truncation that passed the
+    # "def on_turn" substring check and then failed to load at runtime
+    # ("policy unavailable" every stage). Without this gate, Δ_update
+    # measures the researcher's 16K truncation instead of the update.
+    if not _policy_loadable(updated_policy):
+        had_on_turn = "def on_turn" in updated_policy
         updated_policy = baseline
-        update_record["round_outcome"] = "no-policy (kept baseline)"
+        prefix = (
+            "rejected: policy does not compile (kept baseline)"
+            if had_on_turn
+            else "no-policy (kept baseline)"
+        )
+        update_record["round_outcome"] = (
+            f"{prefix}: {update_record.get('round_outcome')}"
+        )
     dev_update = _run_arm(updated_policy, dev_inst, responder)
     eval_update = _run_arm(updated_policy, eval_inst, responder)
 
@@ -127,7 +141,7 @@ def main() -> int:
     candidate_rounds = _search_candidate_rounds(baseline, dev_experience, live)
     candidates = []
     for policy, record in candidate_rounds:
-        if "def on_turn" not in policy:
+        if not _policy_loadable(policy):
             candidates.append({"usable": False, "record": record, "dev_run": None})
             continue
         dev_run = _run_arm(policy, dev_inst, responder)
