@@ -236,6 +236,74 @@ def test_registry_replaces_on_content_change() -> None:
     assert "No exceptional clauses apply" in after
 
 
+def test_future_material_is_unreachable_until_presented() -> None:
+    # Review 892f1d0 M1: the OLD sequence runner pre-revealed the whole
+    # session's documents before run_lifecycle, so a policy could reread
+    # a LATER stage's rule change mid-session-1. Reveal now happens at
+    # PRESENTATION (the runner reveals each stage's documents right
+    # before building that stage's view): mid-session-1, the
+    # between-session doc (doc-v4-rule-change-2, which only appears in
+    # session 2) must refuse with 'unknown doc id'; after session 2's
+    # mutation stage has run, it must be rereadable.
+    sessions = list(build_b1_sessions())
+    env = ProjectState()
+    budget = ToolBudget()
+    registry = DocumentRegistry()
+
+    PROBE_POLICY = """
+def on_turn(turn):
+    kind = turn.view.kind
+    if kind == "survey":
+        # Mid-session-1: the later material is NOT yet presented.
+        turn.tools.reread("doc-v4-rule-change-2")
+        # Earlier-presented material stays readable (the registry
+        # accumulates): the survey's own card-03 re-reads fine.
+        turn.tools.reread("card-03")
+        return {"pack_text": "survey"}
+    if kind == "rule_change" and "rule-change-2" in turn.view.stage_id:
+        # Session 2's mutation stage HAS run: the doc is now presented.
+        turn.tools.reread("doc-v4-rule-change-2")
+        return {"pack_text": "noted"}
+    return {"pack_text": "ok"}
+"""
+
+    def hook_factory(state):
+        return PolicyHook(
+            state,
+            PROBE_POLICY,
+            tool_budget=budget,
+            responder=_offline_responder,
+            registry=registry,
+        )
+
+    run_session_sequence(
+        sessions,
+        hook_factory,
+        envs=[env, env, ProjectState()],
+        budget=budget,
+        registry=registry,
+    )
+    refused = [
+        r
+        for r in budget.receipts
+        if r.tool == "reread" and r.cause.startswith("unknown doc id 'doc-v4-rule-change-2'")
+    ]
+    # Mid-session-1: refused (the between-session doc was not presented).
+    assert refused, "the later stage's doc must refuse 'unknown doc id' before presentation"
+    # And an earlier-presented doc was readable at that same moment.
+    earlier_ok = [
+        r for r in budget.receipts if r.tool == "reread" and r.ok and "atlas-carriage" in r.answer
+    ]
+    assert earlier_ok, "previously-presented material must stay rereadable"
+    # After session 2's mutation stage ran: the doc IS rereadable.
+    ok_rereads = [
+        r
+        for r in budget.receipts
+        if r.tool == "reread" and r.ok and r.answer.startswith("[[doc:doc-v4-rule-change-2]]")
+    ]
+    assert ok_rereads, "the doc must be rereadable after its stage has run"
+
+
 def test_stale_conclusion_detection_both_directions() -> None:
     record, _, _, _ = _run_sequence(CARRY_POLICY)
     # s2 currency: the derivation says reverify (session-1 evidence at

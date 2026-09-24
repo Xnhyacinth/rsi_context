@@ -3,14 +3,21 @@
 Pins:
 1. fail-receipt-acted-on: a naive agent that commits the
    reading-level-best (atlas, oracle-FAIL in session 1) is refused; a
-   recovering agent reads the fail receipt, switches, commits ember.
+   recovering agent reads the fail receipt, switches, commits
+   meridian-carriage.
 2. mutation-flips-answer: session 2's bonding-renewal mutation (a NEW
    oracle on the fresh award stage) flips atlas to pass — the re-award
-   legal set contains only the mutation's winner; a stale ember
-   recovery (no re-verification of the changed state) is refused.
+   rule (public: highest-ranked eligible carrier, SLA shortest first)
+   makes atlas the mutation's winner; a stale meridian recovery (no
+   re-verification of the changed state) is refused.
 3. two legal recovery paths pass session 1 (read-receipt-and-switch
    via the multi-turn loop; and verify-first-then-commit).
 4. the naive non-recovering agent fails both sessions.
+5. public-rule coherence (review 892f1d0 M1): the recovery target is
+   READABLE MATERIAL (its card is in the session-1 survey), and the
+   re-award legal set matches what the mutation notice + re-award
+   prompt publicly state (the SLA ranking rule makes the winner
+   derivable).
 """
 
 from __future__ import annotations
@@ -45,7 +52,7 @@ def _actions(turn, plan, ver_id, check="customs-preclearance"):
 
 
 #: NAIVE: commits the reading-level best (atlas) WITHOUT reading the
-#: outcome; on resume, re-awards the carried ember (stale recovery).
+#: outcome; on resume, re-awards the carried meridian (stale recovery).
 NAIVE_POLICY = """
 def on_turn(turn):
     kind = turn.view.kind
@@ -54,7 +61,7 @@ def on_turn(turn):
         return {"pack_text": "survey"}
     if kind == "act_verify":
         if turn.view.stage_id == "c1-re-award":
-            winner = "ember"  # the carried session-1 conclusion, stale
+            winner = "meridian-carriage"  # the carried session-1 conclusion, stale
             record = "corridor_reaward"
             ver = "v-stale"
         else:
@@ -76,14 +83,14 @@ def on_turn(turn):
 
 
 #: RECOVER (read-receipt-and-switch): verify the preferred candidate,
-#: READ the receipt; on fail, switch to ember and re-verify; on resume,
-#: re-verify the mutation's winner post-mutation.
+#: READ the receipt; on fail, switch to meridian-carriage and
+#: re-verify; on resume, re-verify the mutation's winner post-mutation.
 RECOVER_POLICY = """
 def on_turn(turn):
     kind = turn.view.kind
     state = turn.state
     if kind == "survey":
-        state["carry"] = {"preferred": "atlas-carriage", "fallback": "ember"}
+        state["carry"] = {"preferred": "atlas-carriage", "fallback": "meridian-carriage"}
         return {"pack_text": "survey"}
     if kind == "act_verify":
         if turn.view.stage_id == "c1-re-award":
@@ -129,11 +136,11 @@ def on_turn(turn):
                 "pack_text": "switch to fallback",
                 "actions": (
                     turn.actions.request_verification(
-                        "v-fallback", "customs-preclearance", "ember"
+                        "v-fallback", "customs-preclearance", "meridian-carriage"
                     ),
                 ),
             }
-        plan = "ember" if probe_fail else "atlas-carriage"
+        plan = "meridian-carriage" if probe_fail else "atlas-carriage"
         ver = "v-fallback" if probe_fail else "v-pre"
         return {
             "pack_text": "commit " + plan,
@@ -178,8 +185,8 @@ def on_turn(turn):
         atlas_ok = any(
             r.record_id == "vf-atlas" and r.verdict == "pass" for r in turn.receipts
         )
-        plan = "atlas-carriage" if atlas_ok else "ember"
-        ver = "vf-atlas" if atlas_ok else "vf-ember"
+        plan = "atlas-carriage" if atlas_ok else "meridian-carriage"
+        ver = "vf-atlas" if atlas_ok else "vf-meridian"
         return {
             "pack_text": "commit " + plan,
             "actions": (
@@ -264,8 +271,8 @@ def test_naive_agent_fails_both_decisions() -> None:
     assert any(
         "lacks an environment-issued" in f or "not in the legal set" in f for f in s1.failures
     ), s1.failures
-    # Session 2: the stale ember re-award is not in the mutation's
-    # legal set (atlas only).
+    # Session 2: the stale meridian re-award is not in the mutation's
+    # legal set (the public SLA rule ranks atlas first).
     assert not s2.passed
     assert any("not in the legal set" in f for f in s2.failures), s2.failures
 
@@ -275,8 +282,8 @@ def test_recover_policy_passes_both_sessions() -> None:
     s1, s2 = record.sessions
     assert s1.passed, s1.failures
     assert s2.passed, s2.failures
-    # The award went to ember (the session-1 oracle's passer).
-    assert env.records["migration_commit"]["plan"] == "ember"
+    # The award went to meridian-carriage (the session-1 oracle's passer).
+    assert env.records["migration_commit"]["plan"] == "meridian-carriage"
     # The re-award went to atlas (the mutation's winner), citing
     # post-mutation evidence (rev 2).
     assert env.records["corridor_reaward"]["plan"] == "atlas-carriage"
@@ -289,7 +296,7 @@ def test_verify_first_policy_passes_session_one() -> None:
     record, env = _run_c1(VERIFY_FIRST_POLICY)
     s1 = record.sessions[0]
     assert s1.passed, s1.failures
-    assert env.records["migration_commit"]["plan"] in ("ember", "atlas-carriage")
+    assert env.records["migration_commit"]["plan"] in ("meridian-carriage", "atlas-carriage")
 
 
 def test_session1_oracle_fails_the_reading_level_best() -> None:
@@ -298,11 +305,63 @@ def test_session1_oracle_fails_the_reading_level_best() -> None:
     s1, s2 = build_c1_sessions()
     oracle = s1.stages[2].verification_oracle
     assert oracle["customs-preclearance"]["atlas-carriage"] is False
-    assert oracle["customs-preclearance"]["ember"] is True
+    assert oracle["customs-preclearance"]["meridian-carriage"] is True
     oracle2 = s2.stages[2].verification_oracle
     assert oracle2["customs-preclearance"]["atlas-carriage"] is True
-    # The mutation flips the LEGAL SET (session 2's re-award: atlas only).
+    # The mutation flips the LEGAL SET (session 2's re-award: the
+    # public SLA rule ranks atlas first).
     assert s2.stages[2].commit_precondition["legal_plans"] == ["atlas-carriage"]
+
+
+def test_public_rules_match_the_gate() -> None:
+    # Review 892f1d0 M1, defects (a) and (b): the task's public rules
+    # must let a material-reading participant DERIVE the gate's answers.
+    s1, s2 = build_c1_sessions()
+    # (a) The recovery target is readable material: its supplier card
+    # (and its use as a cross-border carriage candidate) is in the
+    # session-1 survey, and it names the session-1 legal set's other
+    # member.
+    survey_text = "\n".join(d.text for d in s1.stages[0].documents)
+    assert "Supplier card: meridian-carriage" in survey_text, (
+        "the recovery target must be discoverable from the survey material"
+    )
+    legal_s1 = s1.stages[2].commit_precondition["legal_plans"]
+    assert set(legal_s1) <= {
+        d.text.split("] ", 1)[1].split("\n", 1)[0].replace("Supplier card: ", "")
+        for d in s1.stages[0].documents
+        if d.text.startswith("[[doc:card-")
+    }, "every session-1 legal plan must be a named supplier card"
+    # (b) The re-award legal set matches the public rules: the notice
+    # keeps the recovery target ELIGIBLE and states the ranking rule
+    # (SLA, shortest first) — the winner (atlas, 36h vs meridian's 44h
+    # from the cards) is DERIVABLE, and the re-award prompt states the
+    # same rule.
+    notice = s2.stages[1].documents[0].text
+    assert "Meridian Carriage remains eligible" in notice
+    assert "HIGHEST-ranked eligible carrier" in notice and "STANDARD SLA, shortest first" in notice
+    assert "HIGHEST-ranked eligible carrier" in s2.stages[2].prompt_text
+    assert s2.stages[2].commit_precondition["legal_plans"] == ["atlas-carriage"]
+    # The winner the rule derives is the one with the shorter standard
+    # SLA among the s2 oracle's passers (from the survey cards).
+    survey_cards = {
+        d.text.split("] ", 1)[1].split("\n", 1)[0].replace("Supplier card: ", ""): d.text
+        for d in s1.stages[0].documents
+        if d.text.startswith("[[doc:card-")
+    }
+    passing = [
+        subject
+        for subject, ok in s2.stages[2].verification_oracle["customs-preclearance"].items()
+        if ok and subject in survey_cards
+    ]
+    import re
+
+    slas = {}
+    for name, text in survey_cards.items():
+        match = re.search(r"Standard SLA (\d+)h", text)
+        if match:
+            slas[name] = int(match.group(1))
+    ranked = sorted(passing, key=lambda name: slas[name])
+    assert ranked[0] == s2.stages[2].commit_precondition["legal_plans"][0] == "atlas-carriage"
 
 
 def test_receipts_deliver_the_fail_verdict_in_stage() -> None:
@@ -376,6 +435,47 @@ def test_c1_mirror_grammar_and_flip() -> None:
     assert oracle2["customs-preclearance"]["harborline-freight"] is True
     assert m2.stages[2].commit_precondition["legal_plans"] == ["harborline-freight"]
     assert m2.stages[2].commit_precondition["current_revision"] == 2
+
+
+def test_c1_mirror_public_rules_match_the_gate() -> None:
+    # Review 892f1d0 M1, the mirror twin: (a) the session-1 recovery
+    # target (atlas) is a VISIBLE carriage candidate in the mirror's
+    # survey; (b) the mutation notice keeps atlas eligible AND states
+    # the same SLA ranking rule, which derives harborline (24h vs
+    # atlas's 36h) as the re-award legal set.
+    from rsicontext.lifecycle.material_c_group import build_c1_mirror_sessions
+
+    m1, m2 = build_c1_mirror_sessions()
+    mirror_survey = "\n".join(d.text for d in m1.stages[0].documents)
+    assert "Supplier card: atlas-carriage" in mirror_survey, (
+        "the mirror's recovery target must be discoverable from its survey material"
+    )
+    notice = m2.stages[1].documents[0].text
+    assert "Atlas Carriage remains eligible" in notice
+    assert "HIGHEST-ranked eligible carrier" in notice and "STANDARD SLA, shortest first" in notice
+    assert "HIGHEST-ranked eligible carrier" in m2.stages[2].prompt_text
+    # The rule derives the legal winner from the mirror's own cards:
+    # harborline 24h beats atlas 36h among the s2 oracle's passers.
+    cards = {
+        d.text.split("] ", 1)[1].split("\n", 1)[0].replace("Supplier card: ", ""): d.text
+        for d in m1.stages[0].documents
+        if d.text.startswith("[[doc:card-")
+    }
+    import re
+
+    slas = {}
+    for name, text in cards.items():
+        match = re.search(r"Standard SLA (\d+)h", text)
+        if match:
+            slas[name] = int(match.group(1))
+    passing = [
+        subject
+        for subject, ok in m2.stages[2].verification_oracle["customs-preclearance"].items()
+        if ok and subject in slas
+    ]
+    ranked = sorted(passing, key=lambda name: slas[name])
+    assert ranked[0] == "harborline-freight"
+    assert m2.stages[2].commit_precondition["legal_plans"] == ["harborline-freight"]
 
 
 #: NAIVE (mirror): commits the mirror's reading-level best (harborline)

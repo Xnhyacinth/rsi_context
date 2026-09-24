@@ -39,12 +39,15 @@ from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
 
 #: World-answer literals the baselines must NOT contain (they belong
 #: to the material, never the policy). 'ember' needs word boundaries —
-#: it is a substring of ordinary words ('remembers').
+#: it is a substring of ordinary words ('remembers'); same for
+#: 'meridian' ('meridian-carriage' is covered as a literal, but the
+#: bare word stays checked for future prose).
 _FORBIDDEN_LITERALS = (
     "atlas-carriage",
     "vesper-instruments",
     "orbit-hosting",
     "harborline-freight",
+    "meridian-carriage",
     "pinnacle-courier",
     "customs-preclearance",
     "northwind-logistics",
@@ -55,8 +58,9 @@ _FORBIDDEN_LITERALS = (
     "v-mirror",
     "vf-atlas",
     "vf-ember",
+    "vf-meridian",
 )
-_FORBIDDEN_WORDS = ("ember",)
+_FORBIDDEN_WORDS = ("ember", "meridian")
 
 
 def test_no_hardcoded_answers() -> None:
@@ -160,7 +164,7 @@ def test_c_baseline_passes_c1() -> None:
     # world's oracle defines) and the re-award cites post-mutation
     # evidence (revision 2).
     commit = env.records["migration_commit"]
-    assert commit["plan"] in ("ember", "atlas-carriage")
+    assert commit["plan"] in ("meridian-carriage", "atlas-carriage")
     reaward = env.records["corridor_reaward"]
     cited = reaward.get("provenance", ())
     assert cited, "the re-award must cite env-issued evidence"
@@ -184,7 +188,7 @@ def on_turn(turn):
         return {"pack_text": "survey"}
     if kind == "act_verify":
         if turn.view.stage_id == "c1-re-award":
-            winner = "ember"
+            winner = "meridian-carriage"
             record = "corridor_reaward"
             ver = "v-stale"
         else:
@@ -328,11 +332,11 @@ def _receipt_subjects(prompt: str, verdict: str) -> list[str]:
 
 
 def _switch_candidate(failed_subjects: list[str]) -> str:
-    """The recovery candidate the c1 world's oracle passes (ember).
+    """The recovery candidate the c1 world's oracle passes (meridian).
 
     The switch itself is prompt-driven (the fail lines); the candidate
     name is this scripted worker's world reading — the same discipline
     ``_offline_responder`` applies when it scripts 'atlas carriage'.
     """
 
-    return "ember"
+    return "meridian-carriage"

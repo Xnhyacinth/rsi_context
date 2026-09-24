@@ -10,14 +10,22 @@ reading. The core shape:
   commits atlas from its notes and the award gate refuses (no passing
   env-issued evidence for the subject). A RECOVERING agent requests the
   verification, READS the fail receipt (the multi-turn loop delivers
-  it), switches to ember (oracle-pass), re-verifies, commits — the
-  action outcome changed the feasible path.
+  it), switches to meridian-carriage (oracle-pass), re-verifies,
+  commits — the action outcome changed the feasible path. The recovery
+  target is READABLE MATERIAL (review 892f1d0 M1, defect a): the C
+  survey adds one supplier card (card-c1-meridian) so the corpus names
+  TWO visibly qualified cross-border carriers — the old 'ember' oracle
+  subject never appeared in any card.
 - Session 2 (the MUTATION event): a 'bonding renewed' notice; the
-  session-2 oracle FLIPS atlas to pass (and ember — the session-1
-  recovery — stays pass). The corridor re-award's legal set contains
-  ONLY the mutation's winner (atlas): an agent that re-awards on its
-  carried ember conclusion (stale recovery) is refused; the recovering
-  agent re-verifies post-mutation and commits atlas.
+  session-2 oracle FLIPS atlas to pass (and meridian-carriage — the
+  session-1 recovery — stays pass). The notice and the re-award prompt
+  state the PUBLIC re-award rule: the corridor re-award goes to the
+  HIGHEST-ranked eligible carrier (standard SLA, shortest first) —
+  among the passers that is atlas-carriage (36h vs meridian's 44h), so
+  the legal set is atlas-only and DERIVABLE (review 892f1d0 M1, defect
+  b): an agent that re-awards on its carried meridian conclusion
+  (stale recovery, rule ignored) is refused; the recovering agent
+  re-verifies post-mutation and commits atlas.
 
 Two legal recovery paths (the acceptance rule): (a) read-the-receipt
 and switch (session 1); (b) re-verify-on-resume (session 2 — reread or
@@ -39,24 +47,26 @@ _FAMILY = "research-v5"
 _COMMIT = "migration_commit"
 _REAWARD = "corridor_reaward"
 
-#: Session-1 oracle: the reading-level best FAILS (pending audit); ember
-#: passes — the recovery target.
+#: Session-1 oracle: the reading-level best FAILS (pending audit);
+#: meridian-carriage (the second visible cross-border carrier, C-survey
+#: card card-c1-meridian) passes — the recovery target.
 _S1_ORACLE = {
     "customs-preclearance": {
         "atlas-carriage": False,  # the pending-audit flip
-        "ember": True,
+        "meridian-carriage": True,
         "pinnacle-courier": False,
         "harborline-freight": False,
     },
 }
 
 #: Session-2 oracle (the MUTATION): bonding renewed — atlas now passes;
-#: ember still passes. The re-award's legal set contains ONLY atlas (the
-#: mutation's winner), so a stale ember recovery is refused.
+#: meridian-carriage still passes. The re-award rule (public: SLA rank,
+#: shortest standard SLA first) makes atlas the legal winner, so a stale
+#: meridian recovery is refused.
 _S2_ORACLE = {
     "customs-preclearance": {
         "atlas-carriage": True,  # the renewal flip
-        "ember": True,
+        "meridian-carriage": True,
         "pinnacle-courier": False,
         "harborline-freight": False,
     },
@@ -81,9 +91,28 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
         _doc as mother_doc,
     )
 
-    survey_docs = tuple(
-        mother_doc(str(s["id"]), f"Supplier card: {s['name']}", str(s["text"])) for s in _SUPPLIERS
-    ) + (
+    survey_docs = (
+        *tuple(
+            mother_doc(str(s["id"]), f"Supplier card: {s['name']}", str(s["text"]))
+            for s in _SUPPLIERS
+        ),
+        # Review 892f1d0 M1 (defect a): the recovery target must be
+        # READABLE MATERIAL. The mother corpus names exactly ONE visible
+        # cross-border carrier (atlas, card-03); this card adds a SECOND
+        # one so the session-1 recovery candidate is discoverable from
+        # the survey — plain plausible text, no oracle leak (the card
+        # says qualified-not-pending, the env decides verdicts).
+        _doc(
+            "card-c1-meridian",
+            "Supplier card: meridian-carriage",
+            (
+                "Meridian Carriage runs cross-border carriage with customs "
+                "bonding. Standard SLA 44h. Pricing tier B. Exception "
+                "clause: Meridian Carriage's bonded corridor satisfies the "
+                "customs-preclearance check for the northern checkpoints."
+            ),
+            "v5:c1:meridian",
+        ),
         _doc(
             "doc-c1-verif-db",
             "Supplier verification protocol",
@@ -158,10 +187,10 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 commit_precondition={
                     "record_id": _COMMIT,
                     "plan_field": "plan",
-                    "legal_plans": ["ember", "atlas-carriage"],
+                    "legal_plans": ["meridian-carriage", "atlas-carriage"],
                     "plan_requirements": {
-                        "ember": {
-                            "domain": "operations",
+                        "meridian-carriage": {
+                            "domain": "shipping",
                             "requires_check": "customs-preclearance",
                         },
                         "atlas-carriage": {
@@ -192,7 +221,7 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
             action_dependency="strong",
             environment_changes=1,
         ),
-        answer_norm="ember",
+        answer_norm="meridian-carriage",
         sandbox_spec={
             "records": [_COMMIT, _REAWARD],
             "action_kinds": [
@@ -202,7 +231,7 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 "request_verification",
             ],
         },
-        answer_aliases=("ember",),
+        answer_aliases=("meridian-carriage",),
     )
 
     session2 = LifecycleInstance(
@@ -238,8 +267,11 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                             "customs-preclearance check. Prior FAILED "
                             "verifications for atlas-carriage are "
                             "superseded by this notice; re-verification "
-                            "reflects the renewed state. Ember remains "
-                            "eligible."
+                            "reflects the renewed state. Meridian Carriage "
+                            "remains eligible. RE-AWARD RULE: the corridor "
+                            "re-award goes to the HIGHEST-ranked eligible "
+                            "carrier — ranked by STANDARD SLA, shortest "
+                            "first."
                         ),
                         "v5:c1:mutation",
                     ),
@@ -256,7 +288,10 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                     f"record {_REAWARD} naming the awarded carrier. The "
                     "award requires a passing customs-preclearance "
                     "verification at the CURRENT revision for the "
-                    "committed carrier — re-verify before committing."
+                    "committed carrier — re-verify before committing. "
+                    "Re-award the HIGHEST-ranked eligible carrier "
+                    "(standard SLA, shortest first) per the renewal "
+                    "notice's rule."
                 ),
                 documents=(),
                 gold_evidence_ids=(),
@@ -316,10 +351,15 @@ def build_c1_mirror_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
     reading-level best for c1-mirror session 1 is harborline — and the
     session-1 oracle flips it to FAIL (a pending customs-bonding audit),
     while a recovery target (atlas-carriage, the oracle's other passer
-    inverted to True here) passes. The session-2 mutation RENEWS
-    harborline's bonding, so the re-award legal set is
-    {harborline-freight} at rev 2 — an agent that re-awards on its
-    carried atlas recovery is refused. Stage ids stay c1-* so the
+    inverted to True here) passes — atlas stays a VISIBLE carriage
+    candidate in the mirror corpus (card-03, plain bulk there), so the
+    recovery target is readable material (review 892f1d0 M1, defect a).
+    The session-2 mutation RENEWS harborline's bonding and states the
+    PUBLIC re-award rule (highest-ranked eligible carrier, standard SLA
+    shortest first — harborline 24h beats atlas 36h), so the re-award
+    legal set is {harborline-freight} at rev 2 and DERIVABLE (defect b)
+    — an agent that re-awards on its carried atlas recovery (stale,
+    rule ignored) is refused. Stage ids stay c1-* so the
     existing decision derivations keep working.
     """
 
@@ -346,8 +386,9 @@ def build_c1_mirror_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
         },
     }
     #: Session-2 oracle (the MUTATION): bonding renewed — harborline now
-    #: passes; atlas still passes. The re-award's legal set contains
-    #: ONLY harborline (the mutation's winner).
+    #: passes; atlas still passes. The re-award rule (public: SLA rank,
+    #: shortest first — harborline's 24h beats atlas's 36h) makes
+    #: harborline the legal winner, so a stale atlas recovery is refused.
     s2_oracle = {
         "customs-preclearance": {
             "harborline-freight": True,  # the renewal flip
@@ -458,7 +499,10 @@ def build_c1_mirror_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                             "check. Prior FAILED verifications for "
                             "harborline-freight are superseded by this "
                             "notice; re-verification reflects the renewed "
-                            "state. Atlas Carriage remains eligible."
+                            "state. Atlas Carriage remains eligible. "
+                            "RE-AWARD RULE: the corridor re-award goes to "
+                            "the HIGHEST-ranked eligible carrier — ranked "
+                            "by STANDARD SLA, shortest first."
                         ),
                         "v5:c1m:mutation",
                     ),
