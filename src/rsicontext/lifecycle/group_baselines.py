@@ -526,6 +526,11 @@ def _re_award(turn, state):
     # (a carried pass from session 1 may be stale after the mutation).
     seen = _accumulate(state, turn.receipts)
     receipt_lines = _receipt_lines(seen)
+    # The stage's own documents (a renewal notice, when the world
+    # attaches one) are decision material: the re-award can be GOVERNED
+    # by the notice's rule, so the worker reads it here, not only the
+    # distilled one-line analysis.
+    stage_docs = "\\n\\n".join(d.text for d in turn.view.documents)
     choice = _ask(
         turn,
         "The corridor contract renews after a state change. Retained "
@@ -533,6 +538,7 @@ def _re_award(turn, state):
         + "\\nRule analyses held: " + state.get("rule_reply", "")
         + "\\nVerification outcomes seen so far:\\n"
         + (receipt_lines or "(none yet)")
+        + ("\\nRenewal material attached:\\n" + stage_docs if stage_docs else "")
         + "\\n\\nName the ONE supplier to verify now at the CURRENT "
         "revision (prior verdicts may be superseded). Reply with exactly "
         "'supplier=<id>' where <id> is the supplier's kebab-case id "

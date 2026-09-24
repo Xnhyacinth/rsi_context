@@ -278,14 +278,74 @@ def test_vector_winner_cold_chain_qualification_single_source() -> None:
 
 
 def test_vector_two_check_winner_passes_and_str_requires_check_still_works() -> None:
-    # The list form is additive: a str requires_check world (the
-    # mother) keeps its exact gate behavior (regression guard for the
-    # runner change).
-    from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
+    # Runner-change regression guard (EXERCISED, not spec-shape): the
+    # gate's str requires_check path must behave exactly as before the
+    # list support landed. The same sandbox/precondition is graded
+    # with requires_check as (a) the pre-change str form and (b) the
+    # one-element list — both must demand the SAME single check and
+    # produce the SAME failures; a one-element list must not start
+    # demanding the other check.
+    from rsicontext.lifecycle.runner import _commit_gate_failures
 
-    mother = build_research_v4_dossier()
-    requirement = mother.stages[4].commit_precondition["plan_requirements"]["atlas-carriage"]
-    assert requirement["requires_check"] == "customs-preclearance"
+    inst = build_vector()
+    env = ProjectState()
+    env.begin_instance(inst.stages[4].verification_oracle)
+    # Customs evidence only (the one-check sandbox): the str gate
+    # must accept it exactly as it did before the change; the
+    # two-element list must reject it naming the missing check.
+    env.submit(
+        Action(
+            kind="request_verification",
+            record_id="v-str",
+            fields={"check": "customs-preclearance", "subject": "atlas-carriage"},
+        )
+    )
+    env.submit(Action(kind="create_record", record_id="status", fields={"plan": "atlas-carriage"}))
+    env.submit(
+        Action(
+            kind="create_record", record_id="migration_commit", fields={"plan": "atlas-carriage"}
+        )
+    )
+    env.submit(
+        Action(
+            kind="finalize",
+            record_id="migration_commit",
+            fields={"plan": "atlas-carriage", "status": "final"},
+            provenance=("v-str", "status"),
+        )
+    )
+    precondition = dict(inst.stages[4].commit_precondition)
+    str_form = dict(
+        precondition,
+        plan_requirements={
+            "atlas-carriage": {
+                "domain": "shipping",
+                "requires_check": "customs-preclearance",
+            }
+        },
+    )
+    one_list = dict(
+        precondition,
+        plan_requirements={
+            "atlas-carriage": {
+                "domain": "shipping",
+                "requires_check": ["customs-preclearance"],
+            }
+        },
+    )
+    failures_str = _commit_gate_failures(str_form, env.snapshot(), env)
+    failures_one = _commit_gate_failures(one_list, env.snapshot(), env)
+    # (a) The str form: pre-change behavior — customs satisfied, no
+    # missing-check failure at all.
+    assert failures_str == (), failures_str
+    # (b) The one-element list: identical to the str form.
+    assert failures_one == failures_str, (failures_str, failures_one)
+    # (c) The two-element list: rejects, naming ONLY the missing check.
+    failures_two = _commit_gate_failures(precondition, env.snapshot(), env)
+    assert [f for f in failures_two if "lacks" in f and "customs-preclearance" in f] == []
+    assert any("'cold-chain-integrity' verification" in f and "lacks" in f for f in failures_two), (
+        failures_two
+    )
 
 
 def test_vector_reference_run_solves_it() -> None:
@@ -927,3 +987,365 @@ def test_m2_panel_all_worlds_reference_solvable() -> None:
     ids = {row["world_id"] for rows in panel["groups"].values() for row in rows}
     assert {"a-aurora-swap", "a-vector", "b-b2", "c-c2"} <= ids
     assert {"a-mirror", "b-b1-reverse", "c-c1-mirror"} <= ids
+
+
+# ---------------------------------------------------------------------------
+# Review-defect regressions (2026-09-24 adversarial review, defects 1-3):
+# the reference workers must FOLLOW THE PROMPT, never a hardwired world
+# answer.
+# ---------------------------------------------------------------------------
+
+
+def _vector_award_prompt(card_line: str) -> str:
+    """The strong-fixed award prompt shape with one card line swapped in."""
+
+    return (
+        "Retained notes: notes: " + card_line + " | Beacon Power provides "
+        "grid-tied supply for industrial sites. Pricing tier B. Their "
+        "standard contract has a curtailment clause during regional "
+        "shortages. Exception clause: hospital-adjacent facilities are "
+        "exempt from curtailment under the mutual-aid annex, and this "
+        "exemption transfers with the site's supply contract.\n"
+        "notes: Pinnacle Courier runs same-day metro delivery with the "
+        "newest fleet and the best headline SLA (2h) at tier B — on "
+        "paper the strongest candidate. Buried condition: their customs "
+        "bonding lapsed last quarter and is pending renewal, so the "
+        "customs-preclearance check fails for Pinnacle Couriers until "
+        "renewal completes.\n"
+        "check=customs-preclearance candidate=atlas-carriage\n"
+        "Constraint analysis: check=customs-preclearance candidate=atlas-carriage\n"
+        "\n"
+        "Name the ONE supplier to award (the one whose qualification "
+        "satisfies the required check). Reply with exactly 'supplier=<id>' "
+        "where <id> is the supplier's kebab-case id exactly as printed in "
+        "the card headers (the id after 'Supplier card:'), and nothing else."
+    )
+
+
+_VECTOR_ATLAS_CARD = (
+    "Atlas Carriage runs cross-border carriage with customs bonding. "
+    "Standard SLA 36h. Pricing tier B. Exception clause: Atlas Carriage is "
+    "the only tier-B carrier whose bonded corridor satisfies the "
+    "customs-preclearance check — the corridor agreement covers all five "
+    "northern checkpoints. Cold-chain exception clause: under the "
+    "corridor's cold-chain-annex, Atlas Carriage's bonded corridor also "
+    "satisfies the cold-chain-integrity check for the same five northern "
+    "checkpoints."
+)
+
+#: The fact-swap probe (review defect 1): harborline becomes the
+#: two-check winner; atlas is demoted to a one-check card.
+_VECTOR_HARBORLINE_CARD = (
+    "Harborline Freight runs cross-border carriage with customs bonding. "
+    "Standard SLA 24h. Pricing tier A. Exception clause: Harborline "
+    "Freight is the only tier-A carrier whose bonded corridor satisfies "
+    "the customs-preclearance check — the corridor agreement covers all "
+    "five northern checkpoints. Cold-chain exception clause: under the "
+    "corridor's cold-chain-annex, Harborline Freight's bonded corridor "
+    "also satisfies the cold-chain-integrity check for the same five "
+    "northern checkpoints."
+)
+
+#: A one-check card: customs only — no honest two-check winner exists.
+_VECTOR_ONE_CHECK_CARD = (
+    "Atlas Carriage runs cross-border carriage with customs bonding. "
+    "Standard SLA 36h. Pricing tier B. Exception clause: Atlas Carriage is "
+    "the only tier-B carrier whose bonded corridor satisfies the "
+    "customs-preclearance check — the corridor agreement covers all five "
+    "northern checkpoints."
+)
+
+
+def test_vector_responder_follows_the_prompt_facts() -> None:
+    # Defect 1 regression: the award answer is DERIVED from the card
+    # text in the prompt — the mother facts name atlas, the fact-swap
+    # names harborline (and a renamed variant), and a one-check corpus
+    # yields the honest 'unknown'. No winner literal is hardwired
+    # anywhere the worker can be probed from.
+    from m2_validity_panel import _vector_responder
+
+    assert _vector_responder(_vector_award_prompt(_VECTOR_ATLAS_CARD)) == "supplier=atlas-carriage"
+    swapped = _vector_award_prompt(_VECTOR_HARBORLINE_CARD)
+    assert _vector_responder(swapped) == "supplier=harborline-freight"
+    renamed = swapped.replace("harborline", "aurora").replace("Harborline", "Aurora")
+    assert _vector_responder(renamed) == "supplier=aurora-freight"
+    assert _vector_responder(_vector_award_prompt(_VECTOR_ONE_CHECK_CARD)) == "supplier=unknown"
+
+
+def test_vector_responder_fact_swap_probe_breaks_hardcoding() -> None:
+    # The full reference-run level of the probe (review defect 1): a
+    # fact-swapped VECTOR world — atlas FAILS customs, harborline is
+    # the two-check winner, the gate re-keyed — must be solved by the
+    # SAME responder; a hardcoded atlas answer would fail the swapped
+    # gate ('not in the legal set').
+    import dataclasses
+
+    from m2_validity_panel import PolicyHook, ToolBudget, _vector_policy_text, _vector_responder
+
+    import rsicontext.lifecycle.material_v4_dossier as dossier
+    from rsicontext.lifecycle.runner import run_lifecycle
+
+    original_suppliers = dossier._SUPPLIERS
+    original_oracle = dossier._VERIFICATION_ORACLE
+    original_legal = dossier._LEGAL_PLANS
+    patched = []
+    for supplier in original_suppliers:
+        entry = dict(supplier)
+        if entry["id"] == "card-03":
+            entry["text"] = (
+                "Atlas Carriage runs cross-border carriage with customs "
+                "bonding. Standard SLA 36h. Pricing tier B. Buried "
+                "condition: their customs bonding lapsed last quarter, so "
+                "the customs-preclearance check fails for Atlas Carriage "
+                "until renewal completes."
+            )
+        elif entry["id"] == "card-02":
+            base = str(entry["text"]).split("Their cold-chain")[0].rstrip()
+            entry["text"] = (
+                base + " Exception clause: Harborline Freight is the only "
+                "tier-A carrier whose bonded port-corridor satisfies the "
+                "customs-preclearance check — the corridor agreement "
+                "covers all five northern checkpoints. Cold-chain "
+                "exception clause: under the corridor's cold-chain-annex, "
+                "Harborline Freight's bonded port-corridor also satisfies "
+                "the cold-chain-integrity check for the same five "
+                "northern checkpoints."
+            )
+        patched.append(entry)
+    dossier._SUPPLIERS = tuple(patched)
+    dossier._VERIFICATION_ORACLE = {
+        "customs-preclearance": {
+            "atlas-carriage": False,
+            "harborline-freight": True,
+            "pinnacle-courier": False,
+            "northwind-logistics": False,
+        },
+        "cold-chain-integrity": {
+            "atlas-carriage": True,
+            "delta-catering": True,
+            "harborline-freight": True,
+            "pinnacle-courier": False,
+        },
+    }
+    dossier._LEGAL_PLANS = ("harborline-freight",)
+    try:
+        from rsicontext.lifecycle.material_m2_parents import build_vector
+
+        swapped = build_vector(instance_id="research-v4-vector-swap-0001")
+        stages = list(swapped.stages)
+        s5 = stages[4]
+        precondition = dict(s5.commit_precondition or {})
+        precondition["legal_plans"] = ["harborline-freight"]
+        precondition["plan_requirements"] = {
+            "harborline-freight": {
+                "domain": "shipping",
+                "requires_check": ["customs-preclearance", "cold-chain-integrity"],
+            }
+        }
+        stages[4] = s5.__class__(
+            stage_id=s5.stage_id,
+            kind=s5.kind,
+            prompt_text=s5.prompt_text,
+            documents=s5.documents,
+            gold_evidence_ids=s5.gold_evidence_ids,
+            expected_state_delta=s5.expected_state_delta,
+            expected_aliases=s5.expected_aliases,
+            commit_precondition=precondition,
+            verification_oracle=s5.verification_oracle,
+            rule_change_effect=s5.rule_change_effect,
+            rule_change_scope=s5.rule_change_scope,
+        )
+        swapped = dataclasses.replace(swapped, stages=tuple(stages))
+        env = ProjectState()
+        budget = ToolBudget()
+        hook = PolicyHook(
+            {}, _vector_policy_text(), tool_budget=budget, responder=_vector_responder
+        )
+        hook.bind_env(env)
+        record = run_lifecycle(swapped, hook, env, max_turns_per_stage=2)
+        assert not any("not in the legal set" in f for f in record.final_check.failures), (
+            record.final_check.failures
+        )
+        assert env.records["migration_commit"]["plan"] == "harborline-freight"
+    finally:
+        dossier._SUPPLIERS = original_suppliers
+        dossier._VERIFICATION_ORACLE = original_oracle
+        dossier._LEGAL_PLANS = original_legal
+
+
+def test_b_responder_currency_follows_the_carried_analyses() -> None:
+    # Defect 2 regression: the b2-s3 currency question is answered
+    # from the analyses the prompt carries — mutation A's carried
+    # 'invalidates=customs-preclearance' (in the distilled carry)
+    # yields 'reverify' (the derivation for the s1 commit's rev-1
+    # customs evidence), even while the CURRENT session's analysis
+    # line says cold-chain. The old dead branch answered 'current'.
+    from m2_validity_panel import _b_responder
+
+    prompt = (
+        "The corridor contract is up for review. Retained notes: \n"
+        "Retained conclusions:\n"
+        "atlas-carriage\n"
+        "check=customs-preclearance candidate=atlas-carriage\n"
+        "invalidates=customs-preclearance\n"
+        "Rule analyses held: invalidates=cold-chain-integrity\n"
+        "\n"
+        "Was the award's verification evidence acquired before or after "
+        "the latest rule change that affects its check? Is that evidence "
+        "still current? Reply with exactly 'status=<current or reverify>'."
+    )
+    assert _b_responder(prompt) == "status=reverify"
+    clean = prompt.replace("invalidates=customs-preclearance\n", "").replace(
+        "invalidates=cold-chain-integrity", "invalidates=none"
+    )
+    assert _b_responder(clean) == "status=current"
+
+
+def test_c_responder_reaward_follows_the_renewal_notice() -> None:
+    # Defect 3 regression: the session-2 re-award answer follows the
+    # RENEWAL NOTICE the prompt carries (c2's world attaches it to the
+    # re-award stage and the C baseline includes stage documents) —
+    # NOT the receipt order. Probing harborline first vs atlas first
+    # must give the SAME answer (atlas, the renewed subject).
+    from m2_validity_panel import _c_responder
+
+    notice = (
+        "Atlas Carriage's bonding audit has CLEARED: their bonded "
+        "corridor now satisfies the customs-preclearance check. Prior "
+        "FAILED verifications for atlas-carriage are superseded by this "
+        "notice; re-verification reflects the renewed state. Harborline "
+        "Freight's bonded audit is STILL PENDING — their prior failed "
+        "verdicts stand. Thule Carriage remains eligible. RE-AWARD RULE: "
+        "the corridor re-award goes to the HIGHEST-ranked eligible "
+        "carrier — ranked by STANDARD SLA, shortest first."
+    )
+
+    def _prompt(receipts: str) -> str:
+        return (
+            "The corridor contract renews after a state change. Retained "
+            "conclusions:\nthule-carriage\n"
+            "Rule analyses held: invalidates=customs-preclearance\n"
+            "Verification outcomes seen so far:\n"
+            + receipts
+            + "\nRenewal material attached:\n"
+            + notice
+            + "\n\nName the ONE supplier to verify now at the CURRENT "
+            "revision (prior verdicts may be superseded). Reply with exactly "
+            "'supplier=<id>' where <id> is the supplier's kebab-case id "
+            "exactly as printed in the card headers (the id after "
+            "'Supplier card:'), and nothing else."
+        )
+
+    harborline_first = _prompt(
+        "record=r1 subject=harborline-freight verdict=fail\n"
+        "record=r2 subject=atlas-carriage verdict=fail"
+    )
+    atlas_first = _prompt(
+        "record=r1 subject=atlas-carriage verdict=fail\n"
+        "record=r2 subject=harborline-freight verdict=fail"
+    )
+    assert _c_responder(harborline_first) == "supplier=atlas-carriage"
+    assert _c_responder(atlas_first) == "supplier=atlas-carriage"
+    # Without the notice (c1's shape): exactly one failed leader — the
+    # receipts identify the renewed subject unambiguously.
+    c1_prompt = (
+        "The corridor contract renews after a state change. Retained "
+        "conclusions:\nmeridian-carriage\n"
+        "Rule analyses held: invalidates=customs-preclearance\n"
+        "Verification outcomes seen so far:\n"
+        "record=r1 subject=atlas-carriage verdict=fail\n"
+        "\nName the ONE supplier to verify now at the CURRENT revision "
+        "(prior verdicts may be superseded). Reply with exactly "
+        "'supplier=<id>'."
+    )
+    assert _c_responder(c1_prompt) == "supplier=atlas-carriage"
+
+
+def test_c2_reaward_stage_presents_the_renewal_notice() -> None:
+    # The world-side half of defect 3: c2's re-award stage CARRIES the
+    # notice (public material at the decision point) — the stage's
+    # prompt text references the notice's rule, and the stage presents
+    # the notice itself.
+    _s1, s2 = build_c2_sessions()
+    reaward = next(st for st in s2.stages if st.stage_id == "c2-re-award")
+    assert reaward.documents, "the re-award stage must present the renewal notice"
+    notice = reaward.documents[0].text
+    assert "HIGHEST-ranked eligible carrier" in notice
+    assert "STANDARD SLA, shortest first" in notice
+    assert "STILL PENDING" in notice
+
+
+def test_env_scope_constraint_accepts_check_lists() -> None:
+    # Defect 7 (env half): a participant-declared scope constraint
+    # with a LIST requires_check gets the gate's semantics — every
+    # named check must appear among the referenced records. The old
+    # code silently SKIPPED the list (env-side pass, gate-side
+    # reject). str behavior unchanged.
+    env = ProjectState()
+    env.begin_instance(
+        {
+            "customs-preclearance": {"atlas-carriage": True},
+            "cold-chain-integrity": {"atlas-carriage": True},
+        }
+    )
+    env.submit(
+        Action(
+            kind="request_verification",
+            record_id="v-customs",
+            fields={"check": "customs-preclearance", "subject": "atlas-carriage"},
+        )
+    )
+    env.submit(
+        Action(
+            kind="create_record",
+            record_id="status",
+            fields={"plan": "atlas-carriage", "domain": "shipping"},
+        )
+    )
+    env.submit(
+        Action(
+            kind="create_record",
+            record_id="migration_commit",
+            fields={"plan": "atlas-carriage"},
+        )
+    )
+    # A finalize whose declared scope constraint demands BOTH checks,
+    # citing only the customs one: REFUSED with the missing check named
+    # (matching the evaluator gate's rule).
+    receipt = env.submit(
+        Action(
+            kind="finalize",
+            record_id="migration_commit",
+            fields={"plan": "atlas-carriage", "status": "final"},
+            provenance=("v-customs", "status"),
+            precondition_refs=("v-customs", "status"),
+            precondition_scope_constraint={
+                "domain": "shipping",
+                "requires_check": ["customs-preclearance", "cold-chain-integrity"],
+            },
+        )
+    )
+    assert not receipt.applied
+    assert "cold-chain-integrity" in receipt.cause, receipt.cause
+    # With BOTH checks cited: the constraint passes.
+    env.submit(
+        Action(
+            kind="request_verification",
+            record_id="v-cold",
+            fields={"check": "cold-chain-integrity", "subject": "atlas-carriage"},
+        )
+    )
+    receipt_ok = env.submit(
+        Action(
+            kind="finalize",
+            record_id="migration_commit",
+            fields={"plan": "atlas-carriage", "status": "final"},
+            provenance=("v-customs", "v-cold", "status"),
+            precondition_refs=("v-customs", "v-cold", "status"),
+            precondition_scope_constraint={
+                "domain": "shipping",
+                "requires_check": ["customs-preclearance", "cold-chain-integrity"],
+            },
+        )
+    )
+    assert receipt_ok.applied, receipt_ok.cause

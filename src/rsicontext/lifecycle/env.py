@@ -466,22 +466,37 @@ class ProjectState:
         if constraint is not None:
             domain = constraint.get("domain")
             required_check = constraint.get("requires_check")
-            if isinstance(domain, str) and isinstance(required_check, str):
+            # A list requires_check (the vector decision type) gets the
+            # SAME semantics here as the evaluator's commit gate: every
+            # named check must appear among the referenced records.
+            # Extending this keeps the participant-side hint honest —
+            # a list would otherwise be silently SKIPPED (env-side
+            # pass) while the authoritative gate rejects the commit.
+            if isinstance(required_check, (list, tuple)):
+                required_checks: tuple[str, ...] = tuple(
+                    entry for entry in required_check if isinstance(entry, str)
+                )
+            elif isinstance(required_check, str):
+                required_checks = (required_check,)
+            else:
+                required_checks = ()
+            if isinstance(domain, str) and required_checks:
                 referenced = [self.records[ref] for ref in action.precondition_refs]
                 touches_domain = any(
                     isinstance(record, dict) and record.get("domain") == domain
                     for record in referenced
                 )
-                has_check = any(
-                    isinstance(record, dict) and record.get("check") == required_check
-                    for record in referenced
-                )
-                if touches_domain and not has_check:
-                    raise ProjectStateError(
-                        f"finalize {action.record_id!r} violates scope constraint: "
-                        f"domain {domain!r} requires a {required_check!r} verification "
-                        "among the referenced records"
+                for required in required_checks:
+                    has_check = any(
+                        isinstance(record, dict) and record.get("check") == required
+                        for record in referenced
                     )
+                    if touches_domain and not has_check:
+                        raise ProjectStateError(
+                            f"finalize {action.record_id!r} violates scope constraint: "
+                            f"domain {domain!r} requires a {required!r} verification "
+                            "among the referenced records"
+                        )
 
     @staticmethod
     def _is_finalized(record: dict[str, Any]) -> bool:

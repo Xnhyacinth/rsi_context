@@ -19,6 +19,14 @@ Two parts:
    text + mutation notices) DETERMINISTICALLY select the legal set
    when applied to the survey cards' own text. Executed, not asserted.
 
+Visibility scope (stated precisely): the REFERENCE RUN's scripted
+workers see only PUBLIC material — the prompts the reference policies
+themselves build (stage documents, retained notes, receipts, carried
+conclusions); no oracle, no evaluator fields. The AUDIT step is
+evaluator-side by design and legitimately reads the worlds' declared
+gates and oracles to reconcile what the public rules derive against
+what the gate enforces — that is the review it performs.
+
 Offline only (no model key needed): the responders are deterministic
 scripted workers whose answers follow the PROMPT's own material — the
 established scripting discipline (r2a_compare._offline_responder).
@@ -133,7 +141,11 @@ TWO_CHECKS = ("customs-preclearance", "cold-chain-integrity")
 
 
 def _award(turn, state):
-    supplier = state.get("supplier", "atlas-carriage")
+    # The supplier comes from the worker's parsed reply (the base
+    # policy stored it in state['supplier']); an unparseable reply
+    # falls back to 'unknown' — the base's own convention, judged by
+    # the gate, never a world answer.
+    supplier = state.get("supplier", "unknown")
     return {
         "pack_text": "award " + supplier,
         "actions": (
@@ -228,20 +240,83 @@ def _run_a_world(inst) -> dict[str, Any]:
 
 
 def _vector_responder(prompt: str) -> str:
-    """The vector world's worker: same text-following discipline."""
+    """The vector world's worker: text-following, no winner hardwired.
+
+    The award choice scans the prompt's retained-notes CARD SEGMENTS
+    (pipe/newline-delimited card bodies) for the supplier whose own
+    clause text satisfies BOTH required checks — the vector rule is
+    cumulative, so a one-check card is not enough. The supplier id is
+    derived from the card segment's first sentence (prose name ->
+    kebab-case), the same way the A-group offline worker maps the
+    mother corpus's 'atlas carriage' prose to its card id. No card
+    qualifies -> the honest 'unknown' (the world's gate judges it).
+    """
 
     lowered = prompt.lower()
     if "name the one supplier" in lowered:
-        return "supplier=atlas-carriage"
+        return "supplier=" + _scan_two_check_winner(prompt)
     if "which verification check" in lowered or "check=<name>" in lowered:
-        return "check=customs-preclearance candidate=atlas-carriage"
+        return "check=customs-preclearance candidate=" + _scan_two_check_winner(prompt)
     if "which instrument supplier" in lowered:
+        if "orbit hosting" in lowered:
+            return "supplier=orbit-hosting"
         return "supplier=vesper-instruments"
     if "does this change invalidate" in lowered:
         return _offline_responder(prompt)
     if "still current" in lowered:
-        return "status=reverify"
+        if "invalidates=customs-preclearance" in lowered:
+            return "status=reverify"
+        return "status=current"
     return _offline_responder(prompt)
+
+
+def _scan_two_check_winner(prompt: str) -> str:
+    """The supplier whose card segment qualifies BOTH required checks.
+
+    Splits the prompt's retained-notes block into card segments (the
+    notes lines pipe-join batch extractions) and returns the first
+    segment satisfying both check qualifications, with its supplier id
+    derived from the segment's own prose name.
+    """
+
+    lowered = prompt.lower()
+    if "retained notes: " not in lowered:
+        return "unknown"
+    notes = prompt[lowered.index("retained notes: ") :]
+    segments: list[str] = []
+    for line in notes.splitlines():
+        body = line.removeprefix("Retained notes: ").removeprefix("notes: ")
+        if not body.strip() or "=" in body.split(" ")[0]:
+            continue  # a decision line (check=.../supplier=...), not a card
+        segments.extend(part.strip() for part in body.split(" | ") if part.strip())
+    for segment in segments:
+        seg = segment.lower()
+        if (
+            "satisfies the customs-preclearance check" in seg
+            and "satisfies the cold-chain-integrity check" in seg
+            and "fails" not in seg
+        ):
+            return _kebab_from_prose(segment)
+    return "unknown"
+
+
+def _kebab_from_prose(segment: str) -> str:
+    """The supplier id for a card segment (its first sentence's name)."""
+
+    first = segment.split(".")[0]
+    words = [w for w in first.split() if w]
+    # Drop a leading note prefix if one survived the split.
+    while words and words[0].lower() in ("notes:", "retained"):
+        words = words[1:]
+    name_words = []
+    for word in words:
+        if word == word.capitalize() or word.isupper():
+            name_words.append(word)
+        elif name_words:
+            break
+    if not name_words:
+        return "unknown"
+    return "-".join(w.lower().rstrip(",;:") for w in name_words)
 
 
 # --- B-group reference executor ---------------------------------------------
@@ -251,9 +326,15 @@ def _b_responder(prompt: str) -> str:
     """The B scripted worker, extended for the eval twin and b2.
 
     Two prompt-following additions over r2a's offline worker:
-    - the currency question reads the RULE text the prompt carries
-      (b2's second notice supersedes cold-chain only — the customs
-      evidence the re-award cites stays current);
+    - the currency question scans the WHOLE prompt for the carried
+      rule analyses: the graded record is the s1 commit citing rev-1
+      customs evidence, and the derivation says stale when ANY
+      analysis invalidates the award's check — the b2-s3 prompt
+      carries BOTH analyses (the carried 'invalidates=customs-
+      preclearance' from mutation A distilled into the carry, and the
+      current session's 'invalidates=cold-chain-integrity' from
+      mutation B), so the honest scan answers 'reverify' from the
+      carried one — exactly the derivation's rule;
     - the calibration question in a FRESH project prefers the
       CURRENT survey's notes over the carried conclusions (the
       baseline's own contract: never answer a new project from
@@ -263,22 +344,19 @@ def _b_responder(prompt: str) -> str:
 
     lowered = prompt.lower()
     if "still current" in lowered:
-        # b2 session 3: two revisions have landed; the derivation
-        # checks the commit's customs evidence against rev 3. The
-        # session-2 re-award cited fresh rev-3 evidence, so the
-        # answer turns on the RULE text in the prompt: the second
-        # notice's scope (cold-chain) does NOT touch the customs
-        # evidence the re-award cited.
-        if (
-            "cold-chain-integrity check only" in lowered
-            and "customs-preclearance evidence" in lowered
-        ):
-            return "status=current"
-        if "customs-preclearance check only" in lowered:
+        # The award's evidence is stale iff a carried analysis
+        # invalidates the award's check (customs-preclearance in
+        # every B world). The b2-s3 prompt carries mutation A's
+        # analysis in the distilled carry; b1's prompts carry their
+        # own. Mutation B's cold-chain analysis does not touch the
+        # customs evidence — but the commit's OWN evidence predates
+        # mutation A, so any customs-invalidating analysis present
+        # means stale.
+        if "invalidates=customs-preclearance" in lowered:
             return "status=reverify"
-        if "cold-chain-integrity check only" in lowered:
+        if "invalidates=none" in lowered:
             return "status=current"
-        return "status=reverify"
+        return _offline_responder(prompt)
     if "which instrument supplier" in lowered:
         notes_section = prompt.rsplit("Retained notes:", 1)[-1].lower()
         carry_section = prompt.split("Retained notes:", 1)[0].lower()
@@ -352,11 +430,13 @@ def _b2_policy_text() -> str:
 
 def _re_award_2(turn, state):
     # The second renewal: a NEW contract record id (the world's
-    # interface for the second boundary).
+    # interface for the second boundary). The supplier comes from the
+    # carried award (the project's own distilled conclusion) or the
+    # worker's earlier parse — never a hardcoded world answer.
     carry_award = state.get("carry", {})
     supplier = (
         carry_award.get("award") if isinstance(carry_award, dict) else None
-    ) or state.get("supplier", "atlas-carriage")
+    ) or state.get("supplier", "unknown")
     ver = "b2-rev-" + turn.view.stage_id
     return {
         "pack_text": "second renewal " + supplier,
@@ -430,26 +510,62 @@ def _c_responder(prompt: str) -> str:
     Receipt-following (the test_group_baselines discipline): reads the
     prompt's own receipt lines. The c2 additions: a fail line set
     containing BOTH leaders (atlas + harborline) switches to the third
-    carrier (thule); the renewal question answers the subject whose
-    failure the renewal notice clears (atlas).
+    carrier (thule); the session-2 re-award follows the RENEWAL
+    NOTICE when the prompt carries one (the notice names the renewed
+    subject and the SLA ranking rule — c2's world attaches it to the
+    re-award stage, and the C baseline includes stage documents in
+    the re-award prompt). When no notice is in the prompt (c1: the
+    re-award stage carries no documents), the visible signal is the
+    failed-receipt set — c1 has exactly ONE failed leader, so the
+    renewed subject is that one; a multi-failure world without the
+    notice would be unsolvable honestly (c2 presents it).
     """
 
     lowered = prompt.lower()
     if "name the one supplier to verify now" in lowered:
         fail_subjects = _receipt_subjects(prompt, "fail")
-        if "current revision" in lowered and fail_subjects:
-            # Session 2 re-award: the renewal notice (quoted in the
-            # rule analyses) clears ATLAS only; harborline still
-            # pending. The shortest-SLA eligible leader is atlas.
-            if "harborline" in lowered and "still pending" in lowered:
-                return "supplier=atlas-carriage"
-            return "supplier=" + fail_subjects[0]
+        if "current revision" in lowered:
+            renewed = _notice_renewed_subject(prompt)
+            if renewed:
+                # The notice is in the prompt: follow its rule (the
+                # renewed subject is eligible unless the notice says
+                # its audit is still pending — and a renewal notice
+                # never renews a still-pending subject).
+                return "supplier=" + renewed
+            if fail_subjects and len(fail_subjects) == 1:
+                # No notice in the prompt; exactly one failed leader
+                # (c1's shape): the mutation's renewal clears that
+                # subject — the receipts identify it unambiguously.
+                return "supplier=" + fail_subjects[0]
+            return _offline_responder(prompt)
         if fail_subjects:
             # Session 1 recovery: switch away from EVERY failed subject.
             candidate = _c_switch_candidate(fail_subjects, prompt)
             return "supplier=" + candidate
         return _offline_responder(prompt)
     return _offline_responder(prompt)
+
+
+def _notice_renewed_subject(prompt: str) -> str:
+    """The subject a renewal notice in the prompt CLEARS (if any).
+
+    Reads the notice's own sentence: '<Name>'s bonding audit has
+    CLEARED ... verifications for <subject> are superseded'. The
+    subject id appears in the supersession clause; the prose name in
+    the possessive header. Both are prompt text — no world knowledge.
+    """
+
+    lowered = prompt.lower()
+    if "has cleared" not in lowered:
+        return ""
+    for marker in (
+        "verifications for atlas-carriage are superseded",
+        "verifications for harborline-freight are superseded",
+        "verifications for thule-carriage are superseded",
+    ):
+        if marker in lowered:
+            return marker.split()[2]
+    return ""
 
 
 def _receipt_subjects(prompt: str, verdict: str) -> list[str]:

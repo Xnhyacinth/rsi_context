@@ -4,15 +4,19 @@ The M2 axis (2026-09-24): the dossier family's existing variety
 permutes FACTS over one dependency structure (mirror: another winner,
 another superseded check). The parents below change the STRUCTURE:
 
-- ``aurora-swap`` (research-v4): the load-bearing exception clause —
-  the ONLY qualification of the winning candidate — MOVES to a
-  different supplier card, the decoy's disqualifier moves with it, and
-  the legal set flips accordingly. The dependency GRAPH is inverted:
-  the card the mother world's answer depends on becomes plain bulk,
-  while a formerly-bulk card becomes the single source. The s4
-  documentation-only rule change keeps its empty scope (the trap is
-  structural, not name-bound); s7 keeps the customs-preclearance
-  supersession.
+- ``aurora-swap`` (research-v4): a new (winner x supersession x
+  calibration) CELL, not a name-swap. The winner/decoy card-role
+  assignment matches the mirror's layout (the winner's qualification
+  clause on card-02, the decoy's disqualifier on card-01, the
+  mother's card-03/17 demoted to plain bulk); what distinguishes it
+  from BOTH existing worlds is the recombination: s7 supersedes
+  CUSTOMS-preclearance (the mother's scope — so the s8 currency
+  diagnosis flips to "reverify", where the mirror's cold-chain scope
+  yields "current") and the calibration answer stays the mother's
+  (vesper/card-08). Aurora also rephrases the winner clause itself
+  ("bonded port-corridor", distinct needle strings from the mirror's
+  port-side cold-chain phrasing). The s4 documentation-only rule
+  change keeps its empty scope.
 - ``vector`` (research-v4): the DECISION TYPE changes. The award
   constraint requires TWO passing checks (customs-preclearance AND
   cold-chain-integrity); the commit precondition's
@@ -426,13 +430,11 @@ def build_vector(
 #              shape, the mirror corpus) — misapplying sessions 1-3's
 #              conclusions must fail.
 #
-# Eight graded decisions (the six b1 needles plus the two the second
-# boundary adds: s3_reaward_fresh and the session-3 follow-ups):
-#   b2_s1_award, b2_s2_reaward_fresh, b2_s3_calibration,
-#   b2_s3_currency, b2_s3_reaward_fresh, b2_s4_award,
-#   b2_s4_calibration — key names chosen so the standard
-#   _derive_decisions needles (commit gate / follow_up ids) keep
-#   working with a small custom rule set.
+# Nine graded decisions (the panel's _b_decision_rules): the six b1
+# needles (s1_award, s2_calibration, s2_currency, s2_reaward_fresh,
+# s3_* renamed s4_* for b2's fourth session) plus the three the
+# second boundary adds (b2_s3_calibration, b2_s3_currency,
+# b2_s3_reaward_fresh).
 _B2_ORACLE = {
     "customs-preclearance": {
         "atlas-carriage": True,
@@ -839,6 +841,31 @@ def build_c2_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
         answer_aliases=("thule-carriage",),
     )
 
+    # The renewal notice is PUBLIC WORLD MATERIAL, attached to BOTH the
+    # mutation stage and the re-award stage (review defect 3): the
+    # re-award decision is GOVERNED by the notice's ranking rule, so
+    # the world presents it at the decision point — a participant (or
+    # the panel's reference worker) re-reads the terms it acts under.
+    c2_mutation_doc = _c2_doc(
+        "doc-c2-mutation",
+        "Bonding renewal notice",
+        (
+            "Atlas Carriage's bonding audit has CLEARED: "
+            "their bonded corridor now satisfies the "
+            "customs-preclearance check. Prior FAILED "
+            "verifications for atlas-carriage are "
+            "superseded by this notice; re-verification "
+            "reflects the renewed state. Harborline "
+            "Freight's bonded audit is STILL PENDING — "
+            "their prior failed verdicts stand. Thule "
+            "Carriage remains eligible. RE-AWARD RULE: the "
+            "corridor re-award goes to the HIGHEST-ranked "
+            "eligible carrier — ranked by STANDARD SLA, "
+            "shortest first."
+        ),
+        "v5:c2:mutation",
+    )
+
     session2 = LifecycleInstance(
         instance_id="research-v5-c2-s2-0001",
         family=_FAMILY_V5,
@@ -854,27 +881,7 @@ def build_c2_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 stage_id="c2-mutation",
                 kind="rule_change",
                 prompt_text=c1[1].stages[1].prompt_text,
-                documents=(
-                    _c2_doc(
-                        "doc-c2-mutation",
-                        "Bonding renewal notice",
-                        (
-                            "Atlas Carriage's bonding audit has CLEARED: "
-                            "their bonded corridor now satisfies the "
-                            "customs-preclearance check. Prior FAILED "
-                            "verifications for atlas-carriage are "
-                            "superseded by this notice; re-verification "
-                            "reflects the renewed state. Harborline "
-                            "Freight's bonded audit is STILL PENDING — "
-                            "their prior failed verdicts stand. Thule "
-                            "Carriage remains eligible. RE-AWARD RULE: the "
-                            "corridor re-award goes to the HIGHEST-ranked "
-                            "eligible carrier — ranked by STANDARD SLA, "
-                            "shortest first."
-                        ),
-                        "v5:c2:mutation",
-                    ),
-                ),
+                documents=(c2_mutation_doc,),
                 gold_evidence_ids=(),
                 rule_change_effect=2,
                 rule_change_scope=("customs-preclearance",),
@@ -892,7 +899,7 @@ def build_c2_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                     "(standard SLA, shortest first) per the renewal "
                     "notice's rule; note which leaders are STILL pending."
                 ),
-                documents=(),
+                documents=(c2_mutation_doc,),
                 gold_evidence_ids=(),
                 expected_state_delta={"corridor_reaward": {"status": "final"}},
                 commit_precondition={
