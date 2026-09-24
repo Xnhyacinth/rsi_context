@@ -158,11 +158,22 @@ wired, offline-verified, live run pending.
    as strategy-improvement results.
 5. STATE-2026-09-22.md predates RSI-core-v1; read its observations
    through flag 4.
-6. Literature verification debt: all neighbors are arXiv preprints;
-   several details abstract-level (spec Part 4 carries provenance).
-7. Researcher retry policy (budget pack: 5 attempts) is declared but
-   not implemented in the unassisted round — a declared-vs-implemented
-   gap, queued for the next run's config.
+6. Literature verification debt: all neighbor reads are arXiv-level;
+   PUBLICATION STATUS NOT VERIFIED (an arXiv read does not establish
+   the absence of peer review — LongMemEval and HELMET have ICLR
+   2025 records; several RSI-neighbor details are abstract-level;
+   spec Part 4 carries provenance). FACTUAL CORRECTION (2026-09-24
+   review): gpt-5.4 DOES exist (OpenAI announced it 2026-03-05) —
+   the earlier "does not exist" claim came from reading only the
+   deprecations page and is withdrawn in
+   docs/worker2-research-20260923.md; "model exists", "account
+   access", "aggregator offers it", and "deprecated" are four
+   distinct questions.
+7. Researcher retry policy: implemented (transport-only, 5 attempts,
+   per-attempt records — commit 4b11f18); the r2b load gate is also
+   ported (both call sites). Remaining gap: the live meta-agent
+   closure duplicates the transport skeleton rather than factoring it
+   with the unassisted round (cosmetic).
 
 ## 6. Postmortem notes (recorded honestly)
 

@@ -141,8 +141,12 @@ def run_session_sequence(
     fresh env per session.
 
     ``budget``/``registry``: shared across sessions (the arm's cost
-    ledger and the legally-revealed material set persist; the working
-    context does not).
+    ledger and the accumulated revealed-material set persist; the
+    working context does not). The registry is fed by the RUNNER on
+    presentation — each stage's documents are revealed only when that
+    stage runs, so a session's LATER material stays unreachable until
+    presented (and a session boundary does not pre-reveal the next
+    session's docs either).
     """
 
     budget = budget if budget is not None else ToolBudget()
@@ -163,13 +167,22 @@ def run_session_sequence(
         # installs the oracle per its own begin_instance logic).
         if hasattr(hook, "bind_env"):
             hook.bind_env(env)
-        # The session's view of the world: reveal its documents.
-        for stage in inst.stages:
-            registry.reveal(stage.documents)
         # Install the oracle only once per env (begin_instance resets it).
         if id(env) in oracle_installed:
             oracle_installed.discard(id(env))
-        lifecycle_record = run_lifecycle(inst, hook, env, max_turns_per_stage=max_turns_per_stage)
+        # The registry is threaded INTO the runner: documents are
+        # revealed on PRESENTATION (review 892f1d0 M1) — the pre-reveal
+        # loop that ran here made the whole session's future material
+        # (later stages' rule changes, follow-ups) rereadable before the
+        # session ran. The runner now reveals each stage's documents
+        # right before building that stage's view.
+        lifecycle_record = run_lifecycle(
+            inst,
+            hook,
+            env,
+            max_turns_per_stage=max_turns_per_stage,
+            registry=registry,
+        )
         # The persist flush (harness-side, after the last turn): the
         # carry subtree ONLY, canonical bytes, byte-capped.
         session_id = f"b1-session-{index}"

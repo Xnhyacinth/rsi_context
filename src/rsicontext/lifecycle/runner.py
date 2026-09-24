@@ -19,9 +19,9 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from rsicontext.lifecycle.env import (
     Action,
@@ -91,6 +91,17 @@ class ParticipantHook(Protocol):
     """
 
     def on_stage(self, stage: StageView) -> StageResponse: ...
+
+
+@runtime_checkable
+class RevealSink(Protocol):
+    """Where revealed documents accumulate (tools.DocumentRegistry's shape).
+
+    Structural (not the concrete class) because tools.py imports this
+    module for ``StageView`` — a concrete import here would be circular.
+    """
+
+    def reveal(self, documents: Sequence[DocumentRef]) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,12 +235,22 @@ def run_lifecycle(
     env: ProjectState,
     *,
     max_turns_per_stage: int = 1,
+    registry: RevealSink | None = None,
 ) -> LifecycleRunRecord:
     """Execute ``inst``'s stages in order against ``hook``, writing into ``env``.
 
     Applies each stage's actions to ``env`` as they arrive (act_verify
     included), then checks the final sandbox state against the act_verify
     stage's ``expected_state_delta`` via ``ObjectiveChecker``.
+
+    ``registry`` (review 892f1d0 M1, reveal-on-presentation): when
+    supplied, each stage's documents are revealed to it right BEFORE the
+    stage's first view is built — future material is structurally
+    unreachable (a later stage's docs are not in the registry until that
+    stage runs, so reread of them refuses; earlier stages' docs stay
+    rereadable). ``None`` (the default, single-lifecycle arms) keeps the
+    legacy behavior: the docs live in the stage views themselves and the
+    registry is the caller's own concern.
 
     Multi-turn recovery (RSI core v1.1, review §3.2): a stage may run up
     to ``max_turns_per_stage`` participant turns. After each turn the
@@ -280,6 +301,12 @@ def run_lifecycle(
     elif env._verification_oracle is None:
         env.begin_instance(None)
     for index, stage in enumerate(inst.stages):
+        # Reveal-on-presentation (review 892f1d0 M1): the stage's
+        # documents enter the registry only NOW — the participant's
+        # reread surface can reach previously-presented material but
+        # never a later stage's.
+        if registry is not None and stage.documents:
+            registry.reveal(stage.documents)
         if stage.kind == "rule_change" and stage.rule_change_effect is not None:
             # The rule change is an ENVIRONMENT event: the protocol clock
             # advances BEFORE this stage's observations are built, so
