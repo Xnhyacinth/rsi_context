@@ -92,16 +92,21 @@ def _a_worlds() -> tuple[Any, Any]:
     return build_research_v4_dossier(), build_dossier_variant("mirror")
 
 
-def _b_worlds() -> tuple[Any, Any, Any, Any]:
+def _b_worlds() -> tuple[list[Any], list[Any]]:
+    """B's dev/eval twins: b1 (mother→mirror) vs b1-reverse
+    (mirror→mother) — the full three-session triple each."""
+
     dev = build_b1_sessions()
     ev = build_b1_reverse_sessions()
-    return dev[0], dev[1], dev[2], ev[0]
+    return list(dev), list(ev)
 
 
-def _c_worlds() -> tuple[Any, Any, Any, Any]:
+def _c_worlds() -> tuple[list[Any], list[Any]]:
+    """C's dev/eval twins: c1 vs c1-mirror (both two-session)."""
+
     dev = build_c1_sessions()
     ev = build_c1_mirror_sessions()
-    return dev[0], dev[1], ev[0], ev[1]
+    return list(dev), list(ev)
 
 
 class GroupSpec:
@@ -127,34 +132,34 @@ class GroupSpec:
         self.dev_experience_stages = dev_experience_stages
 
 
-def run_group(
-    spec: GroupSpec,
+def _run_arm_on_group(
+    spec,
     policy_text: str,
     responder,
     initial_state: dict[str, object] | None = None,
+    phase: str = "dev",
 ) -> dict[str, object]:
-    """Normalize one arm×group run into a single GroupRun record.
+    """One arm cell on one group (dispatches on the shape).
 
-    The improver's dev_runner closure is this function — build_trace_doc
-    and run_gate run UNMODIFIED over the result (the improver never
-    learns what a session is).
+    phase selects the world set (stats-contract §4): "dev" runs the
+    dev worlds (the improver's dev_runner and every candidate-gate run
+    default here — experience is gained on dev only); "eval" runs the
+    held-out worlds. The returned record is the SAME GroupRun contract
+    either way, so build_trace_doc and run_gate run UNMODIFIED over it
+    (the improver never learns what a session is).
     """
 
+    worlds = spec.dev_worlds if phase == "dev" else spec.eval_worlds
     if spec.shape == "lifecycle":
-        run = _run_arm(policy_text, spec.dev_worlds[0], responder, initial_state=initial_state)
-        return dict(run)
-    # Sequence shape (B/C): one sequence run; the record merges the
-    # sessions' costs, transcripts, stage records, and hook-state
-    # snapshots into the GroupRun contract.
+        return _run_arm(policy_text, worlds[0], responder, initial_state=initial_state)
     from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
 
     budget = ToolBudget()
     registry = DocumentRegistry()
-    sessions = spec.dev_worlds if not spec.eval_worlds else spec.dev_worlds
-    # The dev run uses the DEV worlds; the eval run the eval worlds.
+    sessions = list(worlds)
     seq = run_session_sequence(
-        list(sessions),
-        lambda state: _hook_factory(policy_text, state, budget, registry),
+        sessions,
+        lambda state: _make_hook(policy_text, state, budget, registry, responder),
         envs=[ProjectState() for _ in sessions],
         budget=budget,
         registry=registry,
@@ -162,19 +167,6 @@ def run_group(
         decision_rules=_b_decision_rules if spec.group_id == "B" else _c_decision_rules,
     )
     return _sequence_to_group_run(seq, budget)
-
-
-def _hook_factory(policy_text, state, budget, registry):
-    from rsicontext.lifecycle.policy import PolicyHook
-
-    hook = PolicyHook(
-        dict(state),
-        policy_text,
-        tool_budget=budget,
-        responder=None,  # set below via responder closure
-        registry=registry,
-    )
-    return hook
 
 
 def _b_decision_rules(record, sessions):
@@ -239,28 +231,6 @@ def _sequence_to_group_run(seq, budget) -> dict[str, object]:
 # --- the arm runners -------------------------------------------------------
 
 
-def _run_arm_on_group(spec, policy_text, responder, initial_state=None):
-    """One arm cell on one group (dispatches on the shape)."""
-
-    if spec.shape == "lifecycle":
-        return _run_arm(policy_text, spec.dev_worlds[0], responder, initial_state=initial_state)
-    from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
-
-    budget = ToolBudget()
-    registry = DocumentRegistry()
-    sessions = list(spec.dev_worlds)
-    seq = run_session_sequence(
-        sessions,
-        lambda state: _make_hook(policy_text, state, budget, registry, responder),
-        envs=[ProjectState() for _ in sessions],
-        budget=budget,
-        registry=registry,
-        max_turns_per_stage=spec.turns,
-        decision_rules=_b_decision_rules if spec.group_id == "B" else _c_decision_rules,
-    )
-    return _sequence_to_group_run(seq, budget)
-
-
 def _make_hook(policy_text, state, budget, registry, responder):
     from rsicontext.lifecycle.policy import PolicyHook
 
@@ -270,13 +240,27 @@ def _make_hook(policy_text, state, budget, registry, responder):
     return hook
 
 
+def _run_failures(run: dict[str, object]) -> list[str]:
+    """The run's failure strings, across both GroupRun spellings.
+
+    A-group records carry `failures` (r2a's _run_arm); B/C sequence
+    records carry `failure_detail` (per decision). The researcher's
+    experience payload must be the union.
+    """
+
+    failures: list[str] = list(run.get("failures") or [])
+    for needle_list in (run.get("failure_detail") or {}).values():
+        failures.extend(needle_list)
+    return failures
+
+
 def _dev_experience(spec, baseline_run: dict[str, object]) -> dict[str, object]:
     """The unassisted/search arms' dev-experience payload (per group)."""
 
     return {
         "stages": spec.dev_experience_stages,
         "decisions": dict(baseline_run.get("decisions") or {}),
-        "failures": list(baseline_run.get("failures") or []),
+        "failures": _run_failures(baseline_run),
         "receipt_causes_sample": [
             "environment verification verdicts (pass/fail)",
             "protocol revision notices",
@@ -285,12 +269,23 @@ def _dev_experience(spec, baseline_run: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _four_outcome(delta: int, fixed_passed: bool) -> str:
-    if delta > 0:
+def _four_outcome(delta_eval: int, delta_dev: int, fixed_passed: bool) -> str:
+    """r2a's semantics, applied per group (stats-contract §5):
+
+    improves if eval gained; fixed-sufficient if the fixed system
+    already passed (nothing to gain — a publishable ties class);
+    otherwise ties; regresses if eval lost.
+    """
+
+    if delta_eval > 0:
         return "improves"
-    if delta == 0:
-        return "ties"
-    return "regresses"
+    if delta_eval < 0:
+        return "regresses"
+    if fixed_passed:
+        return "fixed-sufficient"
+    if delta_dev < 0:
+        return "regresses"
+    return "ties"
 
 
 def main() -> int:
@@ -314,8 +309,8 @@ def main() -> int:
     responder = _live_responder_factory() if live else _offline_responder
 
     a_dev, a_eval = _a_worlds()
-    b1, b2, b3, b_eval = _b_worlds()
-    c1, c2, c_eval1, c_eval2 = _c_worlds()
+    b_dev, b_eval = _b_worlds()
+    c_dev, c_eval = _c_worlds()
 
     specs = {
         "A": GroupSpec(
@@ -334,8 +329,8 @@ def main() -> int:
         ),
         "B": GroupSpec(
             "B",
-            [b1, b2, b3],
-            [b_eval, b2, b3],
+            b_dev,
+            b_eval,
             shape="sequence",
             turns=2,
             baseline_policy=group_b_basline_policy_text(),
@@ -347,8 +342,8 @@ def main() -> int:
         ),
         "C": GroupSpec(
             "C",
-            [c1, c2],
-            [c_eval1, c_eval2],
+            c_dev,
+            c_eval,
             shape="sequence",
             turns=3,
             baseline_policy=group_c_baseline_policy_text(),
@@ -363,7 +358,7 @@ def main() -> int:
     for group_id, spec in specs.items():
         # Arm 1: the group baseline (never updated).
         dev_base = _run_arm_on_group(spec, spec.baseline_policy, responder)
-        eval_base = _run_arm_on_group(spec, spec.baseline_policy, responder)
+        eval_base = _run_arm_on_group(spec, spec.baseline_policy, responder, phase="eval")
 
         # Arm 2: unassisted update (one round from dev experience).
         dev_experience = _dev_experience(spec, dev_base)
@@ -374,7 +369,7 @@ def main() -> int:
             updated_policy = spec.baseline_policy
             update_record["round_outcome"] = "rejected: policy does not compile (kept baseline)"
         dev_update = _run_arm_on_group(spec, updated_policy, responder)
-        eval_update = _run_arm_on_group(spec, updated_policy, responder)
+        eval_update = _run_arm_on_group(spec, updated_policy, responder, phase="eval")
 
         # The declared selection rule picks the first usable candidate
         # (loadable, zero dev policy errors) — its POLICY TEXT is the
@@ -400,7 +395,7 @@ def main() -> int:
             if usable:
                 candidate_texts.append(policy)
         selected_text = candidate_texts[0] if candidate_texts else spec.baseline_policy
-        eval_search = _run_arm_on_group(spec, selected_text, responder)
+        eval_search = _run_arm_on_group(spec, selected_text, responder, phase="eval")
 
         # Arm 4+5: recuris S0-matched + adapted.
         seed = _R3_GROUP_SEEDS[group_id]
@@ -415,6 +410,7 @@ def main() -> int:
             recuris_memory_policy_text(),
             responder,
             initial_state=package_to_state(dict(seed)),
+            phase="eval",
         )
 
         def dev_runner(package: dict) -> dict:
@@ -434,6 +430,7 @@ def main() -> int:
             recuris_memory_policy_text(),
             responder,
             initial_state=package_to_state(final_package),
+            phase="eval",
         )
 
         def _score(run: dict) -> int:
@@ -465,17 +462,25 @@ def main() -> int:
                 },
             },
             "deltas": deltas,
-            "four_outcome": _four_outcome(deltas["update_vs_baseline"], _score(eval_base)),
+            "four_outcome": _four_outcome(
+                deltas["update_vs_baseline"],
+                _score(dev_update) - _score(dev_base),
+                _score(eval_base) == 1,
+            ),
         }
 
     # The aggregate: CONJUNCTION over the groups — improves iff every
-    # group improves and none regresses; regresses if any regresses;
-    # otherwise ties. Reported alongside the per-group states (primary).
+    # group improves; regresses if any regresses; fixed-sufficient iff
+    # every group is fixed-sufficient (the fixed system already passed
+    # everywhere — nothing to gain); otherwise ties. Reported alongside
+    # the per-group states (primary).
     outcomes = [g["four_outcome"] for g in groups_payload.values()]
     if all(o == "improves" for o in outcomes):
         aggregate = "improves"
     elif any(o == "regresses" for o in outcomes):
         aggregate = "regresses"
+    elif all(o == "fixed-sufficient" for o in outcomes):
+        aggregate = "fixed-sufficient"
     else:
         aggregate = "ties"
 

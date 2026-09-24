@@ -122,3 +122,117 @@ def test_r3_live_mode_requires_key() -> None:
     )
     assert result.returncode == 2
     assert not out.exists()
+
+
+def test_r3_eval_runs_use_heldout_worlds() -> None:
+    """Stats-contract §4: the eval cells must run the EVAL twin worlds,
+    never the dev worlds. Regression for the conflation where
+    _run_arm_on_group ignored the phase and every eval_* cell re-ran
+    spec.dev_worlds (found before the first live r3 run; the run was
+    killed and no artifact written).
+    """
+
+    from r3_compare import GroupSpec, _run_arm_on_group
+
+    class _FakeInst:
+        instance_id = "fake-a-inst"
+
+    spec = GroupSpec(
+        "A",
+        [_FakeInst()],
+        [_FakeInst()],
+        shape="lifecycle",
+        turns=1,
+        baseline_policy="",
+        dev_experience_stages=[],
+    )
+    spec.eval_worlds[0].instance_id = "fake-a-eval"
+    seen: dict[str, object] = {}
+
+    def _fake_run_arm(policy_text, inst, responder, initial_state=None, max_turns=2):
+        seen[inst.instance_id] = policy_text
+        return {"instance_id": inst.instance_id, "passed": True, "decisions": {}}
+
+    import r3_compare
+
+    original = r3_compare._run_arm
+    r3_compare._run_arm = _fake_run_arm
+    try:
+        dev_run = _run_arm_on_group(spec, "policy-dev", None)
+        eval_run = _run_arm_on_group(spec, "policy-eval", None, phase="eval")
+    finally:
+        r3_compare._run_arm = original
+    assert dev_run["instance_id"] == "fake-a-inst"
+    assert eval_run["instance_id"] == "fake-a-eval"
+
+
+def test_r3_b_group_eval_twin_is_full_reverse_triple() -> None:
+    """B's eval worlds must be the full b1-reverse triple (worlds
+    swapped), not one reverse session mixed with two dev sessions."""
+
+    from r3_compare import _b_worlds
+
+    dev, ev = _b_worlds()
+    dev_ids = [i.instance_id for i in dev]
+    ev_ids = [i.instance_id for i in ev]
+    assert dev_ids == [
+        "research-v5-b1-s1-0001",
+        "research-v5-b1-s2-0001",
+        "research-v5-b1-s3-0001",
+    ]
+    assert ev_ids == [
+        "research-v5-b1r-s1-0001",
+        "research-v5-b1r-s2-0001",
+        "research-v5-b1r-s3-0001",
+    ]
+    assert not set(dev_ids) & set(ev_ids)
+
+
+def test_r3_c_group_eval_twin_is_mirror_pair() -> None:
+    """C's eval worlds must be the c1-mirror pair."""
+
+    from r3_compare import _c_worlds
+
+    dev, ev = _c_worlds()
+    dev_ids = [i.instance_id for i in dev]
+    ev_ids = [i.instance_id for i in ev]
+    assert dev_ids == ["research-v5-c1-s1-0001", "research-v5-c1-s2-0001"]
+    assert ev_ids == ["research-v5-c1m-s1-0001", "research-v5-c1m-s2-0001"]
+    assert not set(dev_ids) & set(ev_ids)
+
+
+def test_r3_four_outcome_fixed_sufficient() -> None:
+    """The four-outcome classification keeps r2a's semantics:
+    fixed-sufficient is a distinct, publishable class."""
+
+    from r3_compare import _four_outcome
+
+    assert _four_outcome(1, 0, False) == "improves"
+    assert _four_outcome(1, -1, False) == "improves"
+    assert _four_outcome(-1, 0, False) == "regresses"
+    assert _four_outcome(0, 0, True) == "fixed-sufficient"
+    assert _four_outcome(0, 1, True) == "fixed-sufficient"
+    assert _four_outcome(0, 0, False) == "ties"
+    # Dev regression with no eval gain is a regression, not a tie.
+    assert _four_outcome(0, -1, False) == "regresses"
+
+
+def test_r3_dev_experience_union_failures() -> None:
+    """The researcher's experience payload carries failures from BOTH
+    GroupRun spellings (A's `failures`, B/C's `failure_detail`)."""
+
+    from r3_compare import GroupSpec, _dev_experience
+
+    spec = GroupSpec(
+        "B", [], [], shape="sequence", turns=2, baseline_policy="", dev_experience_stages=[]
+    )
+    run = {
+        "passed": False,
+        "decisions": {"s1_award": False},
+        "failure_detail": {"s1_award": ["commit gate[corridor-reaward]"]},
+    }
+    exp = _dev_experience(spec, run)
+    assert exp["failures"] == ["commit gate[corridor-reaward]"]
+    run2 = {"passed": True, "decisions": {}, "failures": ["commit gate"]}
+    exp2 = _dev_experience(spec, run2)
+    assert exp2["failures"] == ["commit gate"]
