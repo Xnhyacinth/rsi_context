@@ -283,3 +283,24 @@ def test_improver_returns_usage_for_tuple_meta_agents() -> None:
     assert record["meta_tokens_out"] == 120
     assert record["meta_attempts"][0]["finish_reason"] == "stop"
     assert record["dev_runs_internal"][0]["model_tokens_in"] == 900
+
+
+def test_r2b_update_arm_load_gate_rejects_truncated_policies() -> None:
+    # liveprep's material finding, pinned: r2b's update-arm acceptance
+    # must use the REAL load gate (scan+compile+on_turn) — the R2b live
+    # failure was a mid-string truncation passing the substring check
+    # and then failing to load at runtime ("policy unavailable" every
+    # stage, Δ measuring truncation instead of update). Verify via the
+    # r2a helper both r2b call sites now import.
+    from r2a_compare import _policy_loadable
+
+    truncated = 'def on_turn(turn):\n    return {"pack_text": "unterminated'
+    assert "def on_turn" in truncated  # the old substring check accepted it
+    assert not _policy_loadable(truncated)
+    # And the import surface: r2b module exposes both gated call sites.
+    import r2b_compare
+    import inspect
+
+    source = inspect.getsource(r2b_compare)
+    assert source.count("_policy_loadable") >= 3  # import + update + search
+    assert '"def on_turn" not in updated_policy' not in source
