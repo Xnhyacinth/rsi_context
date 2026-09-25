@@ -36,8 +36,12 @@ finalization condition.
 These are typed sandbox actions, not an actual Kubernetes deployment. The
 second gate proves dependence on a prior finalized write and current scoped
 verification. The deterministic test hook distills the first session's
-chosen plan and the KEP readiness proposition into a small carry dictionary;
-a fresh hook gets only those carried fields for session 2. The second prompt
+chosen plan and the KEP readiness proposition into the actual
+`run_session_sequence` state `carry` subtree. The runner serializes that subtree
+through `SessionStateStore`, records its canonical byte length, and gives a
+fresh hook only the flushed carry for session 2. A separate over-cap run
+rejects a 65,536-character padding field and starts session 2 with empty
+carry. The second prompt
 does not name the legal plan. Removing the readiness excerpt leaves the first
 rollout executable but breaks the derived second choice. This is a scripted
 source-retention counterfactual, not evidence that a model can reliably retain
@@ -47,11 +51,12 @@ different gate and task design.
 
 ## Development checks
 
-`tests/test_k8s_parent.py` checks the full scripted recovery path, absent and
-late prior writes, stale readiness evidence, removal of either load-bearing
-source document, removal of the readiness excerpt, irrelevant text stability,
-source-file hash, and deterministic
-world serialization. The full two-session serialized world digest is
+`tests/test_k8s_parent.py` checks the full scripted recovery path, actual
+two-session carry delivery and byte accounting, cap refusal, absent and late
+prior writes, stale readiness evidence, removal of each load-bearing source
+document, removal of the readiness excerpt, irrelevant text stability,
+source-file hash, and deterministic world serialization. The full two-session
+serialized world digest is
 `9409175713220777bc7ec70683dd3270cead3ac00afd9b431e0cf98fd4b94de7`
 (canonical sorted-key compact JSON, SHA-256). The embedded builder is hermetic;
 the test verifies the external pinned source hash when that checkout is present.
