@@ -24,6 +24,11 @@ profile, with the same synthetic evidence question and no policy interpreter:
 
 Raw records are in the ignored, preserved
 `artifacts/rsi-core-v1/r10-siflow-{qwen,glm}-canary-20260926.json` files.
+The calls used source tree `main@8160498383274e150f6905df58735a6f61068f27`,
+`uv.lock` SHA256 `5b24847780908a3481e8b6757480531c165ff87517bc1d48acf250baa6cc9352`,
+Qwen profile file SHA256 `82d5915b807abff306d662d93140f3e9964111f0441f8d2dd00fa4d8f04f8547`,
+GLM profile file SHA256 `dba2c7a9ff3f785d48e3f2aecb9f29f039414dfad6001ef8b1b1fc9b17a281af`,
+and endpoint SHA256 `b49d7116deaf5df5ed7102ea5d67a9b4ab6a7d5fb0808bb9ef540e0e400234d7`.
 Both answered correctly with stable provider-reported usage. GLM charged
 substantially more output tokens for this same short answer; the record does
 not expose why. Qwen is the lower-token initial development reader, subject
