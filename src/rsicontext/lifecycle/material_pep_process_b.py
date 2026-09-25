@@ -52,24 +52,40 @@ def build_pep_process_b_sessions(source_root: Path) -> tuple[LifecycleInstance, 
     charter = _constructed(
         "local-status-charter",
         "Mock board status charter",
-        "The mock process board permits either of two simulated status paths "
-        "for this single proposal: Accepted or Provisional. The choice is "
+        "The mock process board reviews one fictional Standards Track "
+        "language-feature/standard-library-API proposal. It permits either "
+        "of two simulated status paths: Accepted or Provisional. The choice is "
         "discretionary for this sandbox; neither path asserts a real PEP "
         "decision. Choose one, request status-clearance for that status, "
         "inspect its environment receipt, and finalize status_decision "
         "citing the passing receipt. Apply the pinned PEP 1 process text "
-        "when a later task asks what this status entails.",
+        "together with the later mock board's case facts when that task "
+        "asks for one immediate project priority.",
     )
     later_request = _constructed(
         "local-next-step-request",
         "Mock board next-step request",
-        "The same proposal resumes after a session reset. A next-step plan "
-        "must follow the earlier finalized status under the pinned PEP 1 "
-        "process text. The sandbox's two action codes are "
+        "The same proposal resumes after a session reset. The mock board "
+        "can fund exactly ONE immediate next action. Choose its priority "
+        "from the earlier finalized status, the pinned PEP 1 process text, "
+        "and the attached project-specific case facts. The two action codes are "
         "complete-reference-implementation and collect-interface-feedback. "
-        "Choose the one justified by the earlier status; request "
+        "This local priority does not forbid either action for all real PEPs "
+        "or at a different time. Request "
         "next-step-clearance for it and finalize next_step_plan with "
         "that environment-issued passing receipt as provenance.",
+    )
+    case_facts = _constructed(
+        "local-status-case-facts",
+        "Mock proposal's current work state",
+        "For BOTH permitted status tracks of this mock proposal, the "
+        "reference implementation remains unfinished AND design/interface "
+        "feedback remains unresolved. Both work packages are available; "
+        "neither is universally forbidden. The mock board funds only the "
+        "package that addresses the status-defining prerequisite described "
+        "in the pinned PEP 1 status discussion for the recorded status. "
+        "The other package may be worked later. This priority convention "
+        "and project state are constructed, not claims about a real PEP.",
     )
     first = LifecycleInstance(
         instance_id="research-v5-pep-process-b-s1-dev-0001",
@@ -155,15 +171,16 @@ def build_pep_process_b_sessions(source_root: Path) -> tuple[LifecycleInstance, 
                 stage_id="pep-next-step-request",
                 kind="constraint_injection",
                 prompt_text="Read the mock board's next-step request.",
-                documents=(later_request,),
+                documents=(later_request, case_facts),
                 gold_evidence_ids=(),
             ),
             StageSpec(
                 stage_id="pep-next-step-decision",
                 kind="act_verify",
                 prompt_text=(
-                    "Use the earlier finalized status and PEP 1 process evidence to choose "
-                    "the next legal action. Request next-step-clearance, inspect its "
+                    "Use the earlier finalized status, PEP 1 process evidence, and "
+                    "the visible mock board case facts to choose this project's "
+                    "single priority action. Request next-step-clearance, inspect its "
                     "receipt, and finalize next_step_plan citing the passing receipt."
                 ),
                 documents=(),
@@ -198,7 +215,7 @@ def build_pep_process_b_sessions(source_root: Path) -> tuple[LifecycleInstance, 
             ),
         ),
         axes=DescriptionAxes(
-            information_scale_tokens=len(later_request.text.split()),
+            information_scale_tokens=len(later_request.text.split()) + len(case_facts.text.split()),
             dependency_distance_stages=4,
             persistence_span_resets=1,
             action_dependency="strong",
