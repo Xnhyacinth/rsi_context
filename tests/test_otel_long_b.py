@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
@@ -20,7 +21,16 @@ from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
 from rsicontext.lifecycle.session_sequence import SequenceRecord, run_session_sequence
 from rsicontext.lifecycle.spec import DocumentRef, LifecycleInstance
 
-_SOURCE = Path("/volume/pt-dev/qjiu/rsi_context_external/data/otel-semconv-v1.43.0")
+
+@pytest.fixture(scope="module")
+def pinned_source_root() -> Path:
+    configured = os.environ.get("RSICONTEXT_OTEL_SOURCE_ROOT")
+    if configured is None:
+        pytest.skip("set RSICONTEXT_OTEL_SOURCE_ROOT to the pinned source checkout")
+    source_root = Path(configured)
+    if not source_root.is_dir():
+        pytest.fail(f"configured OTel source checkout is missing: {source_root}")
+    return source_root
 
 
 def _verify(record_id: str, check: str, subject: str) -> Action:
@@ -163,12 +173,12 @@ def _replace_survey(
     return replace(first, stages=(changed_survey, *first.stages[1:])), second
 
 
-def test_full_pinned_source_and_reference_survive_real_reset() -> None:
-    sessions = build_otel_long_b_sessions(_SOURCE)
+def test_full_pinned_source_and_reference_survive_real_reset(pinned_source_root: Path) -> None:
+    sessions = build_otel_long_b_sessions(pinned_source_root)
     source_documents = sessions[0].stages[0].documents
     assert len(source_documents) == 2
     for document, relative in zip(source_documents, SOURCE_SHA256, strict=True):
-        raw = (_SOURCE / relative).read_bytes()
+        raw = (pinned_source_root / relative).read_bytes()
         assert hashlib.sha256(raw).hexdigest() == SOURCE_SHA256[relative]
         assert document.text.split("\n", 1)[1].encode("utf-8") == raw
     record, env, hooks = _run(sessions)
@@ -199,8 +209,10 @@ def test_selected_files_match_the_existing_portable_source_manifest() -> None:
 
 
 @pytest.mark.parametrize("removed", ["mode", "privacy"])
-def test_deleting_decisive_source_breaks_the_corresponding_decision(removed: str) -> None:
-    sessions = build_otel_long_b_sessions(_SOURCE)
+def test_deleting_decisive_source_breaks_the_corresponding_decision(
+    removed: str, pinned_source_root: Path
+) -> None:
+    sessions = build_otel_long_b_sessions(pinned_source_root)
 
     def change(doc: DocumentRef) -> DocumentRef:
         if removed == "mode" and doc.doc_id == "otel-database-spans-full":
@@ -223,9 +235,9 @@ def test_deleting_decisive_source_breaks_the_corresponding_decision(removed: str
 
 @pytest.mark.parametrize("flipped_check", ["dual-emission", "query-text-safety"])
 def test_flipped_environment_receipt_blocks_the_reference_transition(
-    flipped_check: str,
+    flipped_check: str, pinned_source_root: Path
 ) -> None:
-    first, second = build_otel_long_b_sessions(_SOURCE)
+    first, second = build_otel_long_b_sessions(pinned_source_root)
     if flipped_check == "dual-emission":
         award = first.stages[2]
         flipped = replace(award, verification_oracle={"dual-emission": {"database/dup": False}})
@@ -247,8 +259,10 @@ def test_flipped_environment_receipt_blocks_the_reference_transition(
         assert "migration_commit" not in env.finalized_record_ids
 
 
-def test_later_legal_write_requires_an_award_from_before_resume() -> None:
-    _first, second = build_otel_long_b_sessions(_SOURCE)
+def test_later_legal_write_requires_an_award_from_before_resume(
+    pinned_source_root: Path,
+) -> None:
+    _first, second = build_otel_long_b_sessions(pinned_source_root)
 
     class ForceLater:
         def on_stage(self, stage: StageView) -> StageResponse:
@@ -288,10 +302,12 @@ def test_later_legal_write_requires_an_award_from_before_resume() -> None:
     ), result.final_check.failures
 
 
-def test_prior_finalization_alone_does_not_certify_a_passing_prior_receipt() -> None:
+def test_prior_finalization_alone_does_not_certify_a_passing_prior_receipt(
+    pinned_source_root: Path,
+) -> None:
     """Characterize a remaining qualification gap without changing the grader."""
 
-    first, second = build_otel_long_b_sessions(_SOURCE)
+    first, second = build_otel_long_b_sessions(pinned_source_root)
     award = first.stages[2]
     award = replace(award, verification_oracle={"dual-emission": {"database/dup": False}})
     first = replace(first, stages=(*first.stages[:2], award, *first.stages[3:]))
@@ -340,8 +356,10 @@ def test_prior_finalization_alone_does_not_certify_a_passing_prior_receipt() -> 
     # gate only proves earlier finalization, not earlier verification success.
 
 
-def test_irrelevant_local_note_does_not_change_reference_decisions() -> None:
-    sessions = build_otel_long_b_sessions(_SOURCE)
+def test_irrelevant_local_note_does_not_change_reference_decisions(
+    pinned_source_root: Path,
+) -> None:
+    sessions = build_otel_long_b_sessions(pinned_source_root)
     note = DocumentRef(
         doc_id="local-office-note",
         title="Office note",
@@ -357,11 +375,8 @@ def test_irrelevant_local_note_does_not_change_reference_decisions() -> None:
 
 
 def test_source_byte_drift_is_rejected_before_world_construction(tmp_path: Path) -> None:
-    for relative in SOURCE_SHA256:
-        destination = tmp_path / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes((_SOURCE / relative).read_bytes())
-    sql = tmp_path / "docs/db/sql.md"
-    sql.write_bytes(sql.read_bytes() + b"\nmodified")
+    database_spans = tmp_path / "docs/db/database-spans.md"
+    database_spans.parent.mkdir(parents=True)
+    database_spans.write_bytes(b"an altered source, not the pinned OTel file")
     with pytest.raises(ValueError, match="pinned OTel source mismatch"):
         build_otel_long_b_sessions(tmp_path)
