@@ -48,7 +48,7 @@ The first committed-input v1 qualification ran at `803b7b1` and produced
 `r4-bc-budget-qualification-v1-20260925.json` (SHA256
 `84b31950f37e093c2e1aec84295a319391d44ca1c55d8c45a2ec6980c6a42f55`).
 The input identity matched at start/end, B/C scripted runs fit the 40-call
-cap, and zero provider calls were made. The current shell did not expose
+cap, and zero provider calls were made. At that initial run the shell did not expose
 `SIFLOW_API_KEY` or `SIFLOW_BASE_URL`, so the provider canary remains unrun;
 no token count or service-side version is inferred from the offline artifact.
 That v1 artifact is historical: it read an ignored local R3 admission JSON
@@ -79,3 +79,19 @@ Its start/end identity matched; the contract SHA256 was
 The portable projection, rather than the ignored R3 JSON, supplied the exact
 31/35 and 18/20 call counts. The v2 output still reports `live_ready=false`
 and zero model API calls.
+
+After the user identified the local credential file, a model-catalog query
+listed both requested IDs. One trusted Qwen worker canary requested a
+1,024-token ceiling and returned the correct code with **provider reported
+80 prompt / 2 completion tokens**. The first strict DeepSeek researcher
+canary failed on a response-model mismatch; its usage was not recoverable by
+the strict parser and is recorded as unknown. One diagnostic request with
+the full 8,192-token ceiling returned model echo
+`deepseek/deepseek-v4.1-flash` for requested
+`deepseek-ai/deepseek-v4.1-flash` and provider usage **56 prompt / 1
+completion tokens**. Both researcher attempts count; neither executed policy
+code. The canary ledger SHA256 is
+`db765868cf788897cc466377d7e96cd16f5b6dd36930c488b0236f092b996a0d`.
+The successful Qwen request did not test a 2,048-token ceiling. Neither model
+has an immutable provider revision in these API profiles. Do not weaken the
+strict model-echo check or treat this as researcher-update evidence.

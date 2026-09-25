@@ -48,12 +48,23 @@ The reviewed OTel/K8s task/score mismatches were corrected. A versioned
 candidate-only inventory now records two new source lineages, 114 and 102
 source whitespace words, zero qualified independent parents, and zero model
 calls. The active B/C budget v2 pins separate Siflow worker/researcher
-profiles and a portable call-count projection; scripted capacity passes, but
-provider canaries, policy isolation, and new-parent call demand remain open.
+profiles and a portable call-count projection; scripted capacity passes.
+One Qwen worker canary passed with provider usage, while the DeepSeek
+researcher canary failed exact response-model identity. The first failed
+researcher call has unknown token usage and remains in the denominator.
+Policy isolation, exact full-cap worker compatibility, and new-parent call
+demand remain open.
 
-The next action is to design longer source-grounded development tasks and
-measure fixed-reader difficulty, while implementing the jailed runtime and
-typed broker. Admit no parent or scored run from a scripted reference alone.
+The next action is to repair common failed-call metering and design the typed
+broker's offline test seam. In parallel, design longer source-grounded
+development tasks and measure fixed-reader difficulty. Do not infer 8K/16K/
+32K dependency from whitespace length or add filler to reach a token tier.
+OTel's currently selected two documents have about 6,253 whitespace words;
+the selected KEP README has about 12,951. Target-tokenized rendered length,
+evidence offsets and dependency distances are still unmeasured. The pinned
+KEP README and kep.yaml disagree on feature-gate disable support, so exclude
+that proposition from scoring until a human reconciles it. Admit no parent
+or scored run from a scripted reference alone.
 
 ## Initial state and workspaces
 
