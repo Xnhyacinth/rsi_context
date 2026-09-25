@@ -29,7 +29,9 @@ One stage follows this sequence:
    Both state and memory writes are separately bounded to 64 KiB. Returning
    full state preserves policies that mutate `turn.state` directly. Action
    kinds and precondition shapes are checked against the lifecycle `Action`
-   constructor. Each memory write must appear in the full returned state.
+   constructor. A scope constraint's `requires_check` accepts one nonempty
+   check name or a nonempty list of nonempty names, matching M2 vector
+   actions. Each memory write must appear in the full returned state.
    Completion closes the sequence.
 
 `OneTurnSession.accept(..., sender=...)` checks host/worker roles, order,

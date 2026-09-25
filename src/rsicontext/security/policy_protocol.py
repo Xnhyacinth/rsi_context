@@ -227,7 +227,13 @@ def _action(value: object) -> None:
     if constraint is not None:
         checked = _object(constraint, {"domain", "requires_check"}, "precondition_scope_constraint")
         _string(checked["domain"], "domain")
-        _string(checked["requires_check"], "requires_check")
+        required = checked["requires_check"]
+        if isinstance(required, str):
+            _string(required, "requires_check")
+        elif isinstance(required, list) and required:
+            _strings(required, "requires_check")
+        else:
+            raise ProtocolError("requires_check must be a nonempty string or string list")
     try:
         Action(
             kind=kind,  # type: ignore[arg-type]
