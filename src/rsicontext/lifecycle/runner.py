@@ -277,6 +277,11 @@ def run_lifecycle(
     if max_turns_per_stage < 1:
         raise ValueError("max_turns_per_stage must be at least 1")
     started = time.monotonic()
+    # A later session may renew only a contract that was already finalized
+    # before this lifecycle began. Capture the environment's own finalization
+    # ledger now; a participant cannot create the missing prior award during
+    # the renewal stage and have it count retroactively.
+    prior_finalized_record_ids = env.finalized_record_ids
     stage_records: list[StageRecord] = []
     commit_gate_failures_at_time: list[str] = []
     total_stages = len(inst.stages)
@@ -361,7 +366,10 @@ def run_lifecycle(
             # graded at the END (their own contract); the commit gate is
             # not one of them.
             stage_gate_failures = _commit_gate_failures(
-                stage.commit_precondition, env.snapshot(), env
+                stage.commit_precondition,
+                env.snapshot(),
+                env,
+                prior_finalized_record_ids=prior_finalized_record_ids,
             )
             if stage_gate_failures:
                 commit_gate_failures_at_time.extend(
@@ -525,6 +533,8 @@ def _commit_gate_failures(
     precondition: Mapping[str, object],
     records: Mapping[str, dict[str, Any]],
     env: ProjectState,
+    *,
+    prior_finalized_record_ids: frozenset[str] = frozenset(),
 ) -> tuple[str, ...]:
     """Evaluator-side commit legality over the sandbox's ACTUAL records.
 
@@ -546,6 +556,9 @@ def _commit_gate_failures(
     - ``current_revision`` (int) + ``revision_scope`` (list[str]):
       referenced records carrying a ``check`` in the scope must carry
       ``protocol_revision == current_revision``.
+    - ``prior_finalized_record`` (str): a named award that the environment
+      had finalized before this lifecycle began (a cross-session renewal
+      cannot create its own prerequisite in the current session).
 
     Evidence truthfulness (external review 2026-09-22, deliverable A):
     a required verification counts ONLY when the ENVIRONMENT issued it
@@ -558,18 +571,26 @@ def _commit_gate_failures(
     """
 
     failures: list[str] = []
+    if "prior_finalized_record" in precondition:
+        prior_record = precondition["prior_finalized_record"]
+        if not isinstance(prior_record, str) or not prior_record:
+            raise ValueError("prior_finalized_record must name a non-empty record id")
+        if prior_record not in prior_finalized_record_ids:
+            failures.append(
+                f"commit gate: prior finalized record {prior_record!r} was absent at session start"
+            )
     record_id = precondition.get("record_id")
     if not isinstance(record_id, str):
         return tuple(failures)
     commit = records.get(record_id)
     if not isinstance(commit, dict):
-        return (f"commit gate: record {record_id!r} is missing",)
+        return (*failures, f"commit gate: record {record_id!r} is missing")
     plan_field = precondition.get("plan_field")
     if not isinstance(plan_field, str):
         return tuple(failures)
     plan = commit.get(plan_field)
     if not isinstance(plan, str):
-        return (f"commit gate: record {record_id!r} lacks a {plan_field!r} value",)
+        return (*failures, f"commit gate: record {record_id!r} lacks a {plan_field!r} value")
     if record_id not in env.finalized_record_ids:
         failures.append(
             f"commit gate: record {record_id!r} was never finalized through the "

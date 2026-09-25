@@ -288,7 +288,9 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 prompt_text=(
                     "The corridor contract renews: create and finalize "
                     f"record {_REAWARD} naming the awarded carrier. The "
-                    "award requires a passing customs-preclearance "
+                    f"prior primary award record {_COMMIT} must already "
+                    "have been finalized before this session began. "
+                    "The award requires a passing customs-preclearance "
                     "verification at the CURRENT revision for the "
                     "committed carrier — re-verify before committing. "
                     "Re-award the HIGHEST-ranked eligible carrier "
@@ -300,6 +302,7 @@ def build_c1_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 expected_state_delta={_REAWARD: {"status": "final"}},
                 commit_precondition={
                     "record_id": _REAWARD,
+                    "prior_finalized_record": _COMMIT,
                     "plan_field": "plan",
                     "legal_plans": ["atlas-carriage"],
                     "plan_requirements": {
@@ -522,6 +525,7 @@ def build_c1_mirror_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 expected_state_delta={_REAWARD: {"status": "final"}},
                 commit_precondition={
                     "record_id": _REAWARD,
+                    "prior_finalized_record": _COMMIT,
                     "plan_field": "plan",
                     "legal_plans": ["harborline-freight"],
                     "plan_requirements": {

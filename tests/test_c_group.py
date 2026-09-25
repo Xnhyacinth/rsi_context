@@ -24,7 +24,10 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Callable, Mapping
+from dataclasses import replace
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
@@ -32,7 +35,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 from r2a_compare import _offline_responder
 
 from rsicontext.lifecycle.env import ProjectState, Receipt
-from rsicontext.lifecycle.material_c_group import build_c1_sessions
+from rsicontext.lifecycle.material_c_group import build_c1_mirror_sessions, build_c1_sessions
+from rsicontext.lifecycle.material_m2_parents import build_c2_sessions
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
 from rsicontext.lifecycle.session_sequence import SequenceRecord, run_session_sequence
@@ -293,6 +297,98 @@ def test_recover_policy_passes_both_sessions() -> None:
     # post-mutation evidence (rev 2).
     assert env.records["corridor_reaward"]["plan"] == "atlas-carriage"
     assert env.records["v-rev2"]["protocol_revision"] == 2
+
+
+REAWARD_ONLY_POLICY = """
+def on_turn(turn):
+    if turn.view.stage_id == "c1-re-award":
+        return {
+            "pack_text": "renew atlas",
+            "actions": (
+                turn.actions.request_verification(
+                    "v-rev2", "customs-preclearance", "atlas-carriage"
+                ),
+                turn.actions.create_record("corridor_reaward", {"plan": "atlas-carriage"}),
+                turn.actions.finalize(
+                    "corridor_reaward", {"plan": "atlas-carriage", "status": "final"},
+                    ("v-rev2",),
+                ),
+            ),
+        }
+    return {"pack_text": "no earlier award"}
+"""
+
+
+@pytest.mark.parametrize(
+    ("builder", "winner", "stage_id"),
+    [
+        (build_c1_sessions, "atlas-carriage", "c1-re-award"),
+        (build_c1_mirror_sessions, "harborline-freight", "c1-re-award"),
+        (build_c2_sessions, "atlas-carriage", "c2-re-award"),
+    ],
+    ids=("c1", "c1-mirror", "c2"),
+)
+def test_reaward_requires_an_earlier_finalized_award(
+    builder: Callable[[], tuple[LifecycleInstance, LifecycleInstance]],
+    winner: str,
+    stage_id: str,
+) -> None:
+    policy = REAWARD_ONLY_POLICY.replace("c1-re-award", stage_id).replace("atlas-carriage", winner)
+    record, env = _run_c1_with(builder, policy)
+    assert not record.sessions[0].passed
+    assert env.records["corridor_reaward"]["status"] == "final"
+    assert not record.sessions[1].passed
+    assert any(
+        "prior finalized record 'migration_commit'" in failure
+        for failure in record.sessions[1].failures
+    ), record.sessions[1].failures
+
+
+def test_a_late_primary_award_cannot_create_its_own_prerequisite() -> None:
+    policy = """
+def on_turn(turn):
+    if turn.view.stage_id == "c1-re-award":
+        return {
+            "pack_text": "late primary award and re-award",
+            "actions": (
+                turn.actions.create_record("migration_commit", {"plan": "meridian-carriage"}),
+                turn.actions.finalize(
+                    "migration_commit", {"plan": "meridian-carriage", "status": "final"},
+                    ("late-note",),
+                ),
+                turn.actions.request_verification(
+                    "v-rev2", "customs-preclearance", "atlas-carriage"
+                ),
+                turn.actions.create_record("corridor_reaward", {"plan": "atlas-carriage"}),
+                turn.actions.finalize(
+                    "corridor_reaward", {"plan": "atlas-carriage", "status": "final"},
+                    ("v-rev2",),
+                ),
+            ),
+        }
+    return {"pack_text": "no earlier award"}
+"""
+    record, env = _run_c1(policy)
+    assert "migration_commit" in env.finalized_record_ids
+    assert "corridor_reaward" in env.finalized_record_ids
+    assert not record.sessions[1].passed
+    assert any(
+        "prior finalized record 'migration_commit'" in failure
+        for failure in record.sessions[1].failures
+    ), record.sessions[1].failures
+
+
+def test_unrelated_survey_note_does_not_change_reaward_legality() -> None:
+    def perturbed_builder() -> tuple[LifecycleInstance, LifecycleInstance]:
+        first, second = build_c1_sessions()
+        survey = first.stages[0]
+        card = survey.documents[0]
+        changed_card = replace(card, text=card.text + "\nOffice parking is closed on Sunday.")
+        changed_survey = replace(survey, documents=(changed_card, *survey.documents[1:]))
+        return replace(first, stages=(changed_survey, *first.stages[1:])), second
+
+    record, _env = _run_c1_with(perturbed_builder, RECOVER_POLICY)
+    assert all(session.passed for session in record.sessions), record.to_dict()
 
 
 def test_verify_first_policy_passes_session_one() -> None:
