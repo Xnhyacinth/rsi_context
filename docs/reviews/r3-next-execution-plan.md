@@ -179,6 +179,13 @@ causality, position, fixed-reader, and independent-lineage gates pass.
 Synchronous model/delegate callbacks still need bounded cancellation and
 provider usage before any paid live comparison.
 
+R7 source-intake update (2026-09-26): the registry/dry-run/acquisition/byte-pin
+steps for the PEP and PostgreSQL rows are complete; see
+`r7-source-acquisition-20260926.md`. Task construction, causal interventions,
+actual reader difficulty, and independent-parent qualification remain open.
+The v3 preflight is now a historical input snapshot and must not be used to
+authorize an R7 experiment against the changed registry.
+
 ## Historical R3 starting state and workspaces
 
 | Responsibility | Branch/worktree | Owned output | Shared starting state |

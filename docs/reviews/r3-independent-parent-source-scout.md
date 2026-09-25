@@ -1,9 +1,18 @@
 # Independent parent source candidates for R3 Gate 2
 
-Status: two pinned sources acquired and verified 2026-09-25. No task world was
+Status at the R3 source-scout snapshot: two pinned sources acquired and verified
+2026-09-25. No task world was
 authored from these sources, and none has passed
 Gate 2 or a real-model difficulty screen. These are candidate **new parent
 lineages**, not extra variants of the current supplier dossier.
+
+R7 source-intake update, 2026-09-26: the reserved PEP commit and the
+PostgreSQL 17.0 commit are now registered and held in detached clean checkouts.
+The selected-file, license, and source-span byte pins are in
+`configs/r7_pep_source_manifest_v1.json` and
+`configs/r7_postgresql_source_manifest_v1.json`. Both remain task-unqualified;
+this update does not change the independent-parent count. The table and
+acquisition sequence below record the earlier R3 decision state.
 
 | Candidate lineage | Immutable source and selected material | Distinct dependency to build and test |
 | --- | --- | --- |

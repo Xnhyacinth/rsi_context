@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "registry_id": "python-pep-process",
+  "source_revision": "6822259db9c95f02da739b3e2830a4aa1ae35134",
+  "status": "source_acquired_task_unqualified",
+  "selected_files": {
+    "peps/pep-0001.rst": {
+      "git_blob": "1c2fbbeeec5efbf3a846634af1198b0c53c4a073",
+      "size_bytes": 41682,
+      "sha256": "c2bc2ce666758fa82ee2592926218d710e6fdddc674d78314bd6b56c392c46f6",
+      "spans": {
+        "status_transition": {
+          "start_line": 409,
+          "end_line": 419,
+          "start_byte": 19817,
+          "end_byte": 20592,
+          "sha256": "dce9ba04712bdd7593e971236329a96eab6347ff16b78505550cbe4385d4ad96"
+        },
+        "license_notice": {
+          "start_line": 901,
+          "end_line": 902,
+          "start_byte": 41567,
+          "end_byte": 41682,
+          "sha256": "44f0aa22a128d7c4d31fb7fda5c68a750fc1f83c9ac15fcc4e413dd5fbb23a30"
+        }
+      }
+    },
+    "peps/pep-0621.rst": {
+      "git_blob": "9b3ea85b68f3850f24512f78b96d198fa596508e",
+      "size_bytes": 30002,
+      "sha256": "8710ea6fcc2f5d19571ea7b2610e5c2fbc93d44051c1e5669f40a685ab4bb49e",
+      "spans": {
+        "license_notice": {
+          "start_line": 712,
+          "end_line": 713,
+          "start_byte": 29306,
+          "end_byte": 29421,
+          "sha256": "44f0aa22a128d7c4d31fb7fda5c68a750fc1f83c9ac15fcc4e413dd5fbb23a30"
+        }
+      }
+    },
+    "peps/pep-0639.rst": {
+      "git_blob": "dcca001378b7636fb09f2cb94b97515a1b4d7b3d",
+      "size_bytes": 33887,
+      "sha256": "0143e14bdeb02b95d43484df7a29990e2d25376d81fdb119b9afef7433769f94",
+      "spans": {
+        "license_notice": {
+          "start_line": 888,
+          "end_line": 889,
+          "start_byte": 33761,
+          "end_byte": 33887,
+          "sha256": "8369e4c552c7472ad555baec0e3126bbdf4e41709cc390b38fbbd16384441f7e"
+        }
+      }
+    }
+  }
+}

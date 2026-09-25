@@ -1,9 +1,12 @@
 # R7 PostgreSQL 17 source intake and C-parent design
 
-Status: **read-only source review**. No PostgreSQL checkout, source-byte hash,
-benchmark world, model call, or scored result exists for this candidate. Do not
-acquire the repository until its entry is merged into `configs/registry.json`
-and the resulting dry-run plan has been reviewed.
+Status when this review was written: **read-only source review**. R7 integration
+subsequently added the registry entry, inspected and archived its dry-run plan,
+and acquired a detached clean checkout at the proposed commit. The selected
+file, license, and span hashes are now in
+`configs/r7_postgresql_source_manifest_v1.json`. No benchmark world, model
+call, or scored result exists for this candidate. The proposal and gates below
+are retained as the review record.
 
 ## Identity, terms, and selected material
 
