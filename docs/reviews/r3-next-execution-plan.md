@@ -44,9 +44,16 @@ canary or model call has been made. The host jail feasibility report found
 useful primitives but no typed broker or staged low-privilege runtime; live
 policy execution remains closed.
 
-The next action is to correct the independently reviewed OTel/K8s candidate
-task/score mismatches, then run a versioned candidate-only qualification
-inventory. Admit no parent or scored run from a scripted reference alone.
+The reviewed OTel/K8s task/score mismatches were corrected. A versioned
+candidate-only inventory now records two new source lineages, 114 and 102
+source whitespace words, zero qualified independent parents, and zero model
+calls. The active B/C budget v2 pins separate Siflow worker/researcher
+profiles and a portable call-count projection; scripted capacity passes, but
+provider canaries, policy isolation, and new-parent call demand remain open.
+
+The next action is to design longer source-grounded development tasks and
+measure fixed-reader difficulty, while implementing the jailed runtime and
+typed broker. Admit no parent or scored run from a scripted reference alone.
 
 ## Initial state and workspaces
 

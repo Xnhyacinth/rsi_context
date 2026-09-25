@@ -62,3 +62,12 @@ To regenerate aggregate call evidence, run the R3 preflight with that
 resource directory, then run `scripts/r3_bc_researcher_pilot.py` with the
 committed v3 manifest and a new output path. The historical R3 artifact's
 timestamps and Git head are not expected to reproduce byte-identically.
+
+The active v2 qualification ran at `babbf606` and produced
+`r4-bc-budget-qualification-v2-20260925.json` (SHA256
+`d1fb4f9da2c51a7410567ce811dcbc5503c68ff4ae669b6802ddc30b4eb98716`).
+Its start/end identity matched; the contract SHA256 was
+`4a2d62dc3b85271305a03747f9fab4775884580168d8320a0111624ddd2ac975`.
+The portable projection, rather than the ignored R3 JSON, supplied the exact
+31/35 and 18/20 call counts. The v2 output still reports `live_ready=false`
+and zero model API calls.
