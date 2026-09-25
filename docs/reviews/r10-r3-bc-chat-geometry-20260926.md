@@ -59,14 +59,18 @@ uv run --frozen --no-sync \
   --with 'jinja2==3.1.6' \
   python scripts/r10_chat_geometry.py \
   --tokenizer-path models/qwen3.6-27b \
-  --output artifacts/rsi-core-v1/r10-r3-bc-legacy-chat-geometry-v2-20260926.json
+  --output artifacts/rsi-core-v1/r10-r3-bc-legacy-chat-geometry-v3-20260926.json
 ```
 
 The ignored raw artifact has SHA256
-`88a53b3ab04a75d6b682eda80b63347675a4201229822364cb8dab7e7c1d9e92`.
+`6fc2835bba1c54fe3946a9e1844d1b5701a98748357a97b0b29d30d12ad9f5ea`.
 It carries the full request bodies, per-call identities, exact local token
-counts and unique offset intervals, as well as source and world hashes. The
-next model-driven R9 task must capture its own requests under a fixed profile
+counts and unique offset intervals, as well as source and world hashes. Its
+producer attestation records `ca27dfc8398f2efb318bc374d7b9a7b45f736df7`,
+a clean worktree, 12 producer files matching HEAD, and stable pinned package
+versions before and after measurement. The CLI refuses to overwrite an
+existing artifact. The next model-driven R9 task must capture its own
+requests under a fixed profile
 and compare full, withheld, swapped, and decisive-deletion material.
 
 The first raw artifact (`r10-r3-bc-legacy-chat-geometry-20260926.json`, SHA256
@@ -75,4 +79,8 @@ is retained as superseded evidence. Code review found that it reported only
 the opening phrase of each question as the query interval. Version 2 extends
 each unique question anchor through its `?` terminator. The query **start**
 and evidence-to-query distances are unchanged; the full question intervals
-and this report supersede the first artifact.
+and this report supersede the first artifact. Version 2
+(`r10-r3-bc-legacy-chat-geometry-v2-20260926.json`, SHA256
+`88a53b3ab04a75d6b682eda80b63347675a4201229822364cb8dab7e7c1d9e92`)
+is also retained but predates clean-tree producer attestation. Version 3 is
+the reported measurement.
