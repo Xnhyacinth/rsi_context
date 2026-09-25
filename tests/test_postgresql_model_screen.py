@@ -17,6 +17,7 @@ from rsicontext.lifecycle.material_postgresql_source_contrast import (
 )
 from rsicontext.lifecycle.postgresql_model_fixed import postgresql_model_fixed_policy_text
 from rsicontext.lifecycle.spec import LifecycleInstance
+from rsicontext.security.audit import PolicyAuditor
 
 
 def _sessions(revision: str) -> tuple[LifecycleInstance, LifecycleInstance]:
@@ -29,6 +30,10 @@ def _sessions(revision: str) -> tuple[LifecycleInstance, LifecycleInstance]:
     if not configured:
         pytest.skip(f"set {variable} to the detached pinned checkout")
     return build_postgresql_source_contrast_sessions(Path(configured), revision=revision)
+
+
+def test_frozen_policy_passes_the_same_static_auditor_as_candidates() -> None:
+    PolicyAuditor().audit_source(postgresql_model_fixed_policy_text()).require_safe()
 
 
 def test_same_policy_runs_complete_stop_early_matrix() -> None:

@@ -33,9 +33,11 @@ _CODE_FILES = (
     "src/rsicontext/analysis/postgresql_model_screen.py",
     "src/rsicontext/lifecycle/postgresql_model_fixed.py",
     "src/rsicontext/lifecycle/material_postgresql_source_contrast.py",
+    "src/rsicontext/lifecycle/env.py",
     "src/rsicontext/lifecycle/policy.py",
     "src/rsicontext/lifecycle/runner.py",
     "src/rsicontext/lifecycle/session_sequence.py",
+    "src/rsicontext/lifecycle/tools.py",
     "scripts/r10_pg_model_screen.py",
     "uv.lock",
     "configs/registry.json",
@@ -71,12 +73,23 @@ def _source_identity(revision: str, root: Path) -> dict[str, object]:
     }
 
 
+def _require_committed_checkout(root: Path) -> None:
+    """Bind reported runs to HEAD, allowing only unrelated untracked files."""
+
+    if _git(root, "status", "--porcelain", "--untracked-files=no"):
+        raise RuntimeError("project tracked files differ from HEAD")
+    for relative in _CODE_FILES:
+        if _git(root, "ls-files", "--error-unmatch", "--", relative) != relative:
+            raise RuntimeError(f"runtime dependency is not tracked: {relative}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     if args.output.exists():
         parser.error(f"output already exists: {args.output}")
+    _require_committed_checkout(ROOT)
     roots = {}
     for revision, variable in _INPUTS.items():
         configured = os.environ.get(variable)
@@ -101,6 +114,7 @@ def main() -> int:
     }
     output["code_identity"] = {
         "head": _git(ROOT, "rev-parse", "HEAD"),
+        "tracked_checkout_clean": True,
         "files_sha256": {
             relative: _sha((ROOT / relative).read_bytes()) for relative in _CODE_FILES
         },
