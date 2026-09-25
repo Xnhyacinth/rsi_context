@@ -107,6 +107,11 @@ class ToolBudget:
         self.tokens_out += tokens_out
         self.calls += 1
 
+    def charge_output(self, tokens_out: int) -> None:
+        """Add output from an already charged call without counting it twice."""
+
+        self.tokens_out += tokens_out
+
     def ledger(self) -> dict[str, int | None]:
         return {
             "tool_calls": self.calls,
@@ -290,14 +295,15 @@ class ToolSurface:
         registry so delegation may cite previously-revealed material.
         """
 
-        if self._delegate_runner is None:
-            receipt = ToolReceipt(tool="delegate", ok=False, cause="no delegate runner installed")
-            self._budget.receipts.append(receipt)
-            return receipt
         refusal = self._budget.enforce("delegate")
         if refusal is not None:
             self._budget.charge(0, 0)
             receipt = ToolReceipt(tool="delegate", ok=False, cause=refusal)
+            self._budget.receipts.append(receipt)
+            return receipt
+        if self._delegate_runner is None:
+            self._budget.charge(0, 0)
+            receipt = ToolReceipt(tool="delegate", ok=False, cause="no delegate runner installed")
             self._budget.receipts.append(receipt)
             return receipt
         docs = []
@@ -308,13 +314,25 @@ class ToolSurface:
             if doc is not None:
                 docs.append(doc.text)
         if not docs:
+            self._budget.charge(0, 0)
             receipt = ToolReceipt(tool="delegate", ok=False, cause="no known documents named")
             self._budget.receipts.append(receipt)
             return receipt
         tokens_in = DELEGATE_OVERHEAD_TOKENS + sum(max(1, len(doc.split())) for doc in docs)
-        answer = self._delegate_runner(query, docs)
+        self._budget.charge(tokens_in, 0)
+        try:
+            answer = self._delegate_runner(query, docs)
+        except Exception as exc:
+            receipt = ToolReceipt(
+                tool="delegate",
+                ok=False,
+                cause=f"delegate call failed: {type(exc).__name__}: {exc}",
+                tokens_in=tokens_in,
+            )
+            self._budget.receipts.append(receipt)
+            return receipt
         tokens_out = DELEGATE_OVERHEAD_TOKENS + max(1, len(answer.split()))
-        self._budget.charge(tokens_in, tokens_out)
+        self._budget.charge_output(tokens_out)
         receipt = ToolReceipt(
             tool="delegate", ok=True, answer=answer, tokens_in=tokens_in, tokens_out=tokens_out
         )
