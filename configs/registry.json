@@ -218,6 +218,24 @@
       "notes": "Pinned PEP 1, 621, and 639 as historical source documents for a proposed B development parent. PEP 621/639 point to maintained PyPA specifications; do not grade current packaging compliance from these historical files. Confirm per-file notices and exact bytes after acquisition; no world has qualified."
     },
     {
+      "id": "postgresql-rel-16-0",
+      "name": "PostgreSQL 16.0 logical replication source",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://git.postgresql.org/git/postgresql.git",
+      "revision": "c372fbbd8e911f2412b80a8c39d7079366565d67",
+      "license": "PostgreSQL License; retain pinned COPYRIGHT notice",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "c372fbbd8e911f2412b80a8c39d7079366565d67",
+        "verified": true
+      },
+      "notes": "REL_16_0 lightweight tag resolved on canonical Git remote 2026-09-26. Reviewed dry-run preceded detached clean acquisition; selected file/span bytes and COPYRIGHT are pinned in configs/r9_postgresql16_source_manifest_v1.json. Constructed task state is not a PostgreSQL observation."
+    },
+    {
       "id": "postgresql-rel-17-0",
       "name": "PostgreSQL 17.0 logical replication source",
       "kind": "dataset",
