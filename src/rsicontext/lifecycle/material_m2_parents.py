@@ -892,6 +892,8 @@ def build_c2_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 prompt_text=(
                     "The corridor contract renews: create and finalize "
                     "record corridor_reaward naming the awarded carrier. "
+                    f"The prior primary award record {_COMMIT} must already "
+                    "have been finalized before this session began. "
                     "The award requires a passing customs-preclearance "
                     "verification at the CURRENT revision for the "
                     "committed carrier — re-verify before committing. "
@@ -904,6 +906,7 @@ def build_c2_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 expected_state_delta={"corridor_reaward": {"status": "final"}},
                 commit_precondition={
                     "record_id": "corridor_reaward",
+                    "prior_finalized_record": _COMMIT,
                     "plan_field": "plan",
                     "legal_plans": ["atlas-carriage"],
                     "plan_requirements": {
