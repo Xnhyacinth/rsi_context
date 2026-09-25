@@ -6,17 +6,18 @@ the five stages in order against an injected ``ParticipantHook`` — it never
 calls a reader itself, so participants (fixed / experience-only / open-S
 arms; adapters land in other workstreams) drive behavior through the hook.
 
-Evaluator-only fields (``StageSpec.gold_evidence_ids`` and
-``StageSpec.expected_state_delta``) are never surfaced to the hook: the
-runner builds ``StageView`` from a ``StageSpec`` minus exactly those fields,
-and ``StageView`` has no attribute or serialization surface that can carry
-them. The two-column cost split is honored in miniature: token counts are
+Evaluator-only fields (including ``gold_evidence_ids``,
+``expected_state_delta``, ``commit_precondition``, and
+``verification_oracle``) are never surfaced to the hook: the runner builds
+``StageView`` from explicitly selected participant fields. The two-column
+cost split is honored in miniature: token counts are
 placeholders the hook caller fills (reader accounting lands with the cost
 ledger workstream), wall seconds are measured here.
 """
 
 from __future__ import annotations
 
+import copy
 import re
 import time
 from collections.abc import Mapping, Sequence
@@ -44,9 +45,9 @@ _DOC_MARKER = re.compile(r"\[\[doc:([^]]+)\]\]")
 class StageView:
     """What a participant sees for one stage — evaluator-only fields excluded.
 
-    Constructed by the runner from ``StageSpec`` minus ``gold_evidence_ids``
-    and ``expected_state_delta``; there is no code path from this type to
-    either field. ``remaining_budget`` counts stages left including this one.
+    Constructed from participant-visible ``StageSpec`` fields; evaluator
+    fields such as commit preconditions and verification oracles are not
+    copied. ``remaining_budget`` counts stages left including this one.
     """
 
     stage_id: str
@@ -282,6 +283,23 @@ def run_lifecycle(
     # ledger now; a participant cannot create the missing prior award during
     # the renewal stage and have it count retroactively.
     prior_finalized_record_ids = env.finalized_record_ids
+    # Preserve the pre-session record and environment-issued evidence state
+    # only when a world opts into the stronger gate. This prevents a later
+    # verification from filling a dangling reference in a prior award.
+    prior_verification_stages = tuple(
+        stage
+        for stage in inst.stages
+        if stage.commit_precondition is not None
+        and "prior_verification" in stage.commit_precondition
+    )
+    if any(stage.kind != "act_verify" for stage in prior_verification_stages):
+        raise ValueError("prior_verification applies to act_verify stages only")
+    prior_verification_required = bool(prior_verification_stages)
+    prior_records = copy.deepcopy(env.snapshot()) if prior_verification_required else None
+    prior_verification_record_ids = (
+        env.verification_record_ids if prior_verification_required else frozenset()
+    )
+    prior_transcript = env.transcript if prior_verification_required else ()
     stage_records: list[StageRecord] = []
     commit_gate_failures_at_time: list[str] = []
     total_stages = len(inst.stages)
@@ -370,6 +388,9 @@ def run_lifecycle(
                 env.snapshot(),
                 env,
                 prior_finalized_record_ids=prior_finalized_record_ids,
+                prior_records=prior_records,
+                prior_verification_record_ids=prior_verification_record_ids,
+                prior_transcript=prior_transcript,
             )
             if stage_gate_failures:
                 commit_gate_failures_at_time.extend(
@@ -535,6 +556,9 @@ def _commit_gate_failures(
     env: ProjectState,
     *,
     prior_finalized_record_ids: frozenset[str] = frozenset(),
+    prior_records: Mapping[str, Mapping[str, Any]] | None = None,
+    prior_verification_record_ids: frozenset[str] = frozenset(),
+    prior_transcript: tuple[Action, ...] = (),
 ) -> tuple[str, ...]:
     """Evaluator-side commit legality over the sandbox's ACTUAL records.
 
@@ -559,11 +583,17 @@ def _commit_gate_failures(
     - ``prior_finalized_record`` (str): a named award that the environment
       had finalized before this lifecycle began (a cross-session renewal
       cannot create its own prerequisite in the current session).
+    - ``prior_verification`` (mapping): opt-in proof that the prior award
+      cited an environment-issued PASS verification before this session.
+      ``check`` names the verification, ``plan_field`` the prior record's
+      plan field, and optional ``allowed_later_plans`` maps each prior
+      plan value to its legal later plan values.
 
     Evidence truthfulness (external review 2026-09-22, deliverable A):
     a required verification counts ONLY when the ENVIRONMENT issued it
     (``env.verification_record_ids``), its ``subject`` names the
-    committed plan, and its ``verdict`` is "pass". A participant-written
+    committed plan, its ``verdict`` is "pass", and its request preceded
+    that commit's finalization in the successful-action transcript. A participant-written
     record that merely carries ``check``/``protocol_revision`` is data,
     not evidence. Likewise the commit record must have been genuinely
     finalized through the env (``env.finalized_record_ids``) — a bare
@@ -596,6 +626,23 @@ def _commit_gate_failures(
             f"commit gate: record {record_id!r} was never finalized through the "
             "environment (a self-declared status is not a finalized state)"
         )
+    if "prior_verification" in precondition:
+        prior_id = precondition.get("prior_finalized_record")
+        if not isinstance(prior_id, str) or not prior_id:
+            raise ValueError("prior_verification requires prior_finalized_record")
+        if prior_records is None:
+            raise ValueError("prior_verification requires a session-entry snapshot")
+        if prior_id in prior_finalized_record_ids:
+            failures.extend(
+                _prior_verification_failures(
+                    precondition["prior_verification"],
+                    prior_id=prior_id,
+                    later_plan=plan,
+                    prior_records=prior_records,
+                    prior_verification_record_ids=prior_verification_record_ids,
+                    prior_transcript=prior_transcript,
+                )
+            )
     legal = precondition.get("legal_plans")
     if isinstance(legal, list) and plan not in legal:
         failures.append(f"commit gate: plan {plan!r} is not in the legal set")
@@ -618,6 +665,10 @@ def _commit_gate_failures(
     requirements = precondition.get("plan_requirements")
     requirement = requirements.get(plan) if isinstance(requirements, Mapping) else None
     if isinstance(requirement, Mapping):
+        # A verification requested only after the commit was finalized
+        # cannot retroactively support it, even when both actions occur in
+        # one stage before this evaluator check runs.
+        issued_before_finalize = _verification_ids_before_finalize(env.transcript, record_id)
         # A plan named in plan_requirements must cite a NON-EMPTY set of
         # sandbox records: absence of references is evidence FOR the
         # failure, never neutral (reviewer 2.1R — a bare create_record
@@ -641,7 +692,7 @@ def _commit_gate_failures(
             environment_evidence = [
                 (ref, record)
                 for ref, record in zip(referenced_ids, referenced, strict=True)
-                if ref in env.verification_record_ids
+                if ref in env.verification_record_ids and ref in issued_before_finalize
             ]
             for check_name in required_checks:
                 qualifying = [
@@ -698,4 +749,99 @@ def _commit_gate_failures(
                     f"{record.get('protocol_revision')!r}, current "
                     f"{required_now})"
                 )
+    return tuple(failures)
+
+
+def _verification_ids_before_finalize(
+    transcript: tuple[Action, ...], record_id: str
+) -> frozenset[str]:
+    """Successful verification requests preceding this record's finalize."""
+
+    finalization_index = next(
+        (
+            index
+            for index, action in enumerate(transcript)
+            if action.kind == "finalize" and action.record_id == record_id
+        ),
+        None,
+    )
+    if finalization_index is None:
+        return frozenset()
+    return frozenset(
+        action.record_id
+        for action in transcript[:finalization_index]
+        if action.kind == "request_verification"
+    )
+
+
+def _prior_verification_failures(
+    raw_rule: object,
+    *,
+    prior_id: str,
+    later_plan: str,
+    prior_records: Mapping[str, Mapping[str, Any]],
+    prior_verification_record_ids: frozenset[str],
+    prior_transcript: tuple[Action, ...],
+) -> tuple[str, ...]:
+    """Check a prior finalized award using only session-entry evidence."""
+
+    if not isinstance(raw_rule, Mapping):
+        raise ValueError("prior_verification must be a mapping")
+    if set(raw_rule) - {"check", "plan_field", "allowed_later_plans"}:
+        raise ValueError("prior_verification has unknown fields")
+    check = raw_rule.get("check")
+    plan_field = raw_rule.get("plan_field")
+    if not isinstance(check, str) or not check:
+        raise ValueError("prior_verification.check must be a non-empty string")
+    if not isinstance(plan_field, str) or not plan_field:
+        raise ValueError("prior_verification.plan_field must be a non-empty string")
+    allowed_later_plans = raw_rule.get("allowed_later_plans")
+    if allowed_later_plans is not None:
+        if not isinstance(allowed_later_plans, Mapping) or not allowed_later_plans:
+            raise ValueError("prior_verification.allowed_later_plans must be a non-empty mapping")
+        for prior_plan, later_plans in allowed_later_plans.items():
+            if (
+                not isinstance(prior_plan, str)
+                or not prior_plan
+                or not isinstance(later_plans, list)
+                or not later_plans
+                or any(not isinstance(value, str) or not value for value in later_plans)
+            ):
+                raise ValueError("prior_verification.allowed_later_plans has invalid entries")
+
+    prior = prior_records.get(prior_id)
+    if not isinstance(prior, Mapping) or prior.get("finalized") is not True:
+        return (
+            f"commit gate: prior record {prior_id!r} is absent from the session-start snapshot",
+        )
+    prior_plan = prior.get(plan_field)
+    if not isinstance(prior_plan, str) or not prior_plan:
+        return (f"commit gate: prior record {prior_id!r} lacks a {plan_field!r} plan",)
+    refs = prior.get("provenance")
+    evidence_ids = refs if isinstance(refs, list) else []
+    issued_before_finalization = _verification_ids_before_finalize(prior_transcript, prior_id)
+    qualifying = any(
+        isinstance(ref, str)
+        and ref in prior_verification_record_ids
+        and ref in issued_before_finalization
+        and isinstance(evidence := prior_records.get(ref), Mapping)
+        and evidence.get("performed_by") == "environment"
+        and evidence.get("check") == check
+        and evidence.get("subject") == prior_plan
+        and evidence.get("verdict") == "pass"
+        for ref in evidence_ids
+    )
+    failures: list[str] = []
+    if not qualifying:
+        failures.append(
+            f"commit gate: prior record {prior_id!r} lacks a provenance-linked "
+            f"environment-issued PASS {check!r} verification from session start "
+            f"for subject {prior_plan!r}"
+        )
+    if allowed_later_plans is not None:
+        allowed = allowed_later_plans.get(prior_plan)
+        if not isinstance(allowed, list) or later_plan not in allowed:
+            failures.append(
+                f"commit gate: prior plan {prior_plan!r} does not allow later plan {later_plan!r}"
+            )
     return tuple(failures)
