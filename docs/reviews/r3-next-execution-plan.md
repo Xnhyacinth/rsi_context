@@ -11,7 +11,33 @@ experiment. The verifier checks the exact lock/config/resource bytes, Python
 interpreter, Git ancestry, and clean runtime source. It always reports
 `live_ready=false` for this version. The earlier v1 and v2 manifests remain
 in Git as historical preflight snapshots; v3 also pins the newly registered,
-but not acquired, independent-source candidates.
+independent-source candidates. Both pinned source repositories were acquired
+and verified after the v3 preflight; neither has yet become a qualified task.
+
+## R4 active goal, starting 2026-09-25
+
+Success for this phase is a reviewed development-only candidate from each new
+source, a versioned B/C budget that no longer fails its own scripted demand,
+an evidence-backed decision on whether this host can jail untrusted policy
+code, and a clean integration into `main`. These are admissions to later
+experiments, not a scored researcher comparison.
+
+All R4 worktrees start from `d7cd47771b76775e23b93fc84cde4bace5ec39f6`,
+use `uv.lock` SHA256
+`5b24847780908a3481e8b6757480531c165ff87517bc1d48acf250baa6cc9352`
+and `uv sync --extra dev --frozen --link-mode copy`, and read the same detached
+source checkouts recorded in
+`artifacts/rsi-core-v1/r3-gate2-source-acquisition-20260925.json`.
+
+| Branch / worktree | Ownership | Admission evidence |
+| --- | --- | --- |
+| `work/r4-otel-parent` / `r4-otel-parent` | One independent OTel A development world and source ledger | Reference path, source and verification interventions, selected-file hashes |
+| `work/r4-k8s-parent` / `r4-k8s-parent` | One independent KEP-753 C development world and source ledger | Prior-write dependency, scoped revision, source and verification interventions |
+| `work/r4-isolation` / `r4-isolation` | Host jail feasibility and security tests | Malicious policy cannot read secrets/evaluator files or use direct network; otherwise live remains closed |
+| `work/r4-budget-integration` / `r4-budget-integration` | Versioned B/C budget/profile and integration review | Same identity, frozen settings, cap feasibility, usage accounting, all required checks |
+
+The next action is to finish the budget/profile contract while the parent
+builders proceed, then independently review their evidence before registration.
 
 ## Initial state and workspaces
 
