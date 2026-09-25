@@ -191,9 +191,9 @@ class Turn:
 class ModelReply:
     """One metered worker-model reply (the ask_model channel's answer).
 
-    ``content`` is the model's text; usage carries the platform-reported
-    token counts (a failed call is a named outcome, never a silent
-    fallback string).
+    ``content`` is the model's text; token counts are local whitespace
+    estimates. A failed dispatched call carries its input estimate and
+    zero output, rather than inventing provider-reported usage.
     """
 
     ok: bool
@@ -328,22 +328,25 @@ class PolicyHook:
         if refusal is not None:
             return ModelReply(ok=False, cause=refusal)
         tokens_in = max(1, len(prompt.split()))
+        self.model_calls += 1
+        self.model_tokens_in += tokens_in
+        self.tool_budget.charge(tokens_in, 0)
         try:
             content = self._responder(prompt)
         except Exception as exc:
+            cause = f"model call failed: {type(exc).__name__}: {exc}"
             self._audit(
                 stage_kind=self._last_stage_kind,
                 stage_id=self._last_stage_id,
                 prompt=prompt,
                 ok=False,
-                cause=f"model call failed: {type(exc).__name__}: {exc}",
+                cause=cause,
+                tokens_in=tokens_in,
             )
-            return ModelReply(ok=False, cause=f"model call failed: {type(exc).__name__}: {exc}")
+            return ModelReply(ok=False, cause=cause, tokens_in=tokens_in)
         tokens_out = max(1, len(str(content).split()))
-        self.model_calls += 1
-        self.model_tokens_in += tokens_in
         self.model_tokens_out += tokens_out
-        self.tool_budget.charge(tokens_in, tokens_out)
+        self.tool_budget.charge_output(tokens_out)
         self._audit(
             stage_kind=self._last_stage_kind,
             stage_id=self._last_stage_id,
