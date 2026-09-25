@@ -50,7 +50,9 @@ The runtime uses locked `transformers==5.15.0`, `tokenizers==0.22.2`, and
 rendered token-ID/offset mappings disagree. No optional package is added to
 the project dependencies.
 
-Replay from the repository root with the pinned tokenizer snapshot available:
+Replay from a clean isolated worktree. The shared tokenizer snapshot is
+verified by hash; the current main checkout's untracked `logs/` would fail
+the intentional clean-producer check:
 
 ```bash
 uv run --frozen --no-sync \
@@ -58,7 +60,7 @@ uv run --frozen --no-sync \
   --with 'tokenizers==0.22.2' \
   --with 'jinja2==3.1.6' \
   python scripts/r10_chat_geometry.py \
-  --tokenizer-path models/qwen3.6-27b \
+  --tokenizer-path /volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b \
   --output artifacts/rsi-core-v1/r10-r3-bc-legacy-chat-geometry-v3-20260926.json
 ```
 
