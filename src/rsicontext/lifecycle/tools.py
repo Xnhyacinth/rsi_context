@@ -307,12 +307,26 @@ class ToolSurface:
             self._budget.receipts.append(receipt)
             return receipt
         docs = []
-        for doc_id in doc_ids:
-            doc = self._documents.get(doc_id)
-            if doc is None and self._registry is not None:
-                doc = self._registry.get(doc_id)
-            if doc is not None:
-                docs.append(doc.text)
+        try:
+            if isinstance(doc_ids, str):
+                raise TypeError("doc_ids must be a sequence of document ids")
+            for doc_id in doc_ids:
+                if not isinstance(doc_id, str):
+                    raise TypeError("doc_ids must contain strings")
+                doc = self._documents.get(doc_id)
+                if doc is None and self._registry is not None:
+                    doc = self._registry.get(doc_id)
+                if doc is not None:
+                    docs.append(doc.text)
+        except Exception as exc:
+            self._budget.charge(0, 0)
+            receipt = ToolReceipt(
+                tool="delegate",
+                ok=False,
+                cause=f"invalid delegate documents: {type(exc).__name__}: {exc}",
+            )
+            self._budget.receipts.append(receipt)
+            return receipt
         if not docs:
             self._budget.charge(0, 0)
             receipt = ToolReceipt(tool="delegate", ok=False, cause="no known documents named")
@@ -322,6 +336,9 @@ class ToolSurface:
         self._budget.charge(tokens_in, 0)
         try:
             answer = self._delegate_runner(query, docs)
+            if not isinstance(answer, str):
+                raise TypeError("delegate runner must return a string")
+            tokens_out = DELEGATE_OVERHEAD_TOKENS + max(1, len(answer.split()))
         except Exception as exc:
             receipt = ToolReceipt(
                 tool="delegate",
@@ -331,7 +348,6 @@ class ToolSurface:
             )
             self._budget.receipts.append(receipt)
             return receipt
-        tokens_out = DELEGATE_OVERHEAD_TOKENS + max(1, len(answer.split()))
         self._budget.charge_output(tokens_out)
         receipt = ToolReceipt(
             tool="delegate", ok=True, answer=answer, tokens_in=tokens_in, tokens_out=tokens_out

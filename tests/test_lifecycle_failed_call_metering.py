@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import cast
 
 import pytest
 
@@ -129,3 +130,42 @@ def test_successful_dispatch_still_counts_once() -> None:
     assert budget.calls == 1
     assert budget.tokens_in == receipt.tokens_in
     assert budget.tokens_out == receipt.tokens_out
+
+
+def test_malformed_delegate_result_is_named_and_metered() -> None:
+    def malformed_runner(_query: str, _docs: Sequence[str]) -> str:
+        return cast(str, None)
+
+    budget = ToolBudget(max_calls=1)
+    surface = ToolSurface(
+        documents=(DocumentRef(doc_id="seen", title="Seen", text="known fact"),),
+        env=ProjectState(),
+        budget=budget,
+        delegate_runner=malformed_runner,
+    )
+    failed = surface.delegate("investigate", ("seen",))
+    refused = surface.delegate("retry", ("seen",))
+    assert not failed.ok and "delegate call failed: TypeError" in failed.cause
+    assert failed.tokens_in > 0 and failed.tokens_out == 0
+    assert "call cap 1 reached" in refused.cause
+    assert budget.calls == 2 and budget.receipts == [failed, refused]
+
+
+@pytest.mark.parametrize(
+    "doc_ids",
+    [cast(Sequence[str], None), cast(Sequence[str], (["unhashable"],)), "seen"],
+)
+def test_malformed_delegate_doc_ids_are_named_and_metered(doc_ids: Sequence[str]) -> None:
+    budget = ToolBudget(max_calls=1)
+    surface = ToolSurface(
+        documents=(DocumentRef(doc_id="seen", title="Seen", text="known fact"),),
+        env=ProjectState(),
+        budget=budget,
+        delegate_runner=lambda _query, _docs: "unused",
+    )
+    failed = surface.delegate("investigate", doc_ids)
+    refused = surface.delegate("retry", ("seen",))
+    assert not failed.ok and "invalid delegate documents: TypeError" in failed.cause
+    assert failed.tokens_in == failed.tokens_out == 0
+    assert "call cap 1 reached" in refused.cause
+    assert budget.calls == 2 and budget.receipts == [failed, refused]
