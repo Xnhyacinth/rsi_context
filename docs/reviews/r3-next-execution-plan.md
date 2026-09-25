@@ -39,9 +39,10 @@ source checkouts recorded in
 R4 budget/profile capacity qualification completed offline at `803b7b1`:
 40 scripted worker requests per full development run fit the old B/C calls,
 with a separate 2,048-output-token Siflow worker profile. A tracked portable
-manifest now pins both source repositories and selected files. No provider
-canary or model call has been made. The host jail feasibility report found
-useful primitives but no typed broker or staged low-privilege runtime; live
+manifest now pins both source repositories and selected files. At that
+qualification checkpoint, no provider canary or model call had been made.
+The host jail feasibility report found useful primitives but no typed broker
+or staged low-privilege runtime; live
 policy execution remains closed.
 
 The reviewed OTel/K8s task/score mismatches were corrected. A versioned
@@ -66,7 +67,69 @@ KEP README and kep.yaml disagree on feature-gate disable support, so exclude
 that proposition from scoring until a human reconciles it. Admit no parent
 or scored run from a scripted reference alone.
 
-## Initial state and workspaces
+## R5 active goal, starting after `main@9942398`
+
+Status: **in progress**. All R5 worktrees start from
+`9942398ffc78ae9b98cf949b2dcc97dd3994efe5`, use the frozen project
+`uv.lock` and `uv sync --extra dev --frozen --link-mode copy`. The worker
+canary's exact model echo and 80/2 provider token usage remain historical
+evidence. The requested DeepSeek researcher ID currently echoes a different
+model string, so no live researcher draw can be admitted from its R4 profile.
+Keep the strict reader check and count the failed attempt with unknown usage.
+
+| Worktree | Ownership | Gate for integration |
+| --- | --- | --- |
+| `r5-metering` | Shared failed-call and delegate accounting | Behavioral attempt/cap/receipt tests, no fabricated provider usage |
+| `r5-protocol` | Bounded typed IPC codec only | Malformed/oversized/reordered frame tests; no live entry change |
+| `r5-long-task` | OTel B two-session long-source candidate or honest rejection | Source-conditioned later legal action, exact spans, no filler/difficulty claim |
+| `r5-integration` | Review, identity, development evidence and merge | Full required checks, archived artifacts, clean main |
+
+The metering and bounded IPC codec changes are merged into `r5-integration`.
+Independent review found and the owners corrected an IPC mismatch with
+multi-check actions, known-input token-cap overshoot before model/delegate
+dispatch, and inconsistent refused-attempt counting. `ToolBudget.calls` now
+counts requests, including refusals; `PolicyHook.model_calls` counts actual
+model dispatches. Local whitespace estimates are not provider-reported
+tokens. Output remains charged after the callback, so a hard provider-token
+cap needs the future broker to constrain the response itself.
+
+An OTel B two-session long-source development witness is merged. Its two
+complete pinned source documents measure 12,708 tokens under the pinned Qwen
+tokenizer as direct strings; the final policy/API prompt is unmeasured. The
+later legality gate depends on a pre-resume finalized migration, but an
+invalid earlier receipt can still leave that finalization in place. The
+adversarial test records this; Gate 2 qualification is **rejected**, and the
+world adds no independent parent beyond R4 OTel. Fixed-reader difficulty and
+new-world call demand remain unmeasured. The jailed runtime and trusted
+broker are not built, and formal sealed eligibility remains closed.
+
+## R6 queue after the R5 merge
+
+1. Extend the shared runner's opt-in entry snapshot so a later action can
+   require a prior finalized record with an environment-issued passing
+   verification, matching check and subject, and optionally a prior-plan to
+   later-plan mapping. Add failed-receipt, forged-verification, late-repair,
+   wrong-plan, and legal-path regressions. Version the OTel B world and its
+   hashes instead of changing the R5 witness in place. Keep scorer fields out
+   of `StageView`.
+2. Build a staged low-privilege Python child and a trusted parent broker as
+   separate worktree responsibilities. The child receives only the audited
+   candidate bytes, bounded visible messages, and preopened pipes. The parent
+   owns `ProjectState`, document visibility, budgets, responder, deadlines,
+   and candidate hashes. Compare a legitimate offline turn with the current
+   path and prove malicious file, environment, process, and network probes
+   fail before reconsidering any live gate. The current IPC codec alone does
+   not admit live execution.
+3. Acquire two new source-parent lineages only after registry dry-run and
+   exact revision review: the already reserved Python PEP process commit and
+   a proposed PostgreSQL 17 logical-replication failover source, whose Git
+   revision is not yet pinned. Build one B and one C development task with
+   source spans, actual prompt token offsets, legal-action interventions,
+   fixed-reader development challenge, and a fresh per-world call projection.
+   No mirror or same-source task counts as another independent parent; old
+   R4 B/C call limits do not transfer to these worlds.
+
+## Historical R3 starting state and workspaces
 
 | Responsibility | Branch/worktree | Owned output | Shared starting state |
 | --- | --- | --- | --- |
