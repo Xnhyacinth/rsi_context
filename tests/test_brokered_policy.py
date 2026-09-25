@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from io import BufferedReader, BufferedWriter
 from typing import Any, cast
 
@@ -346,6 +346,27 @@ def test_unexpected_registry_failure_poison_keeps_original_cause() -> None:
     hook.registry = ExplodingRegistry()
     try:
         with pytest.raises(BrokerError, match="registry lookup failed") as failure:
+            hook.on_stage(_stage())
+        assert isinstance(failure.value.__cause__, RuntimeError)
+        assert hook.state == {}
+        with pytest.raises(BrokerError, match="closed"):
+            hook.on_stage(_stage("s2"))
+    finally:
+        _finish(hook, thread, failures)
+
+
+def test_registry_reveal_failure_before_stage_write_poison_hook() -> None:
+    class ExplodingRegistry(DocumentRegistry):
+        def reveal(self, documents: Sequence[DocumentRef]) -> None:
+            raise RuntimeError("registry reveal failed")
+
+    def worker(reader: BufferedReader, _writer: BufferedWriter) -> None:
+        assert reader.read(1) == b""  # host closes the pipe without sending stage_start
+
+    hook, thread, failures = _peer(worker)
+    hook.registry = ExplodingRegistry()
+    try:
+        with pytest.raises(BrokerError, match="registry reveal failed") as failure:
             hook.on_stage(_stage())
         assert isinstance(failure.value.__cause__, RuntimeError)
         assert hook.state == {}

@@ -304,14 +304,14 @@ class BrokeredPolicyHook:
             raise BrokerError("policy broker is closed after a fatal error")
         deadline = time.monotonic() + self.timeout_seconds
         session = OneTurnSession()
-        surface = ToolSurface(
-            documents=stage.documents,
-            env=self.env,
-            budget=self.tool_budget,
-            registry=self.registry,
-            delegate_runner=self.delegate_runner,
-        )
         try:
+            surface = ToolSurface(
+                documents=stage.documents,
+                env=self.env,
+                budget=self.tool_budget,
+                registry=self.registry,
+                delegate_runner=self.delegate_runner,
+            )
             start = {
                 "version": 1,
                 "seq": 0,
