@@ -33,9 +33,9 @@ provider-reported usage remains the authority for paid runs. The hook's
 
 Example half-open token intervals in the complete rendered chat: B
 `s2-constraint` has its visible constraint document at `[25, 76)` and its
-later question at `[388, 395)`, a 312-token intervening gap; C
-`c1-mutation` has its visible notice at `[24, 120)` and later question at
-`[555, 562)`, a 435-token gap. These are **document-to-question** positions,
+full later question at `[388, 411)`, a 312-token intervening gap; C
+`c1-mutation` has its visible notice at `[24, 120)` and full later question at
+`[555, 571)`, a 435-token gap. These are **document-to-question** positions,
 not validated decisive evidence clauses. Calls without a unique document
 and later question in the same prompt have explicit unavailable offsets.
 This measurement does not establish long-source dependency or robustness to
@@ -59,12 +59,20 @@ uv run --frozen --no-sync \
   --with 'jinja2==3.1.6' \
   python scripts/r10_chat_geometry.py \
   --tokenizer-path models/qwen3.6-27b \
-  --output artifacts/rsi-core-v1/r10-r3-bc-legacy-chat-geometry-20260926.json
+  --output artifacts/rsi-core-v1/r10-r3-bc-legacy-chat-geometry-v2-20260926.json
 ```
 
 The ignored raw artifact has SHA256
-`20f3f1dd325d43a3a589c85451d13c3cbb6a72ed89a65089463cd0b479d8a8dd`.
+`88a53b3ab04a75d6b682eda80b63347675a4201229822364cb8dab7e7c1d9e92`.
 It carries the full request bodies, per-call identities, exact local token
 counts and unique offset intervals, as well as source and world hashes. The
 next model-driven R9 task must capture its own requests under a fixed profile
 and compare full, withheld, swapped, and decisive-deletion material.
+
+The first raw artifact (`r10-r3-bc-legacy-chat-geometry-20260926.json`, SHA256
+`20f3f1dd325d43a3a589c85451d13c3cbb6a72ed89a65089463cd0b479d8a8dd`)
+is retained as superseded evidence. Code review found that it reported only
+the opening phrase of each question as the query interval. Version 2 extends
+each unique question anchor through its `?` terminator. The query **start**
+and evidence-to-query distances are unchanged; the full question intervals
+and this report supersede the first artifact.

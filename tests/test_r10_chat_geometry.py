@@ -130,6 +130,7 @@ def test_capture_full_offline_fixed_baseline_prompts(group: str) -> None:
         for prompt, entry in zip(prompts, transcript, strict=True)
     ]
     assert any(
-        evidence and query and kind == "visible_stage_document_to_question"
+        evidence and query and kind == "visible_stage_document_to_full_question"
         for evidence, query, kind in anchored
     )
+    assert all(query.endswith("?") for evidence, query, _ in anchored if evidence and query)

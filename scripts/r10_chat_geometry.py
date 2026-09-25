@@ -147,13 +147,20 @@ def _span_anchor(
         for doc in stage.documents
         if prompt.count(doc.text) == 1
     ]
-    queries = [anchor for anchor in _QUERY_ANCHORS if prompt.count(anchor) == 1]
-    if len(candidates) != 1 or len(queries) != 1:
+    anchors = [anchor for anchor in _QUERY_ANCHORS if prompt.count(anchor) == 1]
+    if len(candidates) != 1 or len(anchors) != 1:
         return None, None, "no_unique_same_call_source_and_query"
-    evidence, query = candidates[0], queries[0]
-    if prompt.index(query) < prompt.index(evidence) + len(evidence):
+    evidence, anchor = candidates[0], anchors[0]
+    query_start = prompt.index(anchor)
+    query_end = prompt.find("?", query_start + len(anchor))
+    if query_end < 0:
+        return None, None, "question_has_no_terminator"
+    query = prompt[query_start : query_end + 1]
+    if prompt.count(query) != 1:
+        return None, None, "question_is_not_unique"
+    if query_start < prompt.index(evidence) + len(evidence):
         return None, None, "query_not_later_than_source"
-    return evidence, query, "visible_stage_document_to_question"
+    return evidence, query, "visible_stage_document_to_full_question"
 
 
 def build_report(tokenizer: ChatTokenizer, *, tokenizer_path: Path) -> dict[str, object]:
