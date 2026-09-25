@@ -162,27 +162,36 @@ def run_session_sequence(
         env = envs[index]
         state: dict[str, object] = {CARRY_KEY: json.loads(json.dumps(carry))}
         hook = hook_factory(state)
-        # Bind the session's env on the hook (the tool surface's
-        # verification path needs the live ProjectState; the runner
-        # installs the oracle per its own begin_instance logic).
-        if hasattr(hook, "bind_env"):
-            hook.bind_env(env)
-        # Install the oracle only once per env (begin_instance resets it).
-        if id(env) in oracle_installed:
-            oracle_installed.discard(id(env))
-        # The registry is threaded INTO the runner: documents are
-        # revealed on PRESENTATION (review 892f1d0 M1) — the pre-reveal
-        # loop that ran here made the whole session's future material
-        # (later stages' rule changes, follow-ups) rereadable before the
-        # session ran. The runner now reveals each stage's documents
-        # right before building that stage's view.
-        lifecycle_record = run_lifecycle(
-            inst,
-            hook,
-            env,
-            max_turns_per_stage=max_turns_per_stage,
-            registry=registry,
-        )
+        try:
+            # Brokered hooks take the runner's actual project, budget,
+            # and registry; older hooks still use their bind_env path.
+            if hasattr(hook, "bind_session"):
+                hook.bind_session(env, budget, registry)
+            elif hasattr(hook, "bind_env"):
+                hook.bind_env(env)
+            # Install the oracle only once per env (begin_instance resets it).
+            if id(env) in oracle_installed:
+                oracle_installed.discard(id(env))
+            # The runner reveals each stage's documents on presentation.
+            lifecycle_record = run_lifecycle(
+                inst,
+                hook,
+                env,
+                max_turns_per_stage=max_turns_per_stage,
+                registry=registry,
+            )
+        except BaseException as exc:
+            close = getattr(hook, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception as cleanup_error:
+                    exc.add_note(f"session hook cleanup also failed: {cleanup_error}")
+            raise
+        else:
+            close = getattr(hook, "close", None)
+            if callable(close):
+                close()
         # The persist flush (harness-side, after the last turn): the
         # carry subtree ONLY, canonical bytes, byte-capped.
         session_id = f"b1-session-{index}"
