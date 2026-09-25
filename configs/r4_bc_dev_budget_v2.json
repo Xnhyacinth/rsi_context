@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "status": "offline_capacity_qualification_only",
+  "source_admission_sha256": "78a39085f734c293afa0e9fe2df348b622be37385d4741b3b23e11ec4c244ac9",
+  "source_preflight_sha256": "3efde837780e047a0c66afccb8b840357bf15312ee8c0b6690a27cda8fd14158",
+  "groups": ["B", "C"],
+  "scripted_calls_per_full_dev_run": {
+    "B": {"baseline": 31, "candidate": 35},
+    "C": {"baseline": 18, "candidate": 20}
+  },
+  "worker": {
+    "profile_path": "configs/r4_siflow_qwen_worker_profile_v1.json",
+    "profile_sha256": "82d5915b807abff306d662d93140f3e9964111f0441f8d2dd00fa4d8f04f8547",
+    "profile_id": "siflow-qwen3.6-27b-r4-dev-2048",
+    "model": "Qwen/Qwen3.6-27B",
+    "thinking_enabled": false,
+    "max_output_tokens_per_request": 2048,
+    "request_cap_per_full_dev_run": 40,
+    "headroom_above_max_observed_candidate_calls": 5,
+    "max_total_worker_requests_including_fixed_baselines": 240
+  },
+  "researcher": {
+    "profile_path": "configs/r4_siflow_researcher_profile_v1.json",
+    "profile_sha256": "9a108303b35b120ca3302ac4bfd1b50ed0d4c912de717c5fab051fc9197e46da",
+    "profile_id": "siflow-deepseek-v4.1-flash-r4-dev-8192",
+    "model": "deepseek-ai/deepseek-v4.1-flash",
+    "planned_draws_per_group": 2,
+    "http_attempts_per_draw": 1,
+    "max_output_tokens_per_request": 8192,
+    "max_total_researcher_requests": 4
+  },
+  "selection": "none_in_capacity_qualification",
+  "live_enabled": false,
+  "requires": [
+    "jailed_candidate_executor",
+    "worker_profile_provider_canary",
+    "qualified_independent_parent_manifest"
+  ]
+}

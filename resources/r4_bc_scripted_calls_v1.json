@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "status": "complete",
+  "mode": "portable_projection_of_offline_admission",
+  "original_admission_sha256": "a5bc9cb17802f74021babda70432f196e4cb41361888ddd04fb16da16a155ecb",
+  "model_api_calls": 0,
+  "preflight_sha256": "3efde837780e047a0c66afccb8b840357bf15312ee8c0b6690a27cda8fd14158",
+  "run_identity_end": {
+    "identity_sha256": "652bd1ebcc967a26d52d588d029b5d4b7ba269a443f5b6cd29d430354b1513e6",
+    "matches_start": true
+  },
+  "groups": {
+    "B": {
+      "baseline_scripted": {"worker_calls": 31},
+      "synthetic_candidate": {"worker_calls": 35}
+    },
+    "C": {
+      "baseline_scripted": {"worker_calls": 18},
+      "synthetic_candidate": {"worker_calls": 20}
+    }
+  }
+}

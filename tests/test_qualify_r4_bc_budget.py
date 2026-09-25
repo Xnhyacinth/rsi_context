@@ -22,6 +22,8 @@ from qualify_r4_bc_budget import (
 
 from rsicontext.experiment.api import APIProfile, load_api_profiles
 
+ORIGINAL_ADMISSION_SHA = "a5bc9cb17802f74021babda70432f196e4cb41361888ddd04fb16da16a155ecb"
+
 
 def _inputs() -> tuple[dict[str, Any], dict[str, Any], APIProfile, APIProfile]:
     contract: dict[str, Any] = json.loads(CONTRACT.read_text())
@@ -29,6 +31,8 @@ def _inputs() -> tuple[dict[str, Any], dict[str, Any], APIProfile, APIProfile]:
     contract["source_preflight_sha256"] = "b" * 64
     source: dict[str, Any] = {
         "status": "complete",
+        "mode": "portable_projection_of_offline_admission",
+        "original_admission_sha256": ORIGINAL_ADMISSION_SHA,
         "model_api_calls": 0,
         "preflight_sha256": "b" * 64,
         "run_identity_end": {"matches_start": True},
@@ -44,7 +48,9 @@ def _inputs() -> tuple[dict[str, Any], dict[str, Any], APIProfile, APIProfile]:
         },
     }
     worker = load_api_profiles(WORKER_PROFILES).get("siflow-qwen3.6-27b-r4-dev-2048")
-    researcher = load_api_profiles(RESEARCHER_PROFILES).get("siflow-deepseek-v4.1-flash-researcher")
+    researcher = load_api_profiles(RESEARCHER_PROFILES).get(
+        "siflow-deepseek-v4.1-flash-r4-dev-8192"
+    )
     return contract, source, worker, researcher
 
 
@@ -57,6 +63,7 @@ def _qualify(contract: dict[str, Any], source: dict[str, Any]) -> dict[str, obje
         worker_profile=worker,
         researcher_profile=researcher,
         worker_profile_sha256=_sha256(WORKER_PROFILES),
+        researcher_profile_sha256=_sha256(RESEARCHER_PROFILES),
     )
 
 
@@ -69,6 +76,7 @@ def test_scripted_capacity_is_matched_and_not_live_authority() -> None:
         worker_profile=worker,
         researcher_profile=researcher,
         worker_profile_sha256=_sha256(WORKER_PROFILES),
+        researcher_profile_sha256=_sha256(RESEARCHER_PROFILES),
     )
 
     assert result["status"] == "scripted_capacity_admitted"
@@ -141,7 +149,25 @@ def test_worker_profile_bytes_are_pinned() -> None:
             worker_profile=worker,
             researcher_profile=researcher,
             worker_profile_sha256="d" * 64,
+            researcher_profile_sha256=_sha256(RESEARCHER_PROFILES),
         )
+
+
+def test_researcher_profile_bytes_and_exact_request_cap_are_pinned() -> None:
+    contract, source, worker, researcher = _inputs()
+    with pytest.raises(ValueError, match="researcher profile SHA256"):
+        qualify_contract(
+            contract,
+            source,
+            source_sha256="a" * 64,
+            worker_profile=worker,
+            researcher_profile=researcher,
+            worker_profile_sha256=_sha256(WORKER_PROFILES),
+            researcher_profile_sha256="e" * 64,
+        )
+    contract["researcher"]["max_output_tokens_per_request"] = 16384
+    with pytest.raises(ValueError, match="researcher profile and output"):
+        _qualify(contract, source)
 
 
 def test_live_enablement_and_extra_researcher_attempt_are_rejected() -> None:

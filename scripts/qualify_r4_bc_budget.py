@@ -14,9 +14,9 @@ from typing import Any, cast
 from rsicontext.experiment.api import APIProfile, load_api_profiles
 
 ROOT = Path(__file__).resolve().parent.parent
-CONTRACT = ROOT / "configs/r4_bc_dev_budget_v1.json"
+CONTRACT = ROOT / "configs/r4_bc_dev_budget_v2.json"
 WORKER_PROFILES = ROOT / "configs/r4_siflow_qwen_worker_profile_v1.json"
-RESEARCHER_PROFILES = ROOT / "configs/api_profiles.json"
+RESEARCHER_PROFILES = ROOT / "configs/r4_siflow_researcher_profile_v1.json"
 GROUPS = ("B", "C")
 
 
@@ -65,11 +65,12 @@ def qualify_contract(
     worker_profile: APIProfile,
     researcher_profile: APIProfile,
     worker_profile_sha256: str,
+    researcher_profile_sha256: str,
 ) -> dict[str, object]:
     """Validate matched opportunity against the prior scripted lower bound."""
 
     if (
-        contract.get("schema_version") != 1
+        contract.get("schema_version") != 2
         or contract.get("status") != "offline_capacity_qualification_only"
     ):
         raise ValueError("expected the R4 offline capacity contract")
@@ -77,6 +78,12 @@ def qualify_contract(
         raise ValueError("source admission SHA256 differs from contract")
     if contract.get("source_preflight_sha256") != source.get("preflight_sha256"):
         raise ValueError("source preflight SHA256 differs from contract")
+    if (
+        source.get("mode") != "portable_projection_of_offline_admission"
+        or source.get("original_admission_sha256")
+        != "a5bc9cb17802f74021babda70432f196e4cb41361888ddd04fb16da16a155ecb"
+    ):
+        raise ValueError("source admission projection lacks original evidence binding")
     if contract.get("groups") != list(GROUPS):
         raise ValueError("R4 groups must be B and C")
     calls = _observed_calls(source)
@@ -96,6 +103,7 @@ def qualify_contract(
         or worker.get("max_output_tokens_per_request") != worker_profile.max_output_tokens
         or worker_profile.model != "Qwen/Qwen3.6-27B"
         or worker_profile.provider != "Siflow"
+        or worker_profile.allowed_host != "api.siflow.cn"
         or worker_profile.max_output_tokens != 2048
         or worker_profile.seed != 42
         or worker_profile.temperature != 0.0
@@ -103,15 +111,21 @@ def qualify_contract(
         or worker_profile.chat_template_enable_thinking is not False
     ):
         raise ValueError("R4 worker profile and output settings differ")
-    if researcher.get("profile_path") != "configs/api_profiles.json":
+    if researcher.get("profile_path") != "configs/r4_siflow_researcher_profile_v1.json":
         raise ValueError("unexpected R4 researcher profile path")
+    if researcher.get("profile_sha256") != researcher_profile_sha256:
+        raise ValueError("R4 researcher profile SHA256 differs from contract")
     if (
         researcher.get("profile_id") != researcher_profile.id
         or researcher.get("model") != researcher_profile.model
         or researcher_profile.model != "deepseek-ai/deepseek-v4.1-flash"
         or researcher_profile.provider != "Siflow"
+        or researcher_profile.allowed_host != "api.siflow.cn"
         or researcher.get("max_output_tokens_per_request") != 8192
-        or researcher_profile.max_output_tokens < 8192
+        or researcher_profile.max_output_tokens != 8192
+        or researcher_profile.chat_template_enable_thinking is not False
+        or researcher_profile.seed != 42
+        or researcher_profile.temperature != 0.0
     ):
         raise ValueError("R4 researcher profile and output settings differ")
     draws = researcher.get("planned_draws_per_group")
@@ -187,14 +201,14 @@ def _identity(source_path: Path) -> dict[str, str]:
     ).stdout
     if dirty:
         raise ValueError("commit tracked worktree changes before R4 qualification")
-    for path in (CONTRACT, WORKER_PROFILES):
+    for path in (CONTRACT, WORKER_PROFILES, RESEARCHER_PROFILES):
         if path.read_bytes() != _committed_bytes(path):
             raise ValueError(f"R4 input differs from committed HEAD: {path.name}")
     return {
         "git_head": head,
         "contract_sha256": _sha256(CONTRACT),
         "worker_profile_sha256": _sha256(WORKER_PROFILES),
-        "researcher_profiles_sha256": _sha256(RESEARCHER_PROFILES),
+        "researcher_profile_sha256": _sha256(RESEARCHER_PROFILES),
         "source_admission_sha256": _sha256(source_path),
     }
 
@@ -221,6 +235,7 @@ def main() -> int:
         worker_profile=worker_profile,
         researcher_profile=researcher_profile,
         worker_profile_sha256=start["worker_profile_sha256"],
+        researcher_profile_sha256=start["researcher_profile_sha256"],
     )
     end = _identity(args.source_admission)
     if end != start:

@@ -1,0 +1,16 @@
+{
+  "decisions": {
+    "award": false,
+    "followup_1": true,
+    "followup_2": false
+  },
+  "failures": [
+    "commit gate[s5-act-verify]: commit gate: plan 'vesper-instruments' is not in the legal set",
+    "follow_up[s8-followup-2]: record 'followup_conclusion-corridor': field 'status' expected 'reverify', got 'current'"
+  ],
+  "group": "A",
+  "instance_id": "research-v4-dossier-0001",
+  "phase": "dev",
+  "schema_version": 1,
+  "source_sha256": "6b91bacf2cba871becf2e7f690a42fcb10690a658dbadbb1b3785fdfe5a0f9f8"
+}

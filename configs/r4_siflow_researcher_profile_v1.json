@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "profiles": [
+    {
+      "id": "siflow-deepseek-v4.1-flash-r4-dev-8192",
+      "provider": "Siflow",
+      "endpoint_env": "SIFLOW_BASE_URL",
+      "api_key_env": "SIFLOW_API_KEY",
+      "allowed_host": "api.siflow.cn",
+      "model": "deepseek-ai/deepseek-v4.1-flash",
+      "protocol": "chat-completions-sse",
+      "evaluation_max_model_len": 1048576,
+      "max_output_tokens": 8192,
+      "seed": 42,
+      "temperature": 0.0,
+      "provider_revision": null,
+      "chat_template_enable_thinking": false
+    }
+  ]
+}
