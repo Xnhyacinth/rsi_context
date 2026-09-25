@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "status": "source_acquired_task_unqualified",
+  "lineage": "open-telemetry/semantic-conventions",
+  "variants": {
+    "1.24": {
+      "registry_id": "otel-semconv-v1.24.0",
+      "source_revision": "cafda7127683b7f667e27cdbd3220510b6f998c9",
+      "selected_files": {
+        "docs/database/database-spans.md": {
+          "git_blob": "b352e48252c213d1412a3d9f4ea646c9638c2359",
+          "size_bytes": 13382,
+          "sha256": "49a05d5eec2357782876527574b2a544163f4ebf36d193456c77c07a8b6dffa6",
+          "spans": {
+            "recommended_attribute": {
+              "start_line": 188,
+              "end_line": 200,
+              "start_byte": 10636,
+              "end_byte": 12397,
+              "sha256": "1b725523d6c400c6d3946bc40e79065313a7cfb4c5f864cd5ff4a29713bd9d60"
+            }
+          }
+        },
+        "LICENSE": {
+          "git_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+          "size_bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "spans": {
+            "full_license": {
+              "start_line": 1,
+              "end_line": 201,
+              "start_byte": 0,
+              "end_byte": 11357,
+              "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+            }
+          }
+        }
+      }
+    },
+    "1.43": {
+      "registry_id": "otel-semconv-v1.43.0",
+      "source_revision": "89aae438b3b3b0a8dd33003c9d70592baf7dbd0d",
+      "selected_files": {
+        "docs/db/database-spans.md": {
+          "git_blob": "57019ae2812094f730900ade9cfb285b2a788025",
+          "size_bytes": 36697,
+          "sha256": "1f94aa548e00736bcf7e580318f868eeac36acfdb3e1cb9919da7e02f90e4c91",
+          "spans": {
+            "recommended_attribute": {
+              "start_line": 112,
+              "end_line": 132,
+              "start_byte": 5754,
+              "end_byte": 10152,
+              "sha256": "1e93a2ccf2e22cb0139993d0c8dcc9ff97ae9e0dab9dbca6390f9e1fb1f81671"
+            }
+          }
+        },
+        "LICENSE": {
+          "git_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+          "size_bytes": 11357,
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "spans": {
+            "full_license": {
+              "start_line": 1,
+              "end_line": 201,
+              "start_byte": 0,
+              "end_byte": 11357,
+              "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+            }
+          }
+        }
+      }
+    }
+  }
+}
