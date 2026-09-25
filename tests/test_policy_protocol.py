@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+from rsicontext.lifecycle.env import Action
 from rsicontext.security.policy_protocol import (
     MAX_FRAME_BYTES,
     MAX_TOOL_REQUESTS,
@@ -222,6 +223,36 @@ def test_forged_action_and_invalid_action_shapes_rejected() -> None:
     action["fields"] = {"check": "x", "subject": "y", "verdict": "pass"}
     with pytest.raises(ProtocolError, match="invalid action"):
         encode_message(done)
+
+
+def test_real_vector_action_scope_constraint_round_trip() -> None:
+    action = Action(
+        kind="finalize",
+        record_id="migration_commit",
+        fields={"plan": "atlas-carriage", "status": "final"},
+        provenance=("v-customs", "v-cold", "status"),
+        precondition_refs=("v-customs", "v-cold", "status"),
+        precondition_scope_constraint={
+            "domain": "shipping",
+            "requires_check": ["customs-preclearance", "cold-chain-integrity"],
+        },
+    )
+    done: dict[str, Any] = deepcopy(_done())
+    done["body"]["decision"]["actions"] = [action.to_dict()]
+    assert decode_frame(encode_message(done)) == done
+    single_check = deepcopy(done)
+    single_check["body"]["decision"]["actions"][0]["precondition_scope_constraint"][
+        "requires_check"
+    ] = "customs-preclearance"
+    assert decode_frame(encode_message(single_check)) == single_check
+    invalid_values: tuple[object, ...] = ([], [""], ["customs-preclearance", 3], {}, None, "")
+    for invalid in invalid_values:
+        malformed = deepcopy(done)
+        malformed["body"]["decision"]["actions"][0]["precondition_scope_constraint"][
+            "requires_check"
+        ] = invalid
+        with pytest.raises(ProtocolError):
+            encode_message(malformed)
 
 
 def test_wrong_sequence_order_and_reply_tool_rejected() -> None:
