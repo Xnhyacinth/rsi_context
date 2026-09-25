@@ -8,7 +8,9 @@ from typing import cast
 import pytest
 
 from rsicontext.lifecycle.env import ProjectState
+from rsicontext.lifecycle.material_v3 import build_research_v3_instance
 from rsicontext.lifecycle.policy import PolicyHook
+from rsicontext.lifecycle.runner import run_lifecycle
 from rsicontext.lifecycle.spec import DocumentRef
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget, ToolSurface
 
@@ -34,7 +36,7 @@ def test_model_exception_consumes_attempt_and_prompt_estimate() -> None:
     assert not failed.ok and "endpoint down" in failed.cause
     assert failed.tokens_in == 3 and failed.tokens_out == 0
     assert not refused.ok and "call cap 1 reached" in refused.cause
-    assert hook.model_calls == budget.calls == 1
+    assert hook.model_calls == 1 and budget.calls == 2
     assert hook.model_tokens_in == budget.tokens_in == 3
     assert hook.model_tokens_out == budget.tokens_out == 0
     assert len(hook.model_transcript) == 1
@@ -97,12 +99,12 @@ def test_failed_dispatch_exhausts_token_cap_without_provider_usage() -> None:
     refused_model = hook._ask_model("retry")
     assert failed_model.tokens_in == 3 and failed_model.tokens_out == 0
     assert "token cap 3 reached" in refused_model.cause
-    assert hook.model_calls == model_budget.calls == 1
+    assert hook.model_calls == 1 and model_budget.calls == 2
 
     def delegate_failure(_query: str, _docs: Sequence[str]) -> str:
         raise RuntimeError("delegate unavailable")
 
-    delegate_budget = ToolBudget(max_tokens=65)
+    delegate_budget = ToolBudget(max_tokens=66)
     surface = ToolSurface(
         documents=(DocumentRef(doc_id="seen", title="Seen", text="known fact"),),
         env=ProjectState(),
@@ -112,7 +114,7 @@ def test_failed_dispatch_exhausts_token_cap_without_provider_usage() -> None:
     failed_delegate = surface.delegate("investigate", ("seen",))
     refused_delegate = surface.delegate("retry", ("seen",))
     assert failed_delegate.tokens_in == 66 and failed_delegate.tokens_out == 0
-    assert "token cap 65 reached" in refused_delegate.cause
+    assert "token cap 66 reached" in refused_delegate.cause
     assert delegate_budget.receipts == [failed_delegate, refused_delegate]
     assert delegate_budget.calls == 2
 
@@ -188,3 +190,85 @@ def test_internal_document_lookup_error_is_not_misreported_as_policy_input() -> 
         surface.delegate("investigate", ("seen",))
     assert budget.calls == 1
     assert budget.receipts == []
+
+
+def test_model_known_input_over_cap_does_not_dispatch() -> None:
+    attempts: list[str] = []
+
+    def responder(prompt: str) -> str:
+        attempts.append(prompt)
+        return "reply"
+
+    budget = ToolBudget(max_tokens=3)
+    hook = PolicyHook(
+        {},
+        "def on_turn(turn):\n    return {'pack_text': 'ok'}\n",
+        tool_budget=budget,
+        responder=responder,
+    )
+    refused = hook._ask_model("one two three four")
+    assert not refused.ok and "token cap 3" in refused.cause
+    assert attempts == []
+    assert budget.calls == 1 and budget.tokens_in == budget.tokens_out == 0
+    assert hook.model_calls == 0 and hook.model_transcript == []
+
+
+def test_delegate_known_input_over_cap_does_not_dispatch() -> None:
+    attempts: list[str] = []
+
+    def delegate_runner(query: str, _docs: Sequence[str]) -> str:
+        attempts.append(query)
+        return "reply"
+
+    budget = ToolBudget(max_tokens=1)
+    surface = ToolSurface(
+        documents=(DocumentRef(doc_id="seen", title="Seen", text="known fact"),),
+        env=ProjectState(),
+        budget=budget,
+        delegate_runner=delegate_runner,
+    )
+    refused = surface.delegate("investigate", ("seen",))
+    assert not refused.ok and "token cap 1" in refused.cause
+    assert attempts == []
+    assert budget.calls == 1 and budget.tokens_in == budget.tokens_out == 0
+    assert budget.receipts == [refused]
+
+
+@pytest.mark.parametrize("failure", ["no_channel", "invalid_prompt", "call_cap"])
+def test_model_refusal_is_one_budget_attempt_without_dispatch(failure: str) -> None:
+    attempts: list[str] = []
+
+    def responder(prompt: str) -> str:
+        attempts.append(prompt)
+        return "ok"
+
+    budget = ToolBudget(max_calls=0 if failure == "call_cap" else None)
+    hook = PolicyHook(
+        {},
+        "def on_turn(turn):\n    return {'pack_text': 'ok'}\n",
+        tool_budget=budget,
+        responder=None if failure == "no_channel" else responder,
+    )
+    refused = hook._ask_model("" if failure == "invalid_prompt" else "one")
+    assert not refused.ok and refused.cause
+    assert attempts == []
+    assert budget.calls == 1 and budget.tokens_in == budget.tokens_out == 0
+    assert hook.model_calls == 0 and hook.model_transcript == []
+
+
+def test_refused_verification_action_is_one_budget_attempt() -> None:
+    policy = """
+def on_turn(turn):
+    if turn.view.kind == "survey":
+        return {"pack_text": "survey", "actions": (
+            turn.actions.request_verification("v", "replica-lag", "aurora"),
+        )}
+    return {"pack_text": "ok"}
+"""
+    budget = ToolBudget(max_calls=0)
+    env = ProjectState()
+    hook = PolicyHook({}, policy, tool_budget=budget, env=env)
+    run_lifecycle(build_research_v3_instance(), hook, env)
+    assert budget.calls == 1
+    assert any("action dropped: tool budget exhausted" in e for e in hook.policy_errors)
+    assert "v" not in env.records
