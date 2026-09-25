@@ -8,16 +8,17 @@ there is no valid-update-rate estimate here. Run with:
 
 ```bash
 uv run --no-sync python scripts/r3_bc_researcher_pilot.py \
-  --preflight configs/r3_gate1_offline_preflight_v2.json \
+  --preflight configs/r3_gate1_offline_preflight_v3.json \
   --resource-root /volume/pt-dev/qjiu/rsi_context_worktrees/resources/r3_visible_dev_7052c06 \
-  --output artifacts/rsi-core-v1/r3-bc-gate1-offline-admission-v2-20260925.json
+  --output artifacts/rsi-core-v1/r3-bc-gate1-offline-admission-v3-20260925.json
 ```
 
 The initial v1 admission used uncommitted coordinator preflight bytes, SHA256
 `bb89244b37b10b212c7f67a06e2e21c4790eadb3390aa837354148cf44b2ccd5`.
-Keep that artifact as a historical wiring diagnostic. The command above uses
-the committed v2 preflight with the repaired B/C causal material hashes; its
-new artifact and SHA must be recorded after the integrated rerun.
+Keep that artifact as a historical wiring diagnostic. The committed v2
+preflight and B/C rerun at `cd5b7ae` precede the new source registry entries;
+their artifact remains tied to that code and registry SHA. The command above
+uses v3 with the same B/C causal materials and the updated registry SHA.
 The executable checks the full pilot contract, the committed manifest bytes,
 the visible development-feedback resource, and the hashes of `uv.lock`, API
 profiles, budget, registry, open-S seed and built B/C dev/eval worlds before

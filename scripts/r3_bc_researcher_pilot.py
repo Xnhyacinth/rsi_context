@@ -45,8 +45,8 @@ from rsicontext.lifecycle.session_sequence import SequenceRecord
 from rsicontext.participant.recuris_real_arm import package_to_state
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_PREFLIGHT = ROOT / "configs/r3_gate1_offline_preflight_v2.json"
-DEFAULT_OUTPUT = ROOT / "artifacts/rsi-core-v1/r3-bc-gate1-offline-admission-v2-20260925.json"
+DEFAULT_PREFLIGHT = ROOT / "configs/r3_gate1_offline_preflight_v3.json"
+DEFAULT_OUTPUT = ROOT / "artifacts/rsi-core-v1/r3-bc-gate1-offline-admission-v3-20260925.json"
 EXPECTED_BASE = "7052c06494c37bed22fe14bdf929c20b3c9c6e29"
 GROUPS = ("B", "C")
 PROBE_CARD_ID = "gate1-delivery-probe"
@@ -103,8 +103,8 @@ def _specs() -> dict[str, GroupSpec]:
 def _preflight(path: Path) -> tuple[dict[str, Any], str]:
     raw = path.read_bytes()
     manifest = cast(dict[str, Any], json.loads(raw))
-    if manifest.get("schema_version") != 2 or manifest.get("status") != "offline_preflight_only":
-        raise ValueError("Gate 1 requires a version-2 offline-only preflight manifest")
+    if manifest.get("schema_version") != 3 or manifest.get("status") != "offline_preflight_only":
+        raise ValueError("Gate 1 requires a version-3 offline-only preflight manifest")
     if manifest.get("baseline_commit") != EXPECTED_BASE:
         raise ValueError("unexpected Gate 1 baseline commit")
     if manifest.get("live_gate", {}).get("enabled") is not False:
@@ -419,7 +419,7 @@ def main() -> int:
     if args.resource_root is None:
         parser.error("offline admission requires --resource-root for visible resource verification")
     committed = subprocess.run(
-        ["git", "show", "HEAD:configs/r3_gate1_offline_preflight_v2.json"],
+        ["git", "show", "HEAD:configs/r3_gate1_offline_preflight_v3.json"],
         cwd=ROOT,
         check=True,
         capture_output=True,

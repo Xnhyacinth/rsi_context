@@ -4,13 +4,14 @@ Status: active **offline preflight**. This plan does not authorize live
 model-authored policy execution or a scored A/B/C comparison. Its common
 source baseline is Git commit `7052c06494c37bed22fe14bdf929c20b3c9c6e29`.
 The machine-readable settings and byte hashes are in
-`configs/r3_gate1_offline_preflight_v2.json`; run
+`configs/r3_gate1_offline_preflight_v3.json`; run
 `uv run --no-sync python scripts/verify_r3_gate1_preflight.py --resource-root
 <snapshot-directory> --require-clean` from a committed worktree before an
 experiment. The verifier checks the exact lock/config/resource bytes, Python
 interpreter, Git ancestry, and clean runtime source. It always reports
-`live_ready=false` for this version. The earlier v1 manifest remains in Git
-as the pre-causal-repair baseline; it is not reused for later artifacts.
+`live_ready=false` for this version. The earlier v1 and v2 manifests remain
+in Git as historical preflight snapshots; v3 also pins the newly registered,
+but not acquired, independent-source candidates.
 
 ## Initial state and workspaces
 

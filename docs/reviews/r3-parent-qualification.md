@@ -2,7 +2,7 @@
 
 Status: **Gate 2 not admitted**. This is a development-material audit whose
 starting baseline was `main@7052c06494c37bed22fe14bdf929c20b3c9c6e29`,
-not a scored model run. The current v3 artifact records the integrated source
+not a scored model run. The current v4 artifact records the integrated source
 commit and material hashes after B/C causal-gate repairs.
 The executable entrypoint is
 [`scripts/qualify_r3_parent_projects.py`](../../scripts/qualify_r3_parent_projects.py).
@@ -13,11 +13,11 @@ Run from the project root:
 
 ```bash
 uv run --no-sync python scripts/qualify_r3_parent_projects.py \
-  --output artifacts/rsi-core-v1/r3-gate2-parent-qualification-v3-20260925.json
+  --output artifacts/rsi-core-v1/r3-gate2-parent-qualification-v4-20260925.json
 ```
 
 The output is created only if absent; the script refuses to replace an
-existing artifact. The earlier v1/v2 files are retained as historical output.
+existing artifact. The earlier v1/v2/v3 files are retained as historical output.
 The current schema records UTC start/completion times and matching start/end identities:
 Git HEAD plus dirty patch/untracked digests, complete `src`/`scripts` Python
 source hash, hashes of the qualifier, M2 builder/reference and evaluator

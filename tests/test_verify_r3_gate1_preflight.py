@@ -38,7 +38,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, dict[str, object]]:
         path.write_bytes(b"locked")
     (resources / "a-dev-feedback.json").write_bytes(b"visible")
     manifest: dict[str, object] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "status": "offline_preflight_only",
         "baseline_commit": BASELINE_COMMIT,
         "tracked_sha256": {relative: _digest(b"locked") for relative in TRACKED_INPUTS},
@@ -89,7 +89,7 @@ def test_preflight_rejects_missing_inputs_and_changed_settings(tmp_path: Path) -
     pilot = manifest["candidate_pilot"]
     assert isinstance(pilot, dict)
     pilot["researcher_model"] = "different-model"
-    with pytest.raises(ValueError, match="differs from Gate-1 v2 settings"):
+    with pytest.raises(ValueError, match="differs from Gate-1 v3 settings"):
         verify_inputs(manifest, repo_root=repo, resource_root=resources, world_hashes=_WORLD_HASHES)
 
     repo, resources, manifest = _fixture(tmp_path / "third")

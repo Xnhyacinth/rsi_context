@@ -21,7 +21,7 @@ verification.
 
 ## Acquisition and authoring sequence
 
-1. Propose `configs/registry.json` entries with `kind: dataset`,
+1. The two Apache-2.0 entries are now in `configs/registry.json` with `kind: dataset`,
    `integration: adapter`, `source_type: git`, `access: public`, the upstream
    HTTPS repository URL, the complete commit above as `revision` and
    `checksum.value`, `checksum.algorithm: git-revision`, and `size_bytes:
@@ -47,9 +47,10 @@ verification.
    text, verification, and both; mutate the earlier action/receipt; change
    rule scope; perturb irrelevant material. A B case must cross a session
    reset and a C case must have a later available legal action or answer that
-   differs after the earlier action. A legal scripted path is construction proof, not model
-   difficulty. Record tokenized evidence/query positions and resist simple
+   differs after the earlier action. A legal scripted path is construction
+   proof, not model difficulty. Record tokenized evidence/query positions and resist simple
    title/name filters before freezing any evaluation parent.
 
-No registry entry or download is authorized by this note alone. The
-versioned resource plan and later author review are the next concrete steps.
+The registry downloader dry-run has validated both pinned entries. It reports
+two unknown repository sizes and no warnings; no repository was downloaded.
+Disk capacity and selected-file blob/hash checks remain before acquisition.

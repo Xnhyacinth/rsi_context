@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_MANIFEST = PROJECT_ROOT / "configs/r3_gate1_offline_preflight_v2.json"
-MANIFEST_GIT_PATH = "configs/r3_gate1_offline_preflight_v2.json"
+DEFAULT_MANIFEST = PROJECT_ROOT / "configs/r3_gate1_offline_preflight_v3.json"
+MANIFEST_GIT_PATH = "configs/r3_gate1_offline_preflight_v3.json"
 BASELINE_COMMIT = "7052c06494c37bed22fe14bdf929c20b3c9c6e29"
 TRACKED_INPUTS = frozenset(
     {
@@ -95,17 +95,17 @@ def verify_inputs(
 ) -> dict[str, object]:
     """Check bytes and planned budget without loading policy code or using APIs."""
 
-    if manifest.get("schema_version") != 2 or manifest.get("status") != "offline_preflight_only":
-        raise ValueError("expected the version-2 offline preflight manifest")
+    if manifest.get("schema_version") != 3 or manifest.get("status") != "offline_preflight_only":
+        raise ValueError("expected the version-3 offline preflight manifest")
     if manifest.get("baseline_commit") != BASELINE_COMMIT:
-        raise ValueError("baseline commit differs from Gate-1 v2")
+        raise ValueError("baseline commit differs from Gate-1 v3")
     tracked = _digest_map(manifest.get("tracked_sha256"), "tracked_sha256")
     visible = _digest_map(manifest.get("visible_resource_sha256"), "visible_resource_sha256")
     worlds = _digest_map(manifest.get("world_material_sha256"), "world_material_sha256")
     if tracked.keys() != TRACKED_INPUTS or visible.keys() != VISIBLE_INPUTS:
-        raise ValueError("manifest input file set differs from Gate-1 v2")
+        raise ValueError("manifest input file set differs from Gate-1 v3")
     if worlds.keys() != WORLD_PHASES or worlds != world_hashes:
-        raise ValueError("built world material hashes differ from Gate-1 v2")
+        raise ValueError("built world material hashes differ from Gate-1 v3")
     checked: dict[str, str] = {}
     for prefix, root, entries in (
         ("tracked", repo_root, tracked),
@@ -119,7 +119,7 @@ def verify_inputs(
     pilot = manifest.get("candidate_pilot")
     live_gate = manifest.get("live_gate")
     if pilot != EXPECTED_PILOT:
-        raise ValueError("candidate_pilot differs from Gate-1 v2 settings")
+        raise ValueError("candidate_pilot differs from Gate-1 v3 settings")
     if not isinstance(live_gate, dict) or live_gate.get("enabled") is not False:
         raise ValueError("this manifest cannot authorize live execution")
     if live_gate.get("requires_actual_isolated_executor") is not True:

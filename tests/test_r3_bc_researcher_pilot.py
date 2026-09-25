@@ -21,7 +21,7 @@ def _preflight(path: Path) -> Path:
     resources.mkdir()
     (resources / "a-dev-feedback.json").write_bytes(b"visible development feedback")
     manifest = {
-        "schema_version": 2,
+        "schema_version": 3,
         "status": "offline_preflight_only",
         "baseline_commit": pilot.EXPECTED_BASE,
         "live_gate": {
