@@ -63,6 +63,14 @@ resource directory, then run `scripts/r3_bc_researcher_pilot.py` with the
 committed v3 manifest and a new output path. The historical R3 artifact's
 timestamps and Git head are not expected to reproduce byte-identically.
 
+The portable source was exercised at `a0a5b2a`: the committed A-dev resource
+passed the R3 v3 preflight (`r4-portable-r3-preflight-20260925.json`, SHA256
+`1aaafdf68b74bac2813214df7f97988a44385d3e1954ac915cfb652308da4895`).
+A fresh R3 B/C offline run (`r4-rebuilt-r3-bc-offline-v1.json`, SHA256
+`dfa81983af4551693924ac00fbd706960d8b66cad18348c54691707ee8687b43`)
+matched the portable projection's four call counts exactly and had matching
+start/end identity with zero model API calls.
+
 The active v2 qualification ran at `babbf606` and produced
 `r4-bc-budget-qualification-v2-20260925.json` (SHA256
 `d1fb4f9da2c51a7410567ce811dcbc5503c68ff4ae669b6802ddc30b4eb98716`).
