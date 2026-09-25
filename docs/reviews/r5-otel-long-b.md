@@ -18,6 +18,15 @@ The source checkout is an input to the builder, not a hidden source embedded
 in a policy. Both source files are shown in session 1 and are absent from
 session 2's attached documents.
 
+For a full local replay, set `RSICONTEXT_OTEL_SOURCE_ROOT` to the detached
+checkout directory and run `uv run --no-sync pytest -q
+tests/test_otel_long_b.py`. The tests validate the file bytes; an explicitly
+configured wrong or incomplete checkout fails. When the variable is absent,
+the eight source-dependent cases skip with a named reason, while the portable
+manifest check and a source-independent wrong-hash rejection test still run.
+A clean-clone test run with skipped cases is not evidence that the source
+path passed its behavioral qualification checks.
+
 | Required proposition | Official pinned span | Whole-file SHA256 | Span SHA256 |
 | --- | --- | --- | --- |
 | `database` emits stable conventions only; `database/dup` emits old and stable together. | [database-spans.md 35–43](https://github.com/open-telemetry/semantic-conventions/blob/89aae438b3b3b0a8dd33003c9d70592baf7dbd0d/docs/db/database-spans.md#L35-L43) | `1f94aa548e00736bcf7e580318f868eeac36acfdb3e1cb9919da7e02f90e4c91` | `573ce7eafcf5245488271f96397b2f99d9b72dc7ff429474261752c11be5520d` |
