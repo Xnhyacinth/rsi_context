@@ -10,7 +10,7 @@ import pytest
 from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.spec import DocumentRef
-from rsicontext.lifecycle.tools import ToolBudget, ToolSurface
+from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget, ToolSurface
 
 
 def test_model_exception_consumes_attempt_and_prompt_estimate() -> None:
@@ -169,3 +169,22 @@ def test_malformed_delegate_doc_ids_are_named_and_metered(doc_ids: Sequence[str]
     assert failed.tokens_in == failed.tokens_out == 0
     assert "call cap 1 reached" in refused.cause
     assert budget.calls == 2 and budget.receipts == [failed, refused]
+
+
+def test_internal_document_lookup_error_is_not_misreported_as_policy_input() -> None:
+    class BrokenRegistry(DocumentRegistry):
+        def get(self, doc_id: str) -> DocumentRef | None:
+            raise RuntimeError(f"registry broken for {doc_id}")
+
+    budget = ToolBudget()
+    surface = ToolSurface(
+        documents=(),
+        env=ProjectState(),
+        budget=budget,
+        registry=BrokenRegistry(),
+        delegate_runner=lambda _query, _docs: "unused",
+    )
+    with pytest.raises(RuntimeError, match="registry broken"):
+        surface.delegate("investigate", ("seen",))
+    assert budget.calls == 1
+    assert budget.receipts == []

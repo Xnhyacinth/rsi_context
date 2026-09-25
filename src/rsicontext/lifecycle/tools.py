@@ -107,6 +107,11 @@ class ToolBudget:
         self.tokens_out += tokens_out
         self.calls += 1
 
+    def charge_input(self, tokens_in: int) -> None:
+        """Add input from an already charged call without counting it twice."""
+
+        self.tokens_in += tokens_in
+
     def charge_output(self, tokens_out: int) -> None:
         """Add output from an already charged call without counting it twice."""
 
@@ -301,39 +306,38 @@ class ToolSurface:
             receipt = ToolReceipt(tool="delegate", ok=False, cause=refusal)
             self._budget.receipts.append(receipt)
             return receipt
+        self._budget.charge(0, 0)
         if self._delegate_runner is None:
-            self._budget.charge(0, 0)
             receipt = ToolReceipt(tool="delegate", ok=False, cause="no delegate runner installed")
             self._budget.receipts.append(receipt)
             return receipt
-        docs = []
-        try:
-            if isinstance(doc_ids, str):
-                raise TypeError("doc_ids must be a sequence of document ids")
-            for doc_id in doc_ids:
-                if not isinstance(doc_id, str):
-                    raise TypeError("doc_ids must contain strings")
-                doc = self._documents.get(doc_id)
-                if doc is None and self._registry is not None:
-                    doc = self._registry.get(doc_id)
-                if doc is not None:
-                    docs.append(doc.text)
-        except Exception as exc:
-            self._budget.charge(0, 0)
+        if (
+            isinstance(doc_ids, str)
+            or not isinstance(doc_ids, Sequence)
+            or any(not isinstance(doc_id, str) for doc_id in doc_ids)
+        ):
             receipt = ToolReceipt(
                 tool="delegate",
                 ok=False,
-                cause=f"invalid delegate documents: {type(exc).__name__}: {exc}",
+                cause=(
+                    "invalid delegate documents: TypeError: doc_ids must be a sequence of strings"
+                ),
             )
             self._budget.receipts.append(receipt)
             return receipt
+        docs = []
+        for doc_id in doc_ids:
+            doc = self._documents.get(doc_id)
+            if doc is None and self._registry is not None:
+                doc = self._registry.get(doc_id)
+            if doc is not None:
+                docs.append(doc.text)
         if not docs:
-            self._budget.charge(0, 0)
             receipt = ToolReceipt(tool="delegate", ok=False, cause="no known documents named")
             self._budget.receipts.append(receipt)
             return receipt
         tokens_in = DELEGATE_OVERHEAD_TOKENS + sum(max(1, len(doc.split())) for doc in docs)
-        self._budget.charge(tokens_in, 0)
+        self._budget.charge_input(tokens_in)
         try:
             answer = self._delegate_runner(query, docs)
             if not isinstance(answer, str):
