@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess
 import sys
 import time
 from collections.abc import Callable
@@ -33,6 +34,7 @@ from r3_compare import (
     _source_sha256,
 )
 from r3_researcher_pilot import _audit_candidate
+from verify_r3_gate1_preflight import EXPECTED_PILOT, verify_inputs
 
 from rsicontext.lifecycle.group_baselines import (
     group_b_basline_policy_text,
@@ -43,8 +45,8 @@ from rsicontext.lifecycle.session_sequence import SequenceRecord
 from rsicontext.participant.recuris_real_arm import package_to_state
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_PREFLIGHT = ROOT / "configs/r3_gate1_offline_preflight_v1.json"
-DEFAULT_OUTPUT = ROOT / "artifacts/rsi-core-v1/r3-bc-gate1-offline-admission-v1.json"
+DEFAULT_PREFLIGHT = ROOT / "configs/r3_gate1_offline_preflight_v2.json"
+DEFAULT_OUTPUT = ROOT / "artifacts/rsi-core-v1/r3-bc-gate1-offline-admission-v2-20260925.json"
 EXPECTED_BASE = "7052c06494c37bed22fe14bdf929c20b3c9c6e29"
 GROUPS = ("B", "C")
 PROBE_CARD_ID = "gate1-delivery-probe"
@@ -55,22 +57,7 @@ REQUIRED_TRACKED_HASHES = (
     "configs/registry.json",
     "seeds/open_s_v1/seed.py",
 )
-PILOT_CONTRACT: dict[str, object] = {
-    "groups": ["B", "C"],
-    "planned_researcher_draws_per_group": 2,
-    "researcher_model": "deepseek-ai/deepseek-v4.1-flash",
-    "researcher_thinking": "disabled",
-    "researcher_max_output_tokens_per_draw": 8192,
-    "researcher_http_attempts_per_draw": 1,
-    "worker_model": "Qwen/Qwen3.6-27B",
-    "worker_thinking": "disabled",
-    "worker_max_output_tokens_per_request": 2048,
-    "worker_request_cap_per_draw": 16,
-    "worker_request_cap_per_group": 32,
-    "temperature": 0.0,
-    "seed": 42,
-    "evaluation_selection": "none",
-}
+PILOT_CONTRACT = EXPECTED_PILOT
 
 
 def _sha256(data: bytes) -> str:
@@ -116,16 +103,15 @@ def _specs() -> dict[str, GroupSpec]:
 def _preflight(path: Path) -> tuple[dict[str, Any], str]:
     raw = path.read_bytes()
     manifest = cast(dict[str, Any], json.loads(raw))
-    if manifest.get("status") != "offline_preflight_only":
-        raise ValueError("Gate 1 requires an offline-only preflight manifest")
+    if manifest.get("schema_version") != 2 or manifest.get("status") != "offline_preflight_only":
+        raise ValueError("Gate 1 requires a version-2 offline-only preflight manifest")
     if manifest.get("baseline_commit") != EXPECTED_BASE:
         raise ValueError("unexpected Gate 1 baseline commit")
     if manifest.get("live_gate", {}).get("enabled") is not False:
         raise ValueError("Gate 1 live gate must remain disabled")
     candidate = manifest.get("candidate_pilot", {})
-    for field, expected in PILOT_CONTRACT.items():
-        if candidate.get(field) != expected:
-            raise ValueError(f"Gate 1 pilot setting mismatch: {field}")
+    if candidate != PILOT_CONTRACT:
+        raise ValueError("Gate 1 pilot setting mismatch")
     hashes = manifest.get("tracked_sha256", {})
     if not set(REQUIRED_TRACKED_HASHES) <= set(hashes):
         raise ValueError("Gate 1 preflight omits required tracked hashes")
@@ -134,6 +120,14 @@ def _preflight(path: Path) -> tuple[dict[str, Any], str]:
         if actual != expected:
             raise ValueError(f"preflight resource hash mismatch: {name}")
     return manifest, _sha256(raw)
+
+
+def _material_hashes(specs: dict[str, GroupSpec]) -> dict[str, str]:
+    return {
+        f"{group_id}_{phase}": _canonical_sha256([world.to_dict() for world in worlds])
+        for group_id, spec in specs.items()
+        for phase, worlds in (("dev", spec.dev_worlds), ("eval", spec.eval_worlds))
+    }
 
 
 def _identity(
@@ -257,11 +251,17 @@ def _profile_conflict() -> dict[str, object]:
     }
 
 
-def run_offline_admission(output: Path, preflight_path: Path) -> dict[str, object]:
+def run_offline_admission(
+    output: Path, preflight_path: Path, resource_root: Path
+) -> dict[str, object]:
     if output.exists() or output.with_suffix("").exists():
         raise FileExistsError(f"refusing to overwrite admission artifact: {output}")
     manifest, manifest_sha256 = _preflight(preflight_path)
     specs = _specs()
+    world_hashes = _material_hashes(specs)
+    preflight_verification = verify_inputs(
+        manifest, repo_root=ROOT, resource_root=resource_root, world_hashes=world_hashes
+    )
     identity = _identity(specs, manifest, manifest_sha256)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.with_suffix("").mkdir(exist_ok=False)
@@ -272,6 +272,7 @@ def run_offline_admission(output: Path, preflight_path: Path) -> dict[str, objec
         "run_identity": identity,
         "preflight_path": str(preflight_path),
         "preflight_sha256": manifest_sha256,
+        "preflight_verification": preflight_verification,
         "planned_attempts": {group_id: 2 for group_id in GROUPS},
         "actual_researcher_attempts": {group_id: 0 for group_id in GROUPS},
         "researcher_provider_usage_calls": [],
@@ -406,6 +407,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--preflight", type=Path, default=DEFAULT_PREFLIGHT)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--resource-root", type=Path)
     parser.add_argument(
         "--live", action="store_true", help="reserved until an isolated executor exists"
     )
@@ -414,7 +416,17 @@ def main() -> int:
         parser.error(
             "live B/C pilot is unavailable: candidate process isolation is not implemented"
         )
-    result = run_offline_admission(args.output, args.preflight)
+    if args.resource_root is None:
+        parser.error("offline admission requires --resource-root for visible resource verification")
+    committed = subprocess.run(
+        ["git", "show", "HEAD:configs/r3_gate1_offline_preflight_v2.json"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout
+    if args.preflight.read_bytes() != committed:
+        parser.error("preflight manifest differs from committed HEAD bytes")
+    result = run_offline_admission(args.output, args.preflight, args.resource_root)
     print(
         json.dumps(
             {

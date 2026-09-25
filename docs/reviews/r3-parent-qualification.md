@@ -1,7 +1,9 @@
 # R3 Gate 2 parent qualification: offline inventory (2026-09-25)
 
-Status: **Gate 2 not admitted**. This is a development-material audit at
-`main@7052c06494c37bed22fe14bdf929c20b3c9c6e29`, not a scored model run.
+Status: **Gate 2 not admitted**. This is a development-material audit whose
+starting baseline was `main@7052c06494c37bed22fe14bdf929c20b3c9c6e29`,
+not a scored model run. The current v3 artifact records the integrated source
+commit and material hashes after B/C causal-gate repairs.
 The executable entrypoint is
 [`scripts/qualify_r3_parent_projects.py`](../../scripts/qualify_r3_parent_projects.py).
 It builds worlds from tracked constructors and the M2 scripted reference. It
@@ -11,12 +13,12 @@ Run from the project root:
 
 ```bash
 uv run --no-sync python scripts/qualify_r3_parent_projects.py \
-  --output artifacts/rsi-core-v1/r3-gate2-parent-qualification-v2.json
+  --output artifacts/rsi-core-v1/r3-gate2-parent-qualification-v3-20260925.json
 ```
 
 The output is created only if absent; the script refuses to replace an
-existing artifact. The earlier v1 file is retained as historical output.
-Version 2 records UTC start/completion times and matching start/end identities:
+existing artifact. The earlier v1/v2 files are retained as historical output.
+The current schema records UTC start/completion times and matching start/end identities:
 Git HEAD plus dirty patch/untracked digests, complete `src`/`scripts` Python
 source hash, hashes of the qualifier, M2 builder/reference and evaluator
 modules, `uv.lock`, budget and registry configurations, world material and
@@ -66,35 +68,25 @@ not proof that the legal answer changed. The administrative perturbation left
 all original reference decision vectors stable. This is only one benign
 perturbation, not a robustness distribution.
 
-The strongest C probe starts the second session with a fresh `ProjectState`
-containing **no first-session commit or verification record**. It applies the
-second-session rule revision, requests a current verification, finalizes the
-second-session record and calls the actual `_commit_gate_failures` and
-`ObjectiveChecker`. The later gate accepts this legal action in c1,
-c1-mirror and c2. In the ordinary shared-state reference, flipping the first
-session's winning verification from pass to fail makes the first session fail,
-yet the second session still passes in all three worlds. The flipped receipt
-changes the environment-issued verification and prevents the first final
-commit; the second-session gate still accepts a separate current verification
-and `corridor_reaward` record.
-
-A further no-action first-session run leaves `migration_commit` absent. C2's
-scripted second session still passes. C1 and c1-mirror's scripted second
-sessions fail because their baseline lacks carried notes and creates no
-`corridor_reaward`; this is a **worker-policy dependence on carry**, not an
-evaluator-side legal-answer dependence. The direct gate probe above separates
-the two. Their session-2 legal sets and required current verification are
-fixed by session-2 material/oracle and are not conditioned on the first
-commit's record or receipt. Gate 2's C requirement that an early receipt or
-write changes a later available action or legal answer is therefore unmet in
-these current worlds.
+The integrated C runner snapshots finalized record IDs **before** the later
+session. The later reaward gate requires the first session's finalized record
+in that snapshot; a new finalization in the later session cannot satisfy it.
+The direct fresh-state probe now rejects the later finalization in c1,
+c1-mirror and c2 even after a valid current verification. Removing the early
+verification or entire early action makes the scripted second session fail in
+all three worlds. This establishes dependence on the earlier **finalize
+write** for the later available legal action. It does not establish that the
+earlier verification verdict itself changes the later plan identity. In
+particular, an illegal but finalized first-session plan can leave the second
+session individually passable while the full project still fails its first
+session.
 
 B's first-award verification intervention changes a later scripted decision
-flag across its three cases, but the audit has not shown a changed
-state-conditioned later **legal answer** across the real reset. B remains
-unqualified on that claim. The artifact reports this missing proof separately
-from the observed reference-policy effect. The A worlds are single-project
-lifecycles, so the cross-session probe is inapplicable there.
+flag across its three cases, and the later award now requires a prior
+finalized record. The audit has not shown a changed state-conditioned later
+**legal answer** across the real reset. The artifact reports this missing
+proof separately from the observed action dependency. The A worlds are
+single-project lifecycles, so the cross-session probe is inapplicable there.
 
 ## Admission work
 
@@ -105,11 +97,10 @@ lifecycles, so the cross-session probe is inapplicable there.
    public evidence or verification, action preconditions, and resulting state.
    Keep evaluator-only oracle and expected values in evaluator-side review
    material, never in visible worker input or public case summaries.
-3. Redesign C's second-session gate so a specific prior receipt or write
-   changes a later available action or legal answer, then rerun both the
-   no-action and oracle-flip interventions. For B, demonstrate a specific
-   state-conditioned later legal answer across the reset, beyond a worker
-   pass/fail difference.
+3. Preserve the B/C prior-finalization gate and test it on new source parents.
+   For B, demonstrate a specific state-conditioned later legal answer across
+   the reset, beyond a worker pass/fail difference. For C, keep the write
+   dependency distinct from any unproven verification-verdict dependency.
 4. Re-run the full probe matrix on each new parent, plus a fixed-policy real
    model difficulty pilot. Reject worlds with failed causal checks before
    freezing an evaluation manifest; archive rejection reasons.

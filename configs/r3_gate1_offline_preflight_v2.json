@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "status": "offline_preflight_only",
+  "baseline_commit": "7052c06494c37bed22fe14bdf929c20b3c9c6e29",
+  "python_version": "3.12.14",
+  "tracked_sha256": {
+    "uv.lock": "5b24847780908a3481e8b6757480531c165ff87517bc1d48acf250baa6cc9352",
+    "configs/api_profiles.json": "dba2c7a9ff3f785d48e3f2aecb9f29f039414dfad6001ef8b1b1fc9b17a281af",
+    "configs/budget_v1.json": "81aa4bf87f361ce19afc2b732e575a84fe69b010c9c9982eaee61abd1c275fcb",
+    "configs/registry.json": "9fe886cfe03f63d2709b7d857af225ee798fac1aa74ea57b91bf9ba8240ae20b",
+    "seeds/open_s_v1/seed.py": "d7581266c35c72a407e78f8ce348f9c48b014ed69f6a948266aca332dc0c9621"
+  },
+  "visible_resource_sha256": {
+    "a-dev-feedback.json": "ff941ba94062a37d681993db28073fe871b412e0cd3b60847b4563f006241640"
+  },
+  "world_material_sha256": {
+    "B_dev": "e61e7772e5119c1c470eb82e91a7604e2259512795620643b964f3701bb34093",
+    "B_eval": "3bf83717a5aedcbc7f1ea99c0c5acbf23c3de49c809dc67c767b54e004f62864",
+    "C_dev": "50c3ef2b4211f3b1cc2d9ac3ea0bd95d7320a7ee570cf08453a1efc8bfe0fe14",
+    "C_eval": "35032560a460f7d1f944962812c0ffe8d15d0beedefb3458682e48666ece5259"
+  },
+  "candidate_pilot": {
+    "groups": ["B", "C"],
+    "planned_researcher_draws_per_group": 2,
+    "researcher_model": "deepseek-ai/deepseek-v4.1-flash",
+    "researcher_thinking": "disabled",
+    "researcher_max_output_tokens_per_draw": 8192,
+    "researcher_http_attempts_per_draw": 1,
+    "worker_model": "Qwen/Qwen3.6-27B",
+    "worker_thinking": "disabled",
+    "worker_max_output_tokens_per_request": 2048,
+    "worker_request_cap_per_draw": 16,
+    "worker_request_cap_per_group": 32,
+    "observed_scripted_baseline_worker_calls_per_dev_run": {
+      "B": 31,
+      "C": 18
+    },
+    "observed_scripted_candidate_worker_calls_per_dev_run": {
+      "B": 35,
+      "C": 20
+    },
+    "worker_call_cap_feasible_for_full_bc_dev_run": false,
+    "temperature": 0.0,
+    "seed": 42,
+    "evaluation_selection": "none"
+  },
+  "live_gate": {
+    "enabled": false,
+    "requires_actual_isolated_executor": true,
+    "requires_reader_profile_reconciliation": true,
+    "requires_qualified_parent_manifest": true,
+    "requires_versioned_bc_worker_cap": true,
+    "note": "A development pilot setting only; static PolicyAuditor and an attestation string do not isolate model-authored Python."
+  }
+}

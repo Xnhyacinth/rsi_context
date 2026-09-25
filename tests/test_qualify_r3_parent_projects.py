@@ -45,7 +45,7 @@ def test_irrelevant_text_keeps_reference_decisions_stable() -> None:
     assert changed["decisions"] == original["decisions"]
 
 
-def test_c_receipt_intervention_exposes_unproven_later_dependency() -> None:
+def test_c_receipt_intervention_breaks_later_reference_session() -> None:
     world = list(build_c1_sessions())
     award = _first_award(world)
     assert award is not None
@@ -55,12 +55,12 @@ def test_c_receipt_intervention_exposes_unproven_later_dependency() -> None:
     changed = _run("C", intervened)
     assert original["decisions"]["session_2_passed"] is True
     assert changed["decisions"]["session_1_passed"] is False
-    assert changed["decisions"]["session_2_passed"] is True
+    assert changed["decisions"]["session_2_passed"] is False
 
 
-def test_c_later_legal_gate_accepts_without_prior_commit() -> None:
+def test_c_later_legal_gate_requires_prior_commit() -> None:
     for build in (build_c1_sessions, build_c1_mirror_sessions, build_c2_sessions):
-        assert _later_c_gate_without_prior_commit(list(build()))
+        assert not _later_c_gate_without_prior_commit(list(build()))
 
 
 def test_inventory_rejects_shared_lineage_and_does_not_publish_labels() -> None:

@@ -8,17 +8,22 @@ there is no valid-update-rate estimate here. Run with:
 
 ```bash
 uv run --no-sync python scripts/r3_bc_researcher_pilot.py \
-  --preflight configs/r3_gate1_offline_preflight_v1.json \
-  --output artifacts/rsi-core-v1/r3-bc-gate1-offline-admission-v1-20260925.json
+  --preflight configs/r3_gate1_offline_preflight_v2.json \
+  --resource-root /volume/pt-dev/qjiu/rsi_context_worktrees/resources/r3_visible_dev_7052c06 \
+  --output artifacts/rsi-core-v1/r3-bc-gate1-offline-admission-v2-20260925.json
 ```
 
-The initial admission used the identical preflight bytes from the coordinator
-worktree, SHA256 `bb89244b37b10b212c7f67a06e2e21c4790eadb3390aa837354148cf44b2ccd5`.
-The executable checks all declared model IDs, thinking controls, request caps,
-seed, temperature and evaluation-selection rule against a pinned pilot contract,
-and checks the hashes of `uv.lock`, API profiles, budget, registry and open-S
-seed. The artifact contains the source, policy, full dev/eval material and
-configuration hashes. Evaluator-only material is hashed for identity only.
+The initial v1 admission used uncommitted coordinator preflight bytes, SHA256
+`bb89244b37b10b212c7f67a06e2e21c4790eadb3390aa837354148cf44b2ccd5`.
+Keep that artifact as a historical wiring diagnostic. The command above uses
+the committed v2 preflight with the repaired B/C causal material hashes; its
+new artifact and SHA must be recorded after the integrated rerun.
+The executable checks the full pilot contract, the committed manifest bytes,
+the visible development-feedback resource, and the hashes of `uv.lock`, API
+profiles, budget, registry, open-S seed and built B/C dev/eval worlds before
+creating output. The artifact records that preflight result plus source,
+policy, material and configuration hashes. Evaluator-only material is hashed
+for identity only.
 The old shared R3 snapshot was not loaded or used as B/C feedback; its B/C
 scores are not a valid experiment input.
 
@@ -42,10 +47,10 @@ The complete development material hashes are:
 | Group/session | Instance ID | Full material SHA256 |
 | --- | --- | --- |
 | B/1 | `research-v5-b1-s1-0001` | `37d1788acbdd95278e02ce434f5266e98b910cea211b0c5d75222cfcbdb4aeb1` |
-| B/2 | `research-v5-b1-s2-0001` | `8e3f7e244683cdc720f18e2827c9a27b748b9a49a42e964cdf8615ac8009a595` |
+| B/2 | `research-v5-b1-s2-0001` | `16aed363fb85ec0cf5dcbcc8d2aee10fd6b3cbeb75f7d643a0bc3ae62bdd7c36` |
 | B/3 | `research-v5-b1-s3-0001` | `fce2451235489a22f773bec28255b0a3cd7b24d0817e9826cb38fb93b2c88503` |
 | C/1 | `research-v5-c1-s1-0001` | `1449e319d2d1480862b104702dc4499b346e4ace1760459eef4f1bb20934b08e` |
-| C/2 | `research-v5-c1-s2-0001` | `9af6bfb7adc849a28084a202267fa3de31163a17ea0a5fad1aa87f4c9f67858c` |
+| C/2 | `research-v5-c1-s2-0001` | `7a0a0d0aff2082a58f0e299a61ca9d8283f2806f239f6eb3d05ad05687667bfa` |
 
 The script records the evaluation-twin hashes in the private local artifact
 without running or exposing them to the researcher. The B/C baseline policy

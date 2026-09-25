@@ -4,12 +4,13 @@ Status: active **offline preflight**. This plan does not authorize live
 model-authored policy execution or a scored A/B/C comparison. Its common
 source baseline is Git commit `7052c06494c37bed22fe14bdf929c20b3c9c6e29`.
 The machine-readable settings and byte hashes are in
-`configs/r3_gate1_offline_preflight_v1.json`; run
+`configs/r3_gate1_offline_preflight_v2.json`; run
 `uv run --no-sync python scripts/verify_r3_gate1_preflight.py --resource-root
 <snapshot-directory> --require-clean` from a committed worktree before an
 experiment. The verifier checks the exact lock/config/resource bytes, Python
 interpreter, Git ancestry, and clean runtime source. It always reports
-`live_ready=false` for this version.
+`live_ready=false` for this version. The earlier v1 manifest remains in Git
+as the pre-causal-repair baseline; it is not reused for later artifacts.
 
 ## Initial state and workspaces
 
@@ -55,7 +56,7 @@ qualification; changing v1 in place would erase this admission failure.
 
 | Claim to test | Required evidence | Independent unit and endpoint | Current status |
 | --- | --- | --- | --- |
-| The task needs earlier evidence, verification, and actions | Complete legal reference path plus decisive-text, verification, early-action, rule-scope, and irrelevant-text interventions | Parent project; later legal action/answer changes under the named intervention | Offline construction evidence exists; parent-level qualification in progress |
+| The task needs earlier evidence, verification, and actions | Complete legal reference path plus decisive-text, verification, early-action, rule-scope, and irrelevant-text interventions | Parent project; later legal action/answer changes under the named intervention | B/C scripted action dependence now passes; 0 independent parents qualified |
 | A researcher can deliver executable policy updates | Every planned draw counted; exact candidate audit; at least one correctly metered worker decision; no policy error | Development attempt; audited-and-exercised update rate, separate from task success | A v3: 2/2 executable under a narrower predeclared gate; prospective audit and isolation remain open |
 | Experience improves an agent beyond fixed strategy and equal-budget search | Same parent, frozen reader/profile, task order, feedback and opportunity; distinct improvement and deployment costs | Paired parent-project completion difference, by A/B/C group | No valid efficacy estimate yet; old R3 B/C live values are invalid |
 | Improvement retains and transfers | Frozen snapshots on unused parents and changed rule/source strata; replay of earlier parents | Independent parent lineage, not session/decision/mirror | No qualified held-out parent panel yet |
@@ -77,7 +78,7 @@ qualification; changing v1 in place would erase this admission failure.
 3. **Independent parents:** inventory lineage IDs and material hashes. A
    mirror or parameter twin inherits its parent's ID. Reject a parent unless
    full evidence permits a legal solution, decisive removal changes the
-   intended justification, an early action changes a later legal answer,
+   intended justification, an early action changes a later available legal action or answer,
    scoped revision distinguishes current from stale evidence, and irrelevant
    perturbation leaves the legal answer stable. B must cross a real session
    reset; C must depend on a receipt or write.

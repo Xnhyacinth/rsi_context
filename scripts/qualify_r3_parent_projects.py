@@ -620,7 +620,7 @@ def main() -> int:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("artifacts/rsi-core-v1/r3-gate2-parent-qualification-v2.json"),
+        default=Path("artifacts/rsi-core-v1/r3-gate2-parent-qualification-v3-20260925.json"),
     )
     args = parser.parse_args()
     if args.output.exists():
