@@ -426,6 +426,57 @@ def test_b2_second_mutation_stresses_the_carried_conclusions() -> None:
     assert _precondition(reaward)["current_revision"] == 3
 
 
+def test_b2_each_renewal_requires_the_previous_session_award() -> None:
+    s1, s2, s3, fresh = build_b2_sessions()
+    first = next(st for st in s1.stages if st.kind == "act_verify")
+    first_renewal = next(st for st in s2.stages if st.kind == "act_verify")
+    second_renewal = next(st for st in s3.stages if st.kind == "act_verify")
+    fresh_award = next(st for st in fresh.stages if st.kind == "act_verify")
+    assert "prior_finalized_record" not in _precondition(first)
+    assert _precondition(first_renewal)["prior_finalized_record"] == "migration_commit"
+    assert _precondition(second_renewal)["prior_finalized_record"] == "corridor_reaward"
+    assert "prior_finalized_record" not in _precondition(fresh_award)
+
+
+def test_b2_second_renewal_cannot_become_a_first_award() -> None:
+    # A current rev-3 customs check and a properly finalized NEW record
+    # are insufficient if session 2 never finalized the prior renewal.
+    s1, _s2, s3, _fresh = build_b2_sessions()
+    oracle = _oracle(next(st for st in s1.stages if st.kind == "act_verify"))
+    env = ProjectState()
+    env.begin_instance(oracle)
+    env.apply_protocol_revision(3, ("customs-preclearance",))
+    policy = """
+def on_turn(turn):
+    if turn.view.stage_id == "b2-s3-re-award":
+        return {
+            "pack_text": "renewal",
+            "actions": (
+                turn.actions.request_verification(
+                    "only-v3", "customs-preclearance", "atlas-carriage"
+                ),
+                turn.actions.create_record("corridor_reaward_2", {"plan": "atlas-carriage"}),
+                turn.actions.finalize(
+                    "corridor_reaward_2",
+                    {"plan": "atlas-carriage", "status": "final"},
+                    ("only-v3",),
+                ),
+            ),
+        }
+    return {"pack_text": "skip"}
+"""
+    hook = PolicyHook({}, policy, tool_budget=ToolBudget(), responder=_b_responder)
+    hook.bind_env(env)
+    record = run_lifecycle(s3, hook, env)
+    assert env.records["only-v3"]["verdict"] == "pass"
+    assert env.records["only-v3"]["protocol_revision"] == 3
+    assert env.records["corridor_reaward_2"]["status"] == "final"
+    assert any(
+        "prior finalized record 'corridor_reaward' was absent at session start" in failure
+        for failure in record.final_check.failures
+    ), record.final_check.failures
+
+
 def test_b2_carry_aware_reference_policy_passes_every_decision() -> None:
     sessions = list(build_b2_sessions())
     env = ProjectState()
