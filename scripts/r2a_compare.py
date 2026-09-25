@@ -40,6 +40,10 @@ from rsicontext.lifecycle.runner import run_lifecycle
 from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
 from rsicontext.lifecycle.tools import ToolBudget
+from rsicontext.security.isolated_policy import (
+    PolicyIsolationUnavailable,
+    require_isolated_policy_executor,
+)
 
 READER_ENDPOINT = "https://api.siflow.cn/model-api/chat/completions"
 READER_MODEL = "Qwen/Qwen3.6-27B"
@@ -382,6 +386,10 @@ def _researcher_unassisted_round(
             "wall_seconds": 0.0,
         }
 
+    # All R2a/R2b/R3 callers share this entry. Refuse before an API request
+    # can return Python that the current host-process PolicyHook would exec.
+    require_isolated_policy_executor()
+
     import os
     import urllib.request
 
@@ -551,6 +559,11 @@ def main() -> int:
     started = time.monotonic()
     live = not args.offline
     if live:
+        try:
+            require_isolated_policy_executor()
+        except PolicyIsolationUnavailable as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         import os
 
         if not os.environ.get("SIFLOW_API_KEY"):

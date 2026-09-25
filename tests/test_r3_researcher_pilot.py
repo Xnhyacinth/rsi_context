@@ -390,6 +390,8 @@ def test_run_identity_hashes_full_dev_world_and_detects_source_drift(
 def test_non_thinking_flags_are_opt_in_and_usage_is_reported(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Fake HTTP exercises request encoding only; real live entry remains closed.
+    monkeypatch.setattr("r2a_compare.require_isolated_policy_executor", lambda: None)
     bodies: list[dict[str, object]] = []
 
     def fake_urlopen(request: object, timeout: int) -> io.BytesIO:
@@ -434,6 +436,8 @@ def test_non_thinking_flags_are_opt_in_and_usage_is_reported(
 def test_malformed_response_preserves_provider_usage_as_protocol_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr("r2a_compare.require_isolated_policy_executor", lambda: None)
+
     def fake_urlopen(request: object, timeout: int) -> io.BytesIO:
         del request, timeout
         return io.BytesIO(

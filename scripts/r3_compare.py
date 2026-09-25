@@ -75,6 +75,10 @@ from rsicontext.participant.recuris_real_arm import (
     RecurisAdaptedImprover,
     package_to_state,
 )
+from rsicontext.security.isolated_policy import (
+    PolicyIsolationUnavailable,
+    require_isolated_policy_executor,
+)
 
 #: The recuris arm's per-group seeds: the r3design §5 data adjustment —
 #: B/C cards must be able to reach the recovery-relevant stages
@@ -525,6 +529,11 @@ def main() -> int:
     started = time.monotonic()
     live = not args.offline
     if live:
+        try:
+            require_isolated_policy_executor()
+        except PolicyIsolationUnavailable as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         import os
 
         if not os.environ.get("SIFLOW_API_KEY"):

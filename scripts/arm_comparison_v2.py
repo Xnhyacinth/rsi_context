@@ -37,6 +37,10 @@ from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.material_v2 import alias_hit_v2
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
 from rsicontext.lifecycle.spec import LifecycleInstance
+from rsicontext.security.isolated_policy import (
+    PolicyIsolationUnavailable,
+    require_isolated_policy_executor,
+)
 from rsicontext.worlds.constructor_v2 import load_worlds_v2
 
 POPQA_ROWS = Path("data/helmet-data/data/kilt/popqa_test_1000_k1000_dep6.jsonl")
@@ -109,6 +113,7 @@ def normalize_answer(raw: str, strategy_path: Path | None = None) -> str:
     if not text:
         return ""
     if strategy_path is not None and strategy_path.exists():
+        require_isolated_policy_executor()
         namespace: dict[str, object] = {}
         try:
             exec(strategy_path.read_text(encoding="utf-8"), namespace)
@@ -280,6 +285,13 @@ def main() -> int:
     parser.add_argument("--dev-worlds", type=int, default=2)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    # This script's researcher arm executes its strategy in the host process.
+    # Its CLI has no offline mode, so the experiment must remain closed.
+    try:
+        require_isolated_policy_executor()
+    except PolicyIsolationUnavailable as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
     if not os.environ.get("SIFLOW_API_KEY"):
         print("missing SIFLOW_API_KEY", file=sys.stderr)
         return 2
