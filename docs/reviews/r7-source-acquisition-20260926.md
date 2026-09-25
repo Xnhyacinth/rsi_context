@@ -38,16 +38,16 @@ was recorded. Neither checkout follows a mutable branch for an experiment.
 The portable per-file Git blob IDs, byte lengths, SHA256 values, line ranges,
 raw byte offsets, and span SHA256 values are committed in
 `configs/r7_pep_source_manifest_v1.json` (SHA256
-`948459e9b719eb107327d999545c21471ce5b417eff4dd83a561a6661a7391c4`)
+`071fd58289f3756696387f089f23b37d617ff8ce72c307e199ad11148d667ce5`)
 and `configs/r7_postgresql_source_manifest_v1.json` (SHA256
-`130419a8608030d2ed3ee969327cae8171f9d9fdd15e875255a340951733f57c`).
+`d859392cab01769f4d5b56cdf0850a94ac565f15b90b127bcbf08ac169453b72`).
 `tests/test_r7_source_manifests.py` checks the registry pins, clean detached
 HEADs, file bytes, Git blob IDs, and exact raw spans when both source-root
 environment variables point to the checkouts. The focused run passed 30 tests.
 The generated local evidence ledger
 `artifacts/rsi-core-v1/r7-source-acquisition-20260926.json` records those
 checks per file and span, with SHA256
-`f224b9862806df604528e75303825985116480771a5720d14d8d2556394de549`.
+`d8993fe0c4dc554ac00240efc535c408ab18f8781a12d1e7b9d9bc9b75da0b33`.
 
 The selected PEP 1, 621, and 639 files each state public-domain/CC0 terms;
 the conclusion applies only to those files. PEP 621 and 639 point to maintained

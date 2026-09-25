@@ -11,10 +11,10 @@
       "spans": {
         "status_transition": {
           "start_line": 409,
-          "end_line": 419,
+          "end_line": 420,
           "start_byte": 19817,
-          "end_byte": 20592,
-          "sha256": "dce9ba04712bdd7593e971236329a96eab6347ff16b78505550cbe4385d4ad96"
+          "end_byte": 20628,
+          "sha256": "959c470a75f3da5d841880ca5a204af5ae75abe352cbc7928aacea9a8b5d8657"
         },
         "license_notice": {
           "start_line": 901,

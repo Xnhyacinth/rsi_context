@@ -124,6 +124,6 @@ Measure final rendered chat tokens with the pinned worker tokenizer, evidence
 offsets and distance to the later question, carry bytes, legal-action vectors,
 source/receipt/action intervention results, fixed-reader success, and all
 worker/auxiliary calls under a freshly projected budget. Test actual
-`run_session_sequence`, not just a builder function. With no world, byte pins,
-or model pilot yet, this is **one candidate parent**, not a qualified C
+`run_session_sequence`, not just a builder function. With no world or model
+pilot yet, this is **one candidate parent**, not a qualified C
 sample or a population effect estimate.
