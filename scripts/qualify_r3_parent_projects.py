@@ -11,9 +11,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import subprocess  # nosec B404
 import sys
 from collections.abc import Mapping
 from dataclasses import replace
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +40,42 @@ from rsicontext.lifecycle.spec import DocumentRef, LifecycleInstance, StageSpec
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
 
 World = LifecycleInstance | list[LifecycleInstance]
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+_IDENTITY_FILES = (
+    "scripts/qualify_r3_parent_projects.py",
+    "scripts/m2_validity_panel.py",
+    "src/rsicontext/lifecycle/dossier_variants.py",
+    "src/rsicontext/lifecycle/material_v4_dossier.py",
+    "src/rsicontext/lifecycle/material_b_group.py",
+    "src/rsicontext/lifecycle/material_c_group.py",
+    "src/rsicontext/lifecycle/material_m2_parents.py",
+    "src/rsicontext/lifecycle/group_baselines.py",
+    "src/rsicontext/lifecycle/env.py",
+    "src/rsicontext/lifecycle/runner.py",
+    "src/rsicontext/lifecycle/session_sequence.py",
+    "src/rsicontext/lifecycle/spec.py",
+    "src/rsicontext/lifecycle/tools.py",
+    "uv.lock",
+    "configs/budget_v1.json",
+    "configs/registry.json",
+)
+_EXECUTION_PARAMETERS: dict[str, object] = {
+    "mode": "offline-scripted-reference",
+    "world_registry": "m2_validity_panel.build_worlds",
+    "reference_max_turns_per_stage": {"A": 2, "B": 2, "C": 4},
+    "interventions": [
+        "first-award-named-card-removal",
+        "first-award-winning-verification-fail",
+        "combined-card-and-verification-removal",
+        "first-nonempty-rule-scope-swap",
+        "administrative-index-addition",
+        "c-first-session-no-action",
+        "c-later-gate-without-prior-record",
+    ],
+    "model_calls": 0,
+    "gpu_calls": 0,
+}
 
 # Every present case descends from the synthetic supplier dossier. Changes in
 # check count, stage graph, and answer do not create disjoint source projects.
@@ -58,6 +96,102 @@ _LINEAGE = {
 def _digest(value: object) -> str:
     raw = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     return hashlib.sha256(raw).hexdigest()
+
+
+def _file_sha256(relative_path: str) -> str:
+    return hashlib.sha256((_PROJECT_ROOT / relative_path).read_bytes()).hexdigest()
+
+
+def _git_identity() -> dict[str, object]:
+    """Identify checkout state without publishing patch contents."""
+
+    def git(*args: str) -> bytes:
+        # Git is called with fixed argument lists and no shell.
+        return subprocess.run(  # nosec B603, B607
+            ["git", *args], cwd=_PROJECT_ROOT, check=True, capture_output=True
+        ).stdout
+
+    try:
+        head = git("rev-parse", "HEAD").decode("ascii").strip()
+        patch = git("diff", "HEAD", "--binary")
+        untracked = git(
+            "ls-files",
+            "--others",
+            "--exclude-standard",
+            "-z",
+            "--",
+            "src",
+            "scripts",
+            "tests",
+            "configs",
+            "docs/reviews",
+        ).split(b"\0")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise RuntimeError("Gate 2 run identity requires a readable Git checkout") from exc
+    untracked_hashes = [
+        [
+            path.decode("utf-8", errors="surrogateescape"),
+            hashlib.sha256(
+                (_PROJECT_ROOT / path.decode("utf-8", errors="surrogateescape")).read_bytes()
+            ).hexdigest(),
+        ]
+        for path in sorted(x for x in untracked if x)
+    ]
+    return {
+        "head": head,
+        "dirty": bool(patch or untracked_hashes),
+        "tracked_patch_sha256": hashlib.sha256(patch).hexdigest(),
+        "untracked_relevant_sha256": _digest(untracked_hashes),
+    }
+
+
+def _source_tree_sha256() -> str:
+    paths = sorted(
+        path
+        for directory in ("src", "scripts")
+        for path in (_PROJECT_ROOT / directory).rglob("*.py")
+        if path.is_file()
+    )
+    return _digest(
+        [
+            [str(path.relative_to(_PROJECT_ROOT)), hashlib.sha256(path.read_bytes()).hexdigest()]
+            for path in paths
+        ]
+    )
+
+
+def _world_hashes() -> dict[str, dict[str, str]]:
+    """Hash current builder outputs, including evaluator fields only by digest."""
+
+    hashes: dict[str, dict[str, str]] = {}
+    for entries in build_worlds().values():
+        for entry in entries:
+            world: World = entry["build"]()
+            sessions = _sessions(world)
+            documents = [
+                doc.to_dict()
+                for inst in sessions
+                for stage in inst.stages
+                for doc in stage.documents
+            ]
+            hashes[str(entry["world_id"])] = {
+                "material_sha256": _digest(documents),
+                "evaluator_world_sha256": _digest([inst.to_dict() for inst in sessions]),
+            }
+    return hashes
+
+
+def _run_identity(world_hashes: dict[str, dict[str, str]]) -> dict[str, object]:
+    identity: dict[str, object] = {
+        "schema_version": 1,
+        "git": _git_identity(),
+        "source_tree_sha256": _source_tree_sha256(),
+        "file_sha256": {name: _file_sha256(name) for name in _IDENTITY_FILES},
+        "world_hashes": world_hashes,
+        "execution_parameters": _EXECUTION_PARAMETERS,
+    }
+    identity["sha256"] = _digest(identity)
+    return identity
 
 
 def _sessions(world: World) -> list[LifecycleInstance]:
@@ -469,7 +603,7 @@ def inventory() -> dict[str, Any]:
             )
         groups[group] = rows
     return {
-        "schema": "r3-gate2-parent-qualification-v1",
+        "schema": "r3-gate2-parent-qualification-v2",
         "groups": groups,
         "summary": {
             "worlds": sum(map(len, groups.values())),
@@ -486,12 +620,38 @@ def main() -> int:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("artifacts/rsi-core-v1/r3-gate2-parent-qualification-v1.json"),
+        default=Path("artifacts/rsi-core-v1/r3-gate2-parent-qualification-v2.json"),
     )
     args = parser.parse_args()
+    if args.output.exists():
+        raise FileExistsError(f"Gate 2 output already exists: {args.output}")
+    started_at = datetime.now(UTC).isoformat()
+    start_identity = _run_identity(_world_hashes())
     result = inventory()
+    result_hashes = {
+        str(row["world_id"]): {
+            "material_sha256": str(row["material_sha256"]),
+            "evaluator_world_sha256": str(row["evaluator_world_sha256"]),
+        }
+        for rows in result["groups"].values()
+        for row in rows
+    }
+    if result_hashes != start_identity["world_hashes"]:
+        raise RuntimeError("world material changed between identity and qualification")
+    end_identity = _run_identity(_world_hashes())
+    if start_identity != end_identity:
+        raise RuntimeError("checkout or material changed during Gate 2 qualification")
+    result["run"] = {
+        "started_at_utc": started_at,
+        "completed_at_utc": datetime.now(UTC).isoformat(),
+        "start_identity": start_identity,
+        "end_identity": end_identity,
+        "identity_match": True,
+    }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
+    with args.output.open("x", encoding="utf-8") as handle:
+        json.dump(result, handle, indent=2, ensure_ascii=False)
+        handle.write("\n")
     print(json.dumps(result["summary"], indent=2))
     print(f"artifact: {args.output}")
     return 0

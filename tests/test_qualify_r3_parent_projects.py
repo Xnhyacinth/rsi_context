@@ -6,6 +6,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 from qualify_r3_parent_projects import (
@@ -15,6 +17,7 @@ from qualify_r3_parent_projects import (
     _run,
     _without_verification,
     inventory,
+    main,
 )
 
 from rsicontext.lifecycle.material_c_group import build_c1_mirror_sessions, build_c1_sessions
@@ -80,3 +83,41 @@ def test_inventory_rejects_shared_lineage_and_does_not_publish_labels() -> None:
         "harborline-freight",
     ):
         assert forbidden not in exported
+
+
+def test_written_artifact_has_matching_start_and_end_identity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "qualification.json"
+    monkeypatch.setattr(sys, "argv", ["qualify", "--output", str(output)])
+    assert main() == 0
+    artifact = json.loads(output.read_text())
+    run = artifact["run"]
+    assert run["started_at_utc"] <= run["completed_at_utc"]
+    assert run["identity_match"] is True
+    assert run["start_identity"] == run["end_identity"]
+    identity = run["start_identity"]
+    assert len(identity["git"]["head"]) == 40
+    assert len(identity["source_tree_sha256"]) == 64
+    assert "uv.lock" in identity["file_sha256"]
+    assert "scripts/qualify_r3_parent_projects.py" in identity["file_sha256"]
+    assert identity["world_hashes"] == {
+        row["world_id"]: {
+            "material_sha256": row["material_sha256"],
+            "evaluator_world_sha256": row["evaluator_world_sha256"],
+        }
+        for rows in artifact["groups"].values()
+        for row in rows
+    }
+
+
+def test_existing_artifact_bytes_are_not_overwritten(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "qualification.json"
+    original = b"existing artifact must remain byte-identical\n"
+    output.write_bytes(original)
+    monkeypatch.setattr(sys, "argv", ["qualify", "--output", str(output)])
+    with pytest.raises(FileExistsError, match="already exists"):
+        main()
+    assert output.read_bytes() == original

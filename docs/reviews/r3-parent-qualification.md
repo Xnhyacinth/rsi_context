@@ -11,8 +11,18 @@ Run from the project root:
 
 ```bash
 uv run --no-sync python scripts/qualify_r3_parent_projects.py \
-  --output artifacts/rsi-core-v1/r3-gate2-parent-qualification-v1.json
+  --output artifacts/rsi-core-v1/r3-gate2-parent-qualification-v2.json
 ```
+
+The output is created only if absent; the script refuses to replace an
+existing artifact. The earlier v1 file is retained as historical output.
+Version 2 records UTC start/completion times and matching start/end identities:
+Git HEAD plus dirty patch/untracked digests, complete `src`/`scripts` Python
+source hash, hashes of the qualifier, M2 builder/reference and evaluator
+modules, `uv.lock`, budget and registry configurations, world material and
+full-world digests, and the offline execution parameters. A changed identity
+aborts before output. This identifies the local materials and code; it does
+not prove any service-side model version because this run makes no model call.
 
 The output is an ignored, hash-only inventory. It contains neither source
 text nor evaluator fields or item-level scores. `material_sha256` hashes the
