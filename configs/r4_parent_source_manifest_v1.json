@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "status": "development_candidates_only",
+  "sources": [
+    {
+      "id": "otel-semconv-v1.43.0",
+      "url": "https://github.com/open-telemetry/semantic-conventions.git",
+      "revision": "89aae438b3b3b0a8dd33003c9d70592baf7dbd0d",
+      "license": "Apache-2.0",
+      "selected_files": {
+        "docs/db/database-spans.md": {
+          "git_blob": "57019ae2812094f730900ade9cfb285b2a788025",
+          "sha256": "1f94aa548e00736bcf7e580318f868eeac36acfdb3e1cb9919da7e02f90e4c91"
+        },
+        "docs/db/sql.md": {
+          "git_blob": "43e0e1591c0f301f5ca97e3d35236b78dbf1835d",
+          "sha256": "e451e533f90fbcc01ecc23f6d60aaa49d249dad79227f79ddeef548288eb32ea"
+        },
+        "LICENSE": {
+          "git_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      }
+    },
+    {
+      "id": "kubernetes-enhancements-kep753",
+      "url": "https://github.com/kubernetes/enhancements.git",
+      "revision": "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a",
+      "license": "Apache-2.0",
+      "selected_files": {
+        "keps/sig-node/753-sidecar-containers/README.md": {
+          "git_blob": "73578573bcc4965f6e0e70c591e7df99634ed3c2",
+          "sha256": "ba9ef6b591cb626023c6e8a0c77cbc3f3cd2ede98d6ab3ff086e41ebef0cdf21"
+        },
+        "keps/sig-node/753-sidecar-containers/kep.yaml": {
+          "git_blob": "7f1b730a03d7818f7d19bfb6c39a168ba782f212",
+          "sha256": "c991d242d163e88f933172239fa9e712351604448985a6fa302b0010b70cd2d3"
+        },
+        "LICENSE": {
+          "git_blob": "8dada3edaf50dbc082c9a125058f25def75e625a",
+          "sha256": "b40930bbcf80744c86c46a12bc9da056641d722716c378f5659b9e555ef833e1"
+        }
+      }
+    }
+  ]
+}

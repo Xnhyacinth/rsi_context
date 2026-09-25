@@ -36,8 +36,17 @@ source checkouts recorded in
 | `work/r4-isolation` / `r4-isolation` | Host jail feasibility and security tests | Malicious policy cannot read secrets/evaluator files or use direct network; otherwise live remains closed |
 | `work/r4-budget-integration` / `r4-budget-integration` | Versioned B/C budget/profile and integration review | Same identity, frozen settings, cap feasibility, usage accounting, all required checks |
 
-The next action is to finish the budget/profile contract while the parent
-builders proceed, then independently review their evidence before registration.
+R4 budget/profile capacity qualification completed offline at `803b7b1`:
+40 scripted worker requests per full development run fit the old B/C calls,
+with a separate 2,048-output-token Siflow worker profile. A tracked portable
+manifest now pins both source repositories and selected files. No provider
+canary or model call has been made. The host jail feasibility report found
+useful primitives but no typed broker or staged low-privilege runtime; live
+policy execution remains closed.
+
+The next action is to correct the independently reviewed OTel/K8s candidate
+task/score mismatches, then run a versioned candidate-only qualification
+inventory. Admit no parent or scored run from a scripted reference alone.
 
 ## Initial state and workspaces
 

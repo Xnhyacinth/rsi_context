@@ -37,3 +37,11 @@ feedback, evaluator labels, and model transcripts. The cap is only a scripted
 feasibility bound; real worker usage may exceed it. No live researcher policy
 execution is allowed until jailed execution, a successful worker-profile
 canary, and a qualified independent-parent manifest exist.
+
+The first committed-input qualification ran at `803b7b1` and produced
+`r4-bc-budget-qualification-v1-20260925.json` (SHA256
+`84b31950f37e093c2e1aec84295a319391d44ca1c55d8c45a2ec6980c6a42f55`).
+The input identity matched at start/end, B/C scripted runs fit the 40-call
+cap, and zero provider calls were made. The current shell did not expose
+`SIFLOW_API_KEY` or `SIFLOW_BASE_URL`, so the provider canary remains unrun;
+no token count or service-side version is inferred from the offline artifact.

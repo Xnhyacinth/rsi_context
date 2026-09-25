@@ -16,6 +16,9 @@ Both detached HEADs and clean working trees were verified. Selected files'
 Git blob IDs and SHA256 values, including licenses, are in the local
 [`r3-gate2-source-acquisition-20260925.json`](../../artifacts/rsi-core-v1/r3-gate2-source-acquisition-20260925.json)
 artifact (SHA256 `57a43b42822904f52ac529048dfd1e36b15a04b463d9d2e4bd0c62c2af87961c`).
+The portable selected-file pins are committed in
+[`configs/r4_parent_source_manifest_v1.json`](../../configs/r4_parent_source_manifest_v1.json);
+the acquisition JSON remains machine-local run evidence.
 The reserve PEP source remains unacquired.
 
 ## Acquisition and authoring sequence
