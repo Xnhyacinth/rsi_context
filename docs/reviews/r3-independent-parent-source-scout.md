@@ -1,7 +1,7 @@
 # Independent parent source candidates for R3 Gate 2
 
-Status: source discovery only, verified 2026-09-25. No upstream repository was
-downloaded, no task world was authored from these sources, and none has passed
+Status: two pinned sources acquired and verified 2026-09-25. No task world was
+authored from these sources, and none has passed
 Gate 2 or a real-model difficulty screen. These are candidate **new parent
 lineages**, not extra variants of the current supplier dossier.
 
@@ -11,13 +11,12 @@ lineages**, not extra variants of the current supplier dossier.
 | `k8s-sidecar-rollout` | Kubernetes enhancements commit `13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a`; [KEP-753 design/test plan](https://github.com/kubernetes/enhancements/blob/13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a/keps/sig-node/753-sidecar-containers/README.md), [KEP metadata](https://github.com/kubernetes/enhancements/blob/13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a/keps/sig-node/753-sidecar-containers/kep.yaml), [Apache-2.0 license](https://github.com/kubernetes/enhancements/blob/13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a/LICENSE). | Feature gate, test evidence, production-readiness and local rollout state jointly constrain a release decision. The benchmark's write/receipt actions must be explicitly fictional sandbox actions, not claims of upstream approval. |
 | `python-pep-process` (reserve) | Python PEPs commit `6822259db9c95f02da739b3e2830a4aa1ae35134`; [PEP 1](https://github.com/python/peps/blob/6822259db9c95f02da739b3e2830a4aa1ae35134/peps/pep-0001.rst), [PEP 621](https://github.com/python/peps/blob/6822259db9c95f02da739b3e2830a4aa1ae35134/peps/pep-0621.rst), [PEP 639](https://github.com/python/peps/blob/6822259db9c95f02da739b3e2830a4aa1ae35134/peps/pep-0639.rst). Selected PEP files carry public-domain/CC0 notices that require per-file confirmation after acquisition. | Proposal-state prerequisites and implementation evidence. PEP 621/639 point to separately maintained current PyPA specifications, so historical PEP text alone must not grade current packaging compliance. |
 
-The selected OpenTelemetry files are about 35.8 and 15.6 KB; the selected
-Kubernetes KEP README and metadata are about 88.8 and 1.31 KB; selected PEP
-files are about 40.7, 29.3 and 33.1 KB. These are source-page file sizes,
-**not repository download sizes**. The full Git repository sizes remain
-unknown. The commits were checked as remote Git references; the selected
-files and their exact Git blobs and byte SHA256 still require post-acquisition
-verification.
+The pinned repositories occupy 13,414,994 and 98,641,116 bytes locally.
+Both detached HEADs and clean working trees were verified. Selected files'
+Git blob IDs and SHA256 values, including licenses, are in the local
+[`r3-gate2-source-acquisition-20260925.json`](../../artifacts/rsi-core-v1/r3-gate2-source-acquisition-20260925.json)
+artifact (SHA256 `57a43b42822904f52ac529048dfd1e36b15a04b463d9d2e4bd0c62c2af87961c`).
+The reserve PEP source remains unacquired.
 
 ## Acquisition and authoring sequence
 
@@ -27,13 +26,13 @@ verification.
    `checksum.value`, `checksum.algorithm: git-revision`, and `size_bytes:
    null`. Use the two Apache-2.0 entries first. Do not add PEPs before the
    selected-file notices and current-PyPA-reference boundary are checked.
-2. Run the repository downloader's **dry-run plan** and inspect target paths,
-   clone commands, unknown total size and license fields. The current Git
-   downloader clones a repository, not only the selected documents. Acquire
-   only after that plan and capacity check; never follow an upstream branch
-   in a reported experiment.
-3. Verify detached HEAD, the selected files' Git blob IDs and SHA256, and
-   every rendered excerpt's own SHA256 and source-span mapping. Label any
+2. The repository downloader's **dry-run plan** was inspected, followed by
+   `git clone --filter=blob:none --no-checkout` and checkout of the exact
+   registered commits into `/volume/pt-dev/qjiu/rsi_context_external/data/`.
+   Never follow an upstream branch in a reported experiment.
+3. Detached HEAD, clean status, selected-file Git blob IDs and SHA256 were
+   verified against the registry and acquisition artifact. Every later
+   rendered excerpt still needs its own SHA256 and source-span mapping. Label any
    project version, receipt, legal action or outcome authored for the sandbox
    as constructed material; the official documents support the conditions,
    not a real write to an upstream project.
@@ -48,9 +47,8 @@ verification.
    rule scope; perturb irrelevant material. A B case must cross a session
    reset and a C case must have a later available legal action or answer that
    differs after the earlier action. A legal scripted path is construction
-   proof, not model difficulty. Record tokenized evidence/query positions and resist simple
-   title/name filters before freezing any evaluation parent.
+   proof, not model difficulty. Record tokenized evidence/query positions and
+   resist simple title/name filters before freezing any evaluation parent.
 
-The registry downloader dry-run has validated both pinned entries. It reports
-two unknown repository sizes and no warnings; no repository was downloaded.
-Disk capacity and selected-file blob/hash checks remain before acquisition.
+The dry-run had no warnings; its unknown size fields were resolved by the
+local acquisition above. Author review and task construction remain open.

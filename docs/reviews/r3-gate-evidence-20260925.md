@@ -11,6 +11,7 @@ moving workspaces. They are not model efficacy results.
 | `r3-bc-gate1-offline-admission-v3-20260925.json` | `a5bc9cb17802f74021babda70432f196e4cb41361888ddd04fb16da16a155ecb` | Complete offline wiring; B baseline/candidate 31/35 calls, C 18/20; zero provider calls |
 | `r3-gate2-parent-qualification-v4-20260925.json` | `241ed167893bc7d4dbeaca6c252d655bca1dc56619acae6b39b4099a8bb0a9c2` | 10 worlds, one shared lineage, zero qualified independent parents |
 | `r3-gate2-source-registry-dry-run-20260925.json` | `a4f94bf298390130605423cc0b20960f5e47d988f061aab248d1003043a56255` | Two pinned Apache-2.0 source repositories planned; sizes unknown; no download |
+| `r3-gate2-source-acquisition-20260925.json` | `57a43b42822904f52ac529048dfd1e36b15a04b463d9d2e4bd0c62c2af87961c` | Both fixed commits acquired later; clean detached HEADs and six selected file hashes verified |
 
 The v3 manifest SHA256 is
 `3efde837780e047a0c66afccb8b840357bf15312ee8c0b6690a27cda8fd14158`.
