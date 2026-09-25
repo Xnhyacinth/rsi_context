@@ -19,6 +19,11 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
 from rsicontext.analysis.postgresql_model_screen import run_screen  # noqa: E402
+from rsicontext.experiment.offline_provenance import (  # noqa: E402
+    producer_attestation,
+    require_clean_producer,
+    require_stable_attestation,
+)
 from rsicontext.lifecycle.material_postgresql_source_contrast import (  # noqa: E402
     SOURCE_REVISIONS,
     SOURCE_SHA256,
@@ -31,6 +36,7 @@ _INPUTS = {
 }
 _CODE_FILES = (
     "src/rsicontext/analysis/postgresql_model_screen.py",
+    "src/rsicontext/experiment/offline_provenance.py",
     "src/rsicontext/lifecycle/postgresql_model_fixed.py",
     "src/rsicontext/lifecycle/material_postgresql_source_contrast.py",
     "src/rsicontext/lifecycle/env.py",
@@ -42,6 +48,7 @@ _CODE_FILES = (
     "uv.lock",
     "configs/registry.json",
 )
+_PRODUCER_FILES = tuple(Path(name) for name in _CODE_FILES)
 
 
 def _sha(raw: bytes) -> str:
@@ -73,23 +80,18 @@ def _source_identity(revision: str, root: Path) -> dict[str, object]:
     }
 
 
-def _require_committed_checkout(root: Path) -> None:
-    """Bind reported runs to HEAD, allowing only unrelated untracked files."""
-
-    if _git(root, "status", "--porcelain", "--untracked-files=no"):
-        raise RuntimeError("project tracked files differ from HEAD")
-    for relative in _CODE_FILES:
-        if _git(root, "ls-files", "--error-unmatch", "--", relative) != relative:
-            raise RuntimeError(f"runtime dependency is not tracked: {relative}")
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     if args.output.exists():
         parser.error(f"output already exists: {args.output}")
-    _require_committed_checkout(ROOT)
+    producer_before = producer_attestation(
+        ROOT,
+        _PRODUCER_FILES,
+        package_names=("rsibench-context",),
+    )
+    require_clean_producer(producer_before)
     roots = {}
     for revision, variable in _INPUTS.items():
         configured = os.environ.get(variable)
@@ -113,12 +115,14 @@ def main() -> int:
         for revision, sessions in (("16", older), ("17", newer))
     }
     output["code_identity"] = {
-        "head": _git(ROOT, "rev-parse", "HEAD"),
-        "tracked_checkout_clean": True,
-        "files_sha256": {
-            relative: _sha((ROOT / relative).read_bytes()) for relative in _CODE_FILES
-        },
+        "producer_attestation": producer_before,
     }
+    producer_after = producer_attestation(
+        ROOT,
+        _PRODUCER_FILES,
+        package_names=("rsibench-context",),
+    )
+    require_stable_attestation(producer_before, producer_after)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as handle:
         json.dump(output, handle, indent=2, sort_keys=True)

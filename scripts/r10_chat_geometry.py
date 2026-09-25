@@ -23,6 +23,11 @@ import r3_compare
 from r2a_compare import READER_ENDPOINT, READER_MODEL, _live_responder_factory, _offline_responder
 
 from rsicontext.analysis.chat_geometry import ChatTokenizer, measure_chat_geometry
+from rsicontext.experiment.offline_provenance import (
+    producer_attestation,
+    require_clean_producer,
+    require_stable_attestation,
+)
 from rsicontext.lifecycle.group_baselines import (
     group_b_basline_policy_text,
     group_c_baseline_policy_text,
@@ -41,6 +46,23 @@ _TOKENIZER_FILES = (
 _QUERY_ANCHORS = (
     "Which verification check does this constraint require",
     "Does this change invalidate any verification evidence",
+)
+_PRODUCER_FILES = tuple(
+    Path(name)
+    for name in (
+        "scripts/r2a_compare.py",
+        "scripts/r3_compare.py",
+        "scripts/r10_chat_geometry.py",
+        "src/rsicontext/analysis/chat_geometry.py",
+        "src/rsicontext/experiment/offline_provenance.py",
+        "src/rsicontext/lifecycle/env.py",
+        "src/rsicontext/lifecycle/group_baselines.py",
+        "src/rsicontext/lifecycle/policy.py",
+        "src/rsicontext/lifecycle/runner.py",
+        "src/rsicontext/lifecycle/session_sequence.py",
+        "src/rsicontext/lifecycle/tools.py",
+        "uv.lock",
+    )
 )
 
 
@@ -218,18 +240,7 @@ def build_report(tokenizer: ChatTokenizer, *, tokenizer_path: Path) -> dict[str,
             "files_sha256": snapshot,
             "runtime": "transformers==5.15.0 tokenizers==0.22.2 jinja2==3.1.6 from uv.lock",
         },
-        "source_sha256": {
-            name: _sha((_ROOT / name).read_bytes())
-            for name in (
-                "scripts/r2a_compare.py",
-                "scripts/r3_compare.py",
-                "scripts/r10_chat_geometry.py",
-                "src/rsicontext/analysis/chat_geometry.py",
-                "src/rsicontext/lifecycle/group_baselines.py",
-                "src/rsicontext/lifecycle/session_sequence.py",
-                "uv.lock",
-            )
-        },
+        "source_sha256": {str(path): _sha((_ROOT / path).read_bytes()) for path in _PRODUCER_FILES},
         "groups": groups,
     }
 
@@ -239,6 +250,8 @@ def main() -> int:
     parser.add_argument("--tokenizer-path", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.output.exists():
+        parser.error(f"output already exists: {args.output}")
     verify_tokenizer_snapshot(args.tokenizer_path, _TOKENIZER_FILES)
     try:
         import jinja2  # type: ignore[import-not-found]  # optional tokenizer runtime
@@ -256,6 +269,12 @@ def main() -> int:
         or jinja2.__version__ != "3.1.6"
     ):
         raise ValueError("tokenizer runtime versions differ from uv.lock")
+    producer_before = producer_attestation(
+        _ROOT,
+        _PRODUCER_FILES,
+        package_names=("transformers", "tokenizers", "jinja2"),
+    )
+    require_clean_producer(producer_before)
     tokenizer = cast(
         ChatTokenizer,
         transformers.AutoTokenizer.from_pretrained(
@@ -264,8 +283,17 @@ def main() -> int:
         ),
     )
     report = build_report(tokenizer, tokenizer_path=args.tokenizer_path)
+    producer_after = producer_attestation(
+        _ROOT,
+        _PRODUCER_FILES,
+        package_names=("transformers", "tokenizers", "jinja2"),
+    )
+    require_stable_attestation(producer_before, producer_after)
+    report["producer_attestation"] = producer_before
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_bytes(json.dumps(report, indent=2, ensure_ascii=False).encode() + b"\n")
+    with args.output.open("x", encoding="utf-8") as handle:
+        json.dump(report, handle, indent=2, ensure_ascii=False)
+        handle.write("\n")
     print(f"{args.output} sha256={_sha(args.output.read_bytes())}")
     return 0
 
