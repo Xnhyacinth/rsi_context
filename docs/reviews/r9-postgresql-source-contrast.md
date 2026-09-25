@@ -91,7 +91,7 @@ the two-session PASS vector under 16.0 and 17.0, respectively:
 | Source-aware SGML term parser | `[PASS, PASS]` | `[PASS, PASS]` | `defer-native`, `configure-native` |
 | Source-free, always configure | `[PASS, FAIL]` | `[PASS, PASS]` | `configure-native`, `configure-native` |
 | Source-free, always defer | `[PASS, PASS]` | `[PASS, FAIL]` | `defer-native`, `defer-native` |
-| Source-aware policy, source withheld | `[PASS, PASS]` | `[PASS, FAIL]` | `defer-native`, `defer-native` |
+| Source-aware policy, both upstream documents withheld | `[PASS, PASS]` | `[PASS, FAIL]` | `defer-native`, `defer-native` |
 | Source-aware policy, prior finalize omitted | not run | `[FAIL, FAIL]` | later gate rejects absent prior award |
 
 This B task is a source-swap intervention with byte-identical non-source input and
@@ -106,3 +106,7 @@ names the relevant SQL option. Before any Gate 2 claim, run a frozen reader
 on both source variants with identical prompt and worker configuration,
 source-withheld and source-swapped controls, and record full usage and answer
 vectors. Count both variants as **one PostgreSQL parent**, never two.
+
+The replayable registry dry-run snapshot is
+`artifacts/rsi-core-v1/r9-postgresql16-dry-run-20260926.json` (SHA256
+`c1093c2709a3467e3d2fc5c6bc97d1f4b5484955b59942052343d10cb22e5ec4`).

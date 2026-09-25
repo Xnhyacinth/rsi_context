@@ -191,18 +191,21 @@ def test_one_frozen_source_free_policy_cannot_pass_both(
 def test_source_removed_breaks_the_cross_version_source_aware_vector() -> None:
     policy = _policy(source_aware=True)
     outcomes = []
+    redacted_surveys = []
     for revision in ("16", "17"):
         first, second = _sessions(revision)
         survey = first.stages[0]
-        withheld = replace(
-            survey.documents[0], text="[[doc:upstream-create-subscription]] withheld"
+        withheld = tuple(
+            replace(doc, text=f"[[doc:{doc.doc_id}]] withheld") for doc in survey.documents
         )
+        redacted_surveys.append(withheld)
         first = replace(
             first,
-            stages=(replace(survey, documents=(withheld, survey.documents[1])), *first.stages[1:]),
+            stages=(replace(survey, documents=withheld), *first.stages[1:]),
         )
         record, _ = _run((first, second), policy)
         outcomes.append(record.sessions[1].passed)
+    assert redacted_surveys[0] == redacted_surveys[1]
     assert outcomes == [True, False]
 
 
