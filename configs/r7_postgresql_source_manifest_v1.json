@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "registry_id": "postgresql-rel-17-0",
+  "source_revision": "d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e",
+  "status": "source_acquired_task_unqualified",
+  "selected_files": {
+    "COPYRIGHT": {
+      "git_blob": "16f9b46a3fe1b923f4552fea686825b8ac81725d",
+      "size_bytes": 1192,
+      "sha256": "9bf20ee493926a7e17a74bc7f05089fbc014269667b1540bc35a6b194a40c9de",
+      "spans": {
+        "full_notice": {
+          "start_line": 1,
+          "end_line": 23,
+          "start_byte": 0,
+          "end_byte": 1192,
+          "sha256": "9bf20ee493926a7e17a74bc7f05089fbc014269667b1540bc35a6b194a40c9de"
+        }
+      }
+    },
+    "doc/src/sgml/logical-replication.sgml": {
+      "git_blob": "88b2491e09b3e8d5ff012f012e52ccfc8556a13d",
+      "size_bytes": 78612,
+      "sha256": "1acce9f3166655f999c02ce7d2d454ee85f768cf9edeb83bd0c44c4766b6d709",
+      "spans": {
+        "asynchronous_slot_sync": {
+          "start_line": 708,
+          "end_line": 719,
+          "start_byte": 25542,
+          "end_byte": 26176,
+          "sha256": "099ab876606452096c8d8e2248a9068aa49e56f1923eb233b3ac9389d199d479"
+        },
+        "required_slots_and_readiness": {
+          "start_line": 720,
+          "end_line": 791,
+          "start_byte": 26176,
+          "end_byte": 29053,
+          "sha256": "b180455bd91d45278043c6e0d1f4ae3d8c19c6df0370d76a75efdf5d4b04c41f"
+        }
+      }
+    },
+    "doc/src/sgml/ref/create_subscription.sgml": {
+      "git_blob": "740b7d94210418d89f27dd64fbae276bf07d50f8",
+      "size_bytes": 25011,
+      "sha256": "935c1a67d7c013410012b753ca81d75e84ed5ce2f622b195601ce1e688e97340",
+      "spans": {
+        "named_slot_property_alignment": {
+          "start_line": 168,
+          "end_line": 200,
+          "start_byte": 6229,
+          "end_byte": 7979,
+          "sha256": "bffc99b87aed966881607484eabc4cfd42a2508dd0cae518a47eab38d426c7a0"
+        },
+        "failover_default": {
+          "start_line": 420,
+          "end_line": 430,
+          "start_byte": 18130,
+          "end_byte": 18643,
+          "sha256": "6a56e0989e8cd5416a321752e7e7541249a079d65768c0b18e2c3049e7741e4b"
+        }
+      }
+    }
+  }
+}

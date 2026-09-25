@@ -32,6 +32,8 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         "2wikimultihopqa",
         "otel-semconv-v1.43.0",
         "kubernetes-enhancements-kep753",
+        "python-pep-process",
+        "postgresql-rel-17-0",
         "gepa",
         "mce",
         "meta-harness",
@@ -62,6 +64,8 @@ def test_project_registry_has_required_entries_and_modes() -> None:
     for entry_id, revision in (
         ("otel-semconv-v1.43.0", "89aae438b3b3b0a8dd33003c9d70592baf7dbd0d"),
         ("kubernetes-enhancements-kep753", "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a"),
+        ("python-pep-process", "6822259db9c95f02da739b3e2830a4aa1ae35134"),
+        ("postgresql-rel-17-0", "d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e"),
     ):
         entry = entries[entry_id]
         assert entry.kind == "dataset"

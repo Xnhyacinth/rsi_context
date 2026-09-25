@@ -200,6 +200,42 @@
       "notes": "Pinned official KEP-753 design and metadata for a proposed independent Gate 2 development parent. Constructed sandbox actions must be identified as such; no benchmark world has qualified yet."
     },
     {
+      "id": "python-pep-process",
+      "name": "Python PEP process source",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/python/peps.git",
+      "revision": "6822259db9c95f02da739b3e2830a4aa1ae35134",
+      "license": "Public domain or CC0-1.0 (selected PEP files; per-file notices)",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "6822259db9c95f02da739b3e2830a4aa1ae35134",
+        "verified": true
+      },
+      "notes": "Pinned PEP 1, 621, and 639 as historical source documents for a proposed B development parent. PEP 621/639 point to maintained PyPA specifications; do not grade current packaging compliance from these historical files. Confirm per-file notices and exact bytes after acquisition; no world has qualified."
+    },
+    {
+      "id": "postgresql-rel-17-0",
+      "name": "PostgreSQL 17.0 logical replication source",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://git.postgresql.org/git/postgresql.git",
+      "revision": "d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e",
+      "license": "PostgreSQL License; retain pinned COPYRIGHT notice",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e",
+        "verified": true
+      },
+      "notes": "REL_17_0 tag verified on canonical Git remote and GitHub mirror 2026-09-26. Selected SGML and COPYRIGHT bytes, blob IDs, and license notice require verification after reviewed dry-run acquisition. Constructed failover receipts are not PostgreSQL observations."
+    },
+    {
       "id": "longmemeval-v2",
       "name": "LongMemEval-V2",
       "kind": "dataset",

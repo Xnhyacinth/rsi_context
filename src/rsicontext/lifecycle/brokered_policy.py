@@ -17,7 +17,7 @@ import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Any, Literal, Protocol, cast
 
 from rsicontext.lifecycle.env import Action, ActionKind, ProjectState
 from rsicontext.lifecycle.runner import StageResponse, StageView
@@ -33,6 +33,12 @@ from rsicontext.security.policy_protocol import (
 
 class BrokerError(RuntimeError):
     """A fatal policy pipe, deadline, or protocol failure."""
+
+
+class OwnedWorker(Protocol):
+    """Optional child handle owned by this broker for complete cleanup."""
+
+    def close(self) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +159,7 @@ class BrokeredPolicyHook:
         registry: DocumentRegistry | None = None,
         responder: Callable[[str], MeteredModelReply] | None = None,
         delegate_runner: Callable[[str, Sequence[str]], str] | None = None,
+        owned_worker: OwnedWorker | None = None,
     ) -> None:
         if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be finite and positive")
@@ -163,6 +170,9 @@ class BrokeredPolicyHook:
         self._read_fd = read_fd
         self._write_fd = write_fd
         self._closed = False
+        self._stage_started = False
+        self._session_bound = False
+        self._owned_worker = owned_worker
         self._turn_lock = threading.Lock()
         self.state = state
         self.tool_budget = tool_budget
@@ -179,14 +189,53 @@ class BrokeredPolicyHook:
         self.model_transcript: list[dict[str, object]] = []
         self.policy_errors: list[str] = []
 
+    def bind_session(
+        self, env: ProjectState, budget: ToolBudget, registry: DocumentRegistry
+    ) -> None:
+        """Attach the sequence runner's actual shared resources before a turn."""
+
+        if not isinstance(env, ProjectState) or not isinstance(budget, ToolBudget):
+            raise TypeError("broker session requires ProjectState and ToolBudget")
+        if not isinstance(registry, DocumentRegistry):
+            raise TypeError("broker session requires DocumentRegistry")
+        if self._closed or self._stage_started:
+            raise BrokerError("cannot bind broker resources after a stage started")
+        if self._session_bound and (
+            self.env is not env or self.tool_budget is not budget or self.registry is not registry
+        ):
+            raise BrokerError("broker session resources cannot be rebound")
+        self.env = env
+        self.tool_budget = budget
+        self.registry = registry
+        self._session_bound = True
+
+    def bind_env(self, env: ProjectState) -> None:
+        """Bind a direct single-lifecycle call before its first stage."""
+
+        self.bind_session(env, self.tool_budget, self.registry)
+
     def close(self) -> None:
-        """Poison the hook and close owned descriptors, idempotently."""
+        """Poison the hook and close both descriptors and its owned child."""
 
         if self._closed:
             return
         self._closed = True
+        errors: list[Exception] = []
         for fd in (self._read_fd, self._write_fd):
-            os.close(fd)
+            try:
+                os.close(fd)
+            except OSError as exc:
+                errors.append(exc)
+        if self._owned_worker is not None:
+            try:
+                self._owned_worker.close()
+            except Exception as exc:
+                errors.append(exc)
+        if errors:
+            failure = BrokerError("policy broker cleanup failed")
+            for error in errors:
+                failure.add_note(f"cleanup error: {type(error).__name__}: {error}")
+            raise failure from errors[0]
 
     def _model(self, prompt: str, stage: StageView) -> dict[str, object]:
         budget = self.tool_budget
@@ -302,6 +351,7 @@ class BrokeredPolicyHook:
     def _run_stage(self, stage: StageView) -> StageResponse:
         if self._closed:
             raise BrokerError("policy broker is closed after a fatal error")
+        self._stage_started = True
         deadline = time.monotonic() + self.timeout_seconds
         session = OneTurnSession()
         try:
@@ -368,5 +418,8 @@ class BrokeredPolicyHook:
             raise ProtocolError("worker turn ended without decision")
         except Exception as exc:
             self.policy_errors.append(f"broker failed: {type(exc).__name__}: {exc}")
-            self.close()
+            try:
+                self.close()
+            except Exception as cleanup_error:
+                exc.add_note(f"broker cleanup also failed: {cleanup_error}")
             raise BrokerError(f"policy broker failed: {exc}") from exc
