@@ -97,7 +97,8 @@ def build_k8s_sidecar_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
             "log forwarder must start before the worker and must not prevent "
             "Job completion. Two implementation sketches are on the table: "
             "regular-companion and native-sidecar. The design notes above "
-            "define what those implementations mean. "
+            "define what those implementations mean. A future probe variant "
+            "is named by appending '-with-probe' to the selected plan id. "
             "The rollout is permitted only after an environment-issued "
             "job-completion verification passes."
         ),
@@ -137,6 +138,7 @@ def build_k8s_sidecar_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                     semantics.doc_id,
                     problem.doc_id,
                     completion.doc_id,
+                    readiness.doc_id,
                     project.doc_id,
                 ),
             ),
@@ -224,7 +226,8 @@ def build_k8s_sidecar_sessions() -> tuple[LifecycleInstance, LifecycleInstance]:
                 prompt_text=(
                     "Only an already-finalized sidecar_rollout permits this step. "
                     "Request a current readiness-contract verification and finalize "
-                    "readiness_rollout for native-sidecar-with-probe."
+                    "readiness_rollout for the plan derived from the prior "
+                    "rollout, the source material, and the amendment."
                 ),
                 documents=(),
                 gold_evidence_ids=(),

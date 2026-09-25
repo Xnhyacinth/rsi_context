@@ -36,8 +36,12 @@ def _commit(record_id: str, plan: str, verification: str) -> tuple[Action, Actio
 class ReferenceHook:
     """A test skeleton that chooses from visible source text and receipts."""
 
-    def __init__(self, *, stale_readiness: bool = False) -> None:
+    def __init__(
+        self, *, carry: dict[str, object] | None = None, stale_readiness: bool = False
+    ) -> None:
         self.source_text: dict[str, str] = {}
+        self.carry = dict(carry or {})
+        self.amendment_text = ""
         self.first_step = 0
         self.stale_readiness = stale_readiness
 
@@ -47,6 +51,13 @@ class ReferenceHook:
             for document in stage.documents
             if document.doc_id.startswith("kep753-")
         )
+        if stage.stage_id == "kep753-readiness-change":
+            self.amendment_text = "\n".join(document.text for document in stage.documents)
+        if stage.stage_id == "kep753-s1-end":
+            self.carry["probe_supported"] = (
+                "readiness probes contribute to whole-Pod readiness"
+                in self.source_text.get("kep753-readiness", "")
+            )
         if stage.stage_id == "kep753-first-rollout":
             if self.first_step == 0:
                 self.first_step = 1
@@ -73,27 +84,32 @@ class ReferenceHook:
                     _commit("sidecar_rollout", "regular-companion", "verify-regular"),
                 )
             if self.first_step == 2:
-                assert any(r.verdict == "pass" for r in stage.receipts)
+                passing = [r for r in stage.receipts if r.verdict == "pass"]
+                assert passing
                 self.first_step = 3
+                self.carry["first_plan"] = passing[0].subject
                 return StageResponse(
                     "commit passing plan",
-                    _commit("sidecar_rollout", "native-sidecar", "verify-native"),
+                    _commit("sidecar_rollout", passing[0].subject, "verify-native"),
                 )
         if stage.stage_id == "kep753-readiness-rollout":
+            first_plan = self.carry.get("first_plan")
+            plan = first_plan if isinstance(first_plan, str) else "unresolved-plan"
+            if (
+                self.carry.get("probe_supported")
+                and "requires a readiness probe" in self.amendment_text
+            ):
+                plan += "-with-probe"
             if self.stale_readiness:
                 return StageResponse(
                     "reuse old receipt",
-                    _commit("readiness_rollout", "native-sidecar-with-probe", "verify-ready-old"),
+                    _commit("readiness_rollout", plan, "verify-ready-old"),
                 )
             return StageResponse(
                 "verify current readiness",
                 (
-                    _verify(
-                        "verify-ready-current", "readiness-contract", "native-sidecar-with-probe"
-                    ),
-                    *_commit(
-                        "readiness_rollout", "native-sidecar-with-probe", "verify-ready-current"
-                    ),
+                    _verify("verify-ready-current", "readiness-contract", plan),
+                    *_commit("readiness_rollout", plan, "verify-ready-current"),
                 ),
             )
         return StageResponse(
@@ -104,8 +120,10 @@ class ReferenceHook:
 def test_reference_recovery_and_later_rollout_pass() -> None:
     first, second = build_k8s_sidecar_sessions()
     env = ProjectState()
-    first_result = run_lifecycle(first, ReferenceHook(), env, max_turns_per_stage=4)
-    second_result = run_lifecycle(second, ReferenceHook(), env)
+    first_hook = ReferenceHook()
+    first_result = run_lifecycle(first, first_hook, env, max_turns_per_stage=4)
+    assert first_hook.carry == {"first_plan": "native-sidecar", "probe_supported": True}
+    second_result = run_lifecycle(second, ReferenceHook(carry=first_hook.carry), env)
     assert first_result.final_check.passed
     assert second_result.final_check.passed
     assert env.records["verify-regular"]["verdict"] == "fail"
@@ -155,10 +173,11 @@ def test_later_rollout_fails_without_prior_finalize_even_if_repaired_in_session(
 def test_readiness_evidence_must_be_current_after_scoped_change() -> None:
     first, second = build_k8s_sidecar_sessions()
     env = ProjectState()
-    assert run_lifecycle(first, ReferenceHook(), env, max_turns_per_stage=4).final_check.passed
+    first_hook = ReferenceHook()
+    assert run_lifecycle(first, first_hook, env, max_turns_per_stage=4).final_check.passed
     env.apply(_verify("verify-ready-old", "readiness-contract", "native-sidecar-with-probe"))
     assert env.records["verify-ready-old"]["protocol_revision"] == 1
-    result = run_lifecycle(second, ReferenceHook(stale_readiness=True), env)
+    result = run_lifecycle(second, ReferenceHook(carry=first_hook.carry, stale_readiness=True), env)
     assert not result.final_check.passed
     assert any("stale" in failure for failure in result.final_check.failures)
     assert env.check_revisions == {"readiness-contract": 2}
@@ -185,6 +204,27 @@ def test_removing_load_bearing_source_breaks_reference_path() -> None:
         assert any("passing verdict" in failure for failure in result.final_check.failures)
 
 
+def test_missing_readiness_source_breaks_later_derived_plan() -> None:
+    first, second = build_k8s_sidecar_sessions()
+    assert "native-sidecar-with-probe" not in " ".join(stage.prompt_text for stage in second.stages)
+    survey = first.stages[0]
+    changed_survey = replace(
+        survey,
+        documents=tuple(doc for doc in survey.documents if doc.doc_id != "kep753-readiness"),
+        gold_evidence_ids=tuple(
+            doc_id for doc_id in survey.gold_evidence_ids if doc_id != "kep753-readiness"
+        ),
+    )
+    changed = replace(first, stages=(changed_survey, *first.stages[1:]))
+    env = ProjectState()
+    first_hook = ReferenceHook()
+    assert run_lifecycle(changed, first_hook, env, max_turns_per_stage=4).final_check.passed
+    assert first_hook.carry["probe_supported"] is False
+    later = run_lifecycle(second, ReferenceHook(carry=first_hook.carry), env)
+    assert not later.final_check.passed
+    assert any("not in the legal set" in failure for failure in later.final_check.failures)
+
+
 def test_irrelevant_survey_note_preserves_reference_decisions() -> None:
     first, second = build_k8s_sidecar_sessions()
     survey = first.stages[0]
@@ -200,10 +240,14 @@ def test_irrelevant_survey_note_preserves_reference_decisions() -> None:
     )
     original_env = ProjectState()
     changed_env = ProjectState()
-    original = run_lifecycle(first, ReferenceHook(), original_env, max_turns_per_stage=4)
-    changed = run_lifecycle(perturbed, ReferenceHook(), changed_env, max_turns_per_stage=4)
-    original_followup = run_lifecycle(second, ReferenceHook(), original_env)
-    changed_followup = run_lifecycle(second, ReferenceHook(), changed_env)
+    original_hook = ReferenceHook()
+    changed_hook = ReferenceHook()
+    original = run_lifecycle(first, original_hook, original_env, max_turns_per_stage=4)
+    changed = run_lifecycle(perturbed, changed_hook, changed_env, max_turns_per_stage=4)
+    original_followup = run_lifecycle(
+        second, ReferenceHook(carry=original_hook.carry), original_env
+    )
+    changed_followup = run_lifecycle(second, ReferenceHook(carry=changed_hook.carry), changed_env)
     assert (original.final_check.passed, original_followup.final_check.passed) == (True, True)
     assert (changed.final_check.passed, changed_followup.final_check.passed) == (True, True)
     assert (
@@ -222,7 +266,7 @@ def test_builder_is_deterministic_and_source_hash_is_pinned() -> None:
         [world.to_dict() for world in worlds], sort_keys=True, separators=(",", ":")
     )
     assert hashlib.sha256(encoded.encode()).hexdigest() == (
-        "e92ecb570fb8debe678a2feec601946fda9e0e4b38020bff7b5e96277b004152"
+        "9409175713220777bc7ec70683dd3270cead3ac00afd9b431e0cf98fd4b94de7"
     )
     source = Path(
         "/volume/pt-dev/qjiu/rsi_context_external/data/kubernetes-enhancements-kep753/"

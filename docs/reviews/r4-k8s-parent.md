@@ -14,6 +14,8 @@ Source: Kubernetes enhancements, KEP-753, detached commit
 `ba9ef6b591cb626023c6e8a0c77cbc3f3cd2ede98d6ab3ff086e41ebef0cdf21`.
 The source and its Apache-2.0 license were acquired through the pinned registry
 plan recorded in `artifacts/rsi-core-v1/r3-gate2-source-acquisition-20260925.json`.
+The portable source metadata is declared in
+`configs/r4_parent_source_manifest_v1.json` in the integration branch.
 
 | Proposition in visible material | KEP span at the pinned commit | Benchmark use |
 | --- | --- | --- |
@@ -33,7 +35,13 @@ finalization condition.
 
 These are typed sandbox actions, not an actual Kubernetes deployment. The
 second gate proves dependence on a prior finalized write and current scoped
-verification. It does not prove that the first session's verdict changes the
+verification. The deterministic test hook distills the first session's
+chosen plan and the KEP readiness proposition into a small carry dictionary;
+a fresh hook gets only those carried fields for session 2. The second prompt
+does not name the legal plan. Removing the readiness excerpt leaves the first
+rollout executable but breaks the derived second choice. This is a scripted
+source-retention counterfactual, not evidence that a model can reliably retain
+and use the proposition. The first session's verdict does not change the
 identity of the later legal plan; that stronger causal claim would need a
 different gate and task design.
 
@@ -41,9 +49,10 @@ different gate and task design.
 
 `tests/test_k8s_parent.py` checks the full scripted recovery path, absent and
 late prior writes, stale readiness evidence, removal of either load-bearing
-source document, irrelevant text stability, source-file hash, and deterministic
+source document, removal of the readiness excerpt, irrelevant text stability,
+source-file hash, and deterministic
 world serialization. The full two-session serialized world digest is
-`e92ecb570fb8debe678a2feec601946fda9e0e4b38020bff7b5e96277b004152`
+`9409175713220777bc7ec70683dd3270cead3ac00afd9b431e0cf98fd4b94de7`
 (canonical sorted-key compact JSON, SHA-256). The embedded builder is hermetic;
 the test verifies the external pinned source hash when that checkout is present.
 
