@@ -53,11 +53,6 @@ class _TextFollowingReference:
                     ),
                     Action(
                         kind="create_record",
-                        record_id="otel-candidate",
-                        fields={"plan": self.plan, "domain": "telemetry"},
-                    ),
-                    Action(
-                        kind="create_record",
                         record_id="migration_commit",
                         fields={"plan": self.plan},
                     ),
@@ -65,7 +60,7 @@ class _TextFollowingReference:
                         kind="finalize",
                         record_id="migration_commit",
                         fields={"plan": self.plan, "status": "final"},
-                        provenance=("otel-dual-receipt", "otel-candidate"),
+                        provenance=("otel-dual-receipt",),
                     ),
                 ),
             )
@@ -126,6 +121,25 @@ def test_reference_path_uses_both_source_propositions() -> None:
         "act_verify",
         "follow_up",
     ]
+
+
+def test_visible_award_requirements_match_enforced_gate() -> None:
+    world = build_otel_database_migration_parent()
+    award = world.stages[4]
+    prompt = award.prompt_text
+    gate = award.commit_precondition
+    assert gate is not None
+    assert "migration_commit" in prompt
+    assert "plan=<mode>" in prompt
+    assert "dual-emission validation receipt" in prompt
+    assert "candidate record" not in prompt
+    assert gate["record_id"] == "migration_commit"
+    assert gate["plan_field"] == "plan"
+    assert gate["plan_requirements"] == {"database/dup": {"requires_check": "dual-emission"}}
+    env = ProjectState()
+    assert run_lifecycle(world, _TextFollowingReference(), env).final_check.passed
+    assert "otel-candidate" not in env.records
+    assert env.records["migration_commit"]["provenance"] == ["otel-dual-receipt"]
 
 
 @pytest.mark.parametrize(

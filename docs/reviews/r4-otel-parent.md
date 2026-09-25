@@ -31,7 +31,8 @@ the participant's `StageView` by the existing runner boundary.
 2. **Constraint and action:** a fictional rollout must keep legacy and stable
    collectors fed concurrently. The candidate chooses a source-supported mode,
    requests an environment-issued `dual-emission` check, and finalizes the
-   `migration_commit` with the receipt and candidate record as provenance.
+   `migration_commit` with that receipt as provenance. The visible requirement
+   and evaluator gate both require the receipt, with no auxiliary record.
 3. **Follow-up:** after the commit, the candidate must use the earlier SQL
    source to record whether the raw-query-text proposal may proceed.
 
@@ -48,9 +49,11 @@ Canonical JSON hashes (`sort_keys=True`, compact separators, UTF-8):
 | Object | SHA256 |
 | --- | --- |
 | All stage documents' `to_dict()` values, stage order | `73175e8a9424b8898404080db7e877ab3e0d1ec16881fa00456657a664e8cc8d` |
-| Complete evaluator `LifecycleInstance.to_dict()` | `cc2600a11f78fd3a700857411d7e2ea154515978a91e0bdabfd1338212c474f0` |
+| Complete evaluator `LifecycleInstance.to_dict()` | `99bebe5143d37270bfe26ad40ed3e9fee666a8ea877d7f7f36bcc5a9471704ab` |
 
-The stage-1 text has an estimated 175 whitespace-separated tokens. This
+The stage-1 text has an estimated 175 whitespace-separated tokens. The
+follow-up has one fixed constructed answer, so its scripted success is **not**
+a difficulty claim or a demonstrated source-conditioned answer change. This
 compact candidate proves a distinct source lineage and a working dependency
 path, but it does **not** yet test long-context search pressure, reader
 difficulty, robustness to alternate wording, or cross-parent generalization.

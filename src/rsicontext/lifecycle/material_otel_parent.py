@@ -171,7 +171,7 @@ def build_otel_database_migration_parent(
                 prompt_text=(
                     "Choose and validate the migration mode. Create and finalize "
                     "migration_commit with plan=<mode>, citing an environment-issued "
-                    "dual-emission validation receipt and a local candidate record."
+                    "dual-emission validation receipt."
                 ),
                 documents=(),
                 gold_evidence_ids=(),
@@ -180,12 +180,7 @@ def build_otel_database_migration_parent(
                     "record_id": "migration_commit",
                     "plan_field": "plan",
                     "legal_plans": ["database/dup"],
-                    "plan_requirements": {
-                        "database/dup": {
-                            "domain": "telemetry",
-                            "requires_check": "dual-emission",
-                        }
-                    },
+                    "plan_requirements": {"database/dup": {"requires_check": "dual-emission"}},
                     "current_revision": 1,
                     "revision_scope": ["dual-emission"],
                 },
@@ -213,7 +208,7 @@ def build_otel_database_migration_parent(
         answer_norm="database/dup",
         answer_aliases=("database/dup",),
         sandbox_spec={
-            "records": ["candidate_status", "migration_commit", "query_text_decision"],
+            "records": ["migration_commit", "query_text_decision"],
             "action_kinds": [
                 "create_record",
                 "update_record",
