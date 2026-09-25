@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "registry_id": "postgresql-rel-16-0",
+  "source_revision": "c372fbbd8e911f2412b80a8c39d7079366565d67",
+  "status": "source_acquired_task_unqualified",
+  "selected_files": {
+    "COPYRIGHT": {
+      "git_blob": "d33e0f599df28589f128a667bd903bb14f11e046",
+      "size_bytes": 1192,
+      "sha256": "1a7d13c3ab31961b91ba256f77d6e82e0b54bf992253060fe93bdb5466df416a",
+      "spans": {
+        "full_notice": {
+          "start_line": 1,
+          "end_line": 23,
+          "start_byte": 0,
+          "end_byte": 1192,
+          "sha256": "1a7d13c3ab31961b91ba256f77d6e82e0b54bf992253060fe93bdb5466df416a"
+        }
+      }
+    },
+    "doc/src/sgml/ref/create_subscription.sgml": {
+      "git_blob": "71652fd9188cd51127423f2759b2b34355654393",
+      "size_bytes": 23305,
+      "sha256": "8f306cfd871d45b829bde1419e92bbc7cd58d28e068a4de823ee9208745d745d",
+      "spans": {
+        "parameter_catalog": {
+          "start_line": 100,
+          "end_line": 406,
+          "start_byte": 3237,
+          "end_byte": 17041,
+          "sha256": "44d809c3e0cc1953ad3d51e9c5b34c93aee07a7f23271b06be0d8cf7c742d9d8"
+        }
+      }
+    }
+  }
+}
