@@ -27,6 +27,8 @@ from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_te
 from rsicontext.security.policy_jail import (
     JailSetupError,
     StagedPolicyJail,
+    _assert_traversable_parent,
+    _assert_trusted_file,
     launch_policy_jail,
     stage_policy_jail,
 )
@@ -44,10 +46,24 @@ def _python() -> Path:
     return Path(getattr(sys, "_base_executable", sys.executable)).resolve()
 
 
+def _require_trusted_host_material() -> None:
+    for path in (
+        Path("/usr/bin/ldd"),
+        Path("/usr/bin/setpriv"),
+        Path("/usr/bin/unshare"),
+        Path("/usr/lib/x86_64-linux-gnu/libseccomp.so.2.5.3"),
+    ):
+        try:
+            _assert_trusted_file(path)
+        except JailSetupError as exc:
+            pytest.skip(f"host material is not trusted for a jail launch: {exc}")
+
+
 @pytest.fixture
 def staged_jail() -> Iterator[StagedPolicyJail]:
     if os.geteuid() != 0:
         pytest.skip("root-owned jail staging requires host root")
+    _require_trusted_host_material()
     parent = Path(tempfile.mkdtemp(prefix="rsi-policy-jail-", dir="/tmp"))
     os.chmod(parent, 0o755)
     try:
@@ -133,6 +149,7 @@ def test_unmanifested_special_entry_is_rejected(staged_jail: StagedPolicyJail, k
 def test_wrong_interpreter_pin_refuses_before_staging() -> None:
     if os.geteuid() != 0:
         pytest.skip("root-owned jail staging requires host root")
+    _require_trusted_host_material()
     parent = Path(tempfile.mkdtemp(prefix="rsi-policy-pin-", dir="/tmp"))
     os.chmod(parent, 0o755)
     try:
@@ -142,6 +159,86 @@ def test_wrong_interpreter_pin_refuses_before_staging() -> None:
                 _POLICY,
                 python_executable=_python(),
                 expected_python_sha256="0" * 64,
+            )
+        assert not (parent / "jail").exists()
+    finally:
+        shutil.rmtree(parent)
+
+
+def test_root_owned_tmp_parent_is_accepted_but_writable_parent_is_not() -> None:
+    parent = Path(tempfile.mkdtemp(prefix="rsi-trusted-parent-", dir="/tmp"))
+    try:
+        os.chmod(parent, 0o755)
+        _assert_traversable_parent(parent / "jail")
+        os.chmod(parent, 0o777)
+        with pytest.raises(JailSetupError, match="untrusted writable path ancestor"):
+            _assert_traversable_parent(parent / "jail")
+    finally:
+        shutil.rmtree(parent)
+
+
+def test_replaceable_or_nonroot_source_is_rejected() -> None:
+    parent = Path(tempfile.mkdtemp(prefix="rsi-source-trust-", dir="/tmp"))
+    try:
+        os.chmod(parent, 0o755)
+        source = parent / "python"
+        source.write_bytes(b"fixed bytes")
+        os.chmod(source, 0o644)
+        _assert_trusted_file(source)
+        os.chmod(parent, 0o777)
+        with pytest.raises(JailSetupError, match="untrusted writable path ancestor"):
+            _assert_trusted_file(source)
+        os.chmod(parent, 0o755)
+        os.chown(source, 65534, 65534)
+        with pytest.raises(JailSetupError, match="untrusted runtime or launcher"):
+            _assert_trusted_file(source)
+        link = parent / "symlink"
+        link.symlink_to(source)
+        with pytest.raises(JailSetupError, match="untrusted runtime or launcher"):
+            _assert_trusted_file(link)
+    finally:
+        shutil.rmtree(parent)
+
+
+def test_manifest_interpreter_cross_pin_cannot_self_certify() -> None:
+    parent = Path(tempfile.mkdtemp(prefix="rsi-cross-pin-", dir="/tmp"))
+    try:
+        os.chmod(parent, 0o755)
+        root = parent / "jail"
+        root.mkdir(mode=0o555)
+        manifest = {
+            "policy_sha256": "d" * 64,
+            "python_sha256": "a" * 64,
+            "child_sha256": "b" * 64,
+            "files": {"bin/python3.12": "c" * 64, "child.py": "b" * 64},
+        }
+        material = json.dumps(manifest, sort_keys=True).encode()
+        manifest_path = root / "MANIFEST.json"
+        manifest_path.write_bytes(material)
+        artifact = StagedPolicyJail(root, "d" * 64, hashlib.sha256(material).hexdigest())
+        with pytest.raises(JailSetupError, match="cross-pin mismatch"):
+            artifact.verify()
+    finally:
+        shutil.rmtree(parent)
+
+
+def test_current_untrusted_launcher_path_refuses_before_staging() -> None:
+    try:
+        _assert_trusted_file(Path("/usr/bin/setpriv"))
+    except JailSetupError:
+        pass
+    else:
+        pytest.skip("this host has a trusted launcher path")
+    parent = Path(tempfile.mkdtemp(prefix="rsi-host-blocker-", dir="/tmp"))
+    try:
+        os.chmod(parent, 0o755)
+        python = _python()
+        with pytest.raises(JailSetupError, match="non-root-owned path ancestor"):
+            stage_policy_jail(
+                parent / "jail",
+                _POLICY,
+                python_executable=python,
+                expected_python_sha256=hashlib.sha256(python.read_bytes()).hexdigest(),
             )
         assert not (parent / "jail").exists()
     finally:
@@ -361,6 +458,7 @@ def test_cleanup_error_does_not_replace_primary_failure(
 def test_fixed_abc_seed_survey_uses_broker_rpc(policy_text: str) -> None:
     if os.geteuid() != 0:
         pytest.skip("root-owned jail staging requires host root")
+    _require_trusted_host_material()
     parent = Path(tempfile.mkdtemp(prefix="rsi-policy-seed-", dir="/tmp"))
     os.chmod(parent, 0o755)
     python = _python()
