@@ -75,6 +75,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
+    if args.output.exists():
+        parser.error(f"output already exists: {args.output}")
     roots = {}
     for revision, variable in _INPUTS.items():
         configured = os.environ.get(variable)
@@ -104,7 +106,9 @@ def main() -> int:
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(output, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    with args.output.open("x", encoding="utf-8") as handle:
+        json.dump(output, handle, indent=2, sort_keys=True)
+        handle.write("\n")
     print(f"{output['status']}: {output['screen_case_count']} cases; {args.output}")
     return 0
 

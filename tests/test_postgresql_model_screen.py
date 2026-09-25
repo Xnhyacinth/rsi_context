@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import cast
 
@@ -87,3 +89,20 @@ def test_prior_and_current_receipt_failures_are_separate() -> None:
     assert current.env.records["source_review"]["status"] == "final"
     assert current.env.records["decision-review-receipt"]["verdict"] == "fail"
     assert "native_capability_decision" not in current.env.records
+
+
+def test_cli_preserves_an_existing_evidence_file(tmp_path: Path) -> None:
+    output = tmp_path / "screen.json"
+    output.write_bytes(b"existing evidence\n")
+    script = Path(__file__).resolve().parent.parent / "scripts/r10_pg_model_screen.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--output", str(output)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "output already exists" in result.stderr
+    assert output.read_bytes() == b"existing evidence\n"
