@@ -110,6 +110,27 @@ def _finish(
     assert not failures
 
 
+def test_broker_resources_bind_once_before_first_stage() -> None:
+    def worker(reader: BufferedReader, writer: BufferedWriter) -> None:
+        read_frame(reader)
+        _send(writer, _done(1, state={"carry": {}}))
+
+    hook, thread, failures = _peer(worker)
+    env = ProjectState()
+    budget = ToolBudget(max_calls=3)
+    registry = DocumentRegistry()
+    try:
+        hook.bind_session(env, budget, registry)
+        assert hook.env is env and hook.tool_budget is budget and hook.registry is registry
+        with pytest.raises(BrokerError, match="cannot be rebound"):
+            hook.bind_session(ProjectState(), budget, registry)
+        hook.on_stage(_stage())
+        with pytest.raises(BrokerError, match="after a stage started"):
+            hook.bind_session(env, budget, registry)
+    finally:
+        _finish(hook, thread, failures)
+
+
 def test_visible_projection_tool_equivalence_and_long_lived_state() -> None:
     observed: list[dict[str, Any]] = []
 
