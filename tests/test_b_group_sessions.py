@@ -26,10 +26,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 from r2a_compare import _offline_responder
 
-from rsicontext.lifecycle.env import ProjectState
-from rsicontext.lifecycle.material_b_group import build_b1_sessions
+from rsicontext.lifecycle.env import Action, ProjectState
+from rsicontext.lifecycle.material_b_group import build_b1_reverse_sessions, build_b1_sessions
 from rsicontext.lifecycle.policy import PolicyHook
-from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
+from rsicontext.lifecycle.runner import (
+    StageResponse,
+    StageView,
+    _derive_evidence_currency,
+    run_lifecycle,
+)
 from rsicontext.lifecycle.session_sequence import CARRY_KEY, SequenceRecord, run_session_sequence
 from rsicontext.lifecycle.spec import LifecycleInstance
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
@@ -328,6 +333,67 @@ def test_stale_conclusion_detection_both_directions() -> None:
     # s2 re-award: fresh revision-3 evidence required; the policy
     # re-requested (its request lands at the session-2 clock).
     assert record.decisions.get("s2_reaward_fresh") is True, record.failure_detail
+
+
+def test_reaward_requires_a_prior_finalized_award_across_the_reset() -> None:
+    # Keep every session-2 action, including a NEW passing revision-3
+    # verification, but omit the initial award. The renewal cannot become
+    # a free-standing first award merely by guessing the carrier.
+    omitted = CARRY_POLICY.replace(
+        'if stage_id == "s5-act-verify":\n            winner =',
+        'if stage_id == "s5-act-verify":\n            return {"pack_text": "no first award"}\n'
+        "            winner =",
+    )
+    assert omitted != CARRY_POLICY
+    reference, _, _, _ = _run_sequence(CARRY_POLICY)
+    assert reference.decisions["s1_award"]
+    assert reference.decisions["s2_reaward_fresh"]
+
+    env = ProjectState()
+    counterfactual, _, _, _ = _run_sequence(omitted, [env, env, ProjectState()])
+    assert not counterfactual.decisions["s1_award"]
+    assert env.records["v-rev3"]["verdict"] == "pass"
+    assert env.records["v-rev3"]["protocol_revision"] == 3
+    assert env.records["corridor_reaward"]["status"] == "final"
+    assert not counterfactual.decisions["s2_reaward_fresh"]
+    assert any(
+        "prior finalized record 'migration_commit' was absent at session start" in failure
+        for failure in counterfactual.sessions[1].failures
+    ), counterfactual.sessions[1].failures
+
+
+def test_reaward_prior_contract_applies_to_both_projects_without_leaking_to_fresh_project() -> None:
+    for builder in (build_b1_sessions, build_b1_reverse_sessions):
+        first, second, fresh = builder()
+        first_gate = first.stages[3].commit_precondition
+        second_gate = second.stages[4].commit_precondition
+        fresh_gate = fresh.stages[3].commit_precondition
+        assert first_gate is not None and second_gate is not None and fresh_gate is not None
+        assert "prior_finalized_record" not in first_gate
+        assert second_gate["prior_finalized_record"] == "migration_commit"
+        assert "prior_finalized_record" not in fresh_gate
+        assert "prior award to have been finalized" in second.stages[4].prompt_text
+
+
+def test_unrelated_prior_record_does_not_change_reaward_legality() -> None:
+    env = ProjectState()
+    env.submit(Action("create_record", "unrelated-note", {"topic": "office supplies"}))
+    record, _, _, _ = _run_sequence(CARRY_POLICY, [env, env, ProjectState()])
+    assert record.decisions["s1_award"]
+    assert record.decisions["s2_reaward_fresh"]
+
+
+def test_superseded_and_current_verifications_have_different_later_diagnoses() -> None:
+    env = ProjectState()
+    record, _, _, _ = _run_sequence(CARRY_POLICY, [env, env, ProjectState()])
+    assert record.decisions["s2_reaward_fresh"]
+    currency = build_b1_sessions()[1].stages[3].commit_precondition
+    assert currency is not None
+    spec = currency["evidence_currency"]
+    assert isinstance(spec, dict)
+    assert _derive_evidence_currency(env, spec) == "reverify"
+    renewed = {**spec, "commit_record": "corridor_reaward"}
+    assert _derive_evidence_currency(env, renewed) == "current"
 
 
 def test_new_project_non_transfer() -> None:

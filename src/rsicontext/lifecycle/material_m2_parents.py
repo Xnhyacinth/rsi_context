@@ -560,7 +560,9 @@ def build_b2_sessions() -> tuple[LifecycleInstance, ...]:
                     "The corridor contract renews AGAIN: create and "
                     "finalize record corridor_reaward_2 (a NEW renewal "
                     "contract superseding corridor_reaward) naming the "
-                    "awarded carrier. The gate requires "
+                    "awarded carrier. A second "
+                    "renewal requires corridor_reaward to have been "
+                    "finalized before this session began. The gate requires "
                     "customs-preclearance evidence at the CURRENT protocol "
                     "revision (revision 3 — unchanged by the second "
                     "notice); evidence issued under earlier revisions is "
@@ -581,6 +583,7 @@ def build_b2_sessions() -> tuple[LifecycleInstance, ...]:
                     },
                     "current_revision": 3,
                     "revision_scope": ["customs-preclearance"],
+                    "prior_finalized_record": "corridor_reaward",
                 },
             ),
             StageSpec(

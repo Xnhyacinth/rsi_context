@@ -340,7 +340,9 @@ def build_b1_sessions() -> tuple[LifecycleInstance, LifecycleInstance, Lifecycle
                 prompt_text=(
                     "The corridor contract renews: create and finalize "
                     f"record {_REAWARD} (superseding {_COMMIT}) naming "
-                    "the awarded carrier. The gate requires "
+                    "the awarded carrier. A "
+                    "renewal requires that prior award to have been "
+                    "finalized before this session began. The gate requires "
                     "customs-preclearance evidence at the CURRENT "
                     "protocol revision (revision 3) — evidence issued "
                     "under earlier revisions is stale for this decision."
@@ -360,6 +362,7 @@ def build_b1_sessions() -> tuple[LifecycleInstance, LifecycleInstance, Lifecycle
                     },
                     "current_revision": 3,
                     "revision_scope": ["customs-preclearance"],
+                    "prior_finalized_record": _COMMIT,
                 },
             ),
             StageSpec(
@@ -647,6 +650,7 @@ def build_b1_reverse_sessions() -> tuple[LifecycleInstance, LifecycleInstance, L
                     },
                     "current_revision": 3,
                     "revision_scope": ["customs-preclearance"],
+                    "prior_finalized_record": _COMMIT,
                 },
             ),
             StageSpec(
