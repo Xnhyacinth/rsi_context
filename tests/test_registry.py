@@ -64,6 +64,7 @@ def test_project_registry_has_required_entries_and_modes() -> None:
     assert entries["hotpotqa"].revision == "3635853403a8735609ee997664e1528f4480762a"
     assert entries["2wikimultihopqa"].revision == "13800e5be57df1b4040b9b1588c6c811779e69e9"
     for entry_id, revision in (
+        ("otel-semconv-v1.24.0", "cafda7127683b7f667e27cdbd3220510b6f998c9"),
         ("otel-semconv-v1.43.0", "89aae438b3b3b0a8dd33003c9d70592baf7dbd0d"),
         ("kubernetes-enhancements-kep753", "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a"),
         ("python-pep-process", "6822259db9c95f02da739b3e2830a4aa1ae35134"),
