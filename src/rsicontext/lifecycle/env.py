@@ -348,10 +348,19 @@ class ProjectState:
         leaves the state untouched. ``request_verification`` never
         touches participant-writable records: the environment itself
         writes the result record and registers it.
+        Environment-issued verification records are immutable to later
+        participant update/finalize actions as well as duplicate requests.
         """
 
         if not isinstance(action, Action):
             raise TypeError("apply requires an Action value")
+        if (
+            action.kind in ("update_record", "finalize")
+            and action.record_id in self.verification_record_ids
+        ):
+            raise ProjectStateError(
+                f"environment-issued verification record {action.record_id!r} is immutable"
+            )
         if action.kind == "create_record":
             if action.record_id in self.records:
                 raise ProjectStateError(

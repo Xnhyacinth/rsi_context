@@ -24,8 +24,10 @@ The first session selects `database/dup`, obtains an environment-issued
 `migration_commit`. The second session requires that earlier finalized
 record to have existed **before** session 2 and that its provenance
 pointed, at session entry, to an environment-issued PASS verification
-whose check is `dual-emission` and whose subject matches the prior
-record's plan. The optional transition map permits the later
+that was issued **before the prior record was finalized**, whose check
+is `dual-emission`, and whose subject matches the prior record's plan.
+The runner checks the immutable successful-action transcript for this
+order. The optional transition map permits the later
 `hold-raw-enable-parameterized` plan for prior `database/dup`. It does
 not add prior fields or oracle values to `StageView`.
 
@@ -46,12 +48,20 @@ forced finalize; a verification backfilled after session start; a
 participant-written fake PASS record; and a passing prior verification
 for the wrong prior plan under a transition map. After the opt-in gate,
 these are rejected while the legal path and old worlds pass. The tests
-also reject a PASS with a wrong check or subject. The R6 v2 full
+also reject a PASS with a wrong check or subject. An additional adversarial
+case finalized the prior award citing a future ID, then issued a PASS
+under that ID before the session boundary: both the shared first-stage
+gate and the R6 later gate now reject the out-of-order verification.
+`ProjectState` also refuses
+participant updates or finalization of an environment-issued
+verification record, closing a separate way to alter PASS evidence.
+The R6 v2 full
 two-session scripted witness passes; forcing the first receipt to FAIL
 while still finalizing the prior record makes **both** sessions fail.
 
 The gate certifies an environment-issued PASS verification record in
-the prior award's provenance. It does not certify that the worker read
+the prior award's provenance before that award was finalized. It does
+not certify that the worker read
 the delivered receipt, nor does it replace the first session's entire
 legality gate. The present OTel material has only one legal prior plan;
 the optional transition map is tested as a grader contract but does

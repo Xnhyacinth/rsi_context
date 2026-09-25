@@ -299,6 +299,7 @@ def run_lifecycle(
     prior_verification_record_ids = (
         env.verification_record_ids if prior_verification_required else frozenset()
     )
+    prior_transcript = env.transcript if prior_verification_required else ()
     stage_records: list[StageRecord] = []
     commit_gate_failures_at_time: list[str] = []
     total_stages = len(inst.stages)
@@ -389,6 +390,7 @@ def run_lifecycle(
                 prior_finalized_record_ids=prior_finalized_record_ids,
                 prior_records=prior_records,
                 prior_verification_record_ids=prior_verification_record_ids,
+                prior_transcript=prior_transcript,
             )
             if stage_gate_failures:
                 commit_gate_failures_at_time.extend(
@@ -556,6 +558,7 @@ def _commit_gate_failures(
     prior_finalized_record_ids: frozenset[str] = frozenset(),
     prior_records: Mapping[str, Mapping[str, Any]] | None = None,
     prior_verification_record_ids: frozenset[str] = frozenset(),
+    prior_transcript: tuple[Action, ...] = (),
 ) -> tuple[str, ...]:
     """Evaluator-side commit legality over the sandbox's ACTUAL records.
 
@@ -589,7 +592,8 @@ def _commit_gate_failures(
     Evidence truthfulness (external review 2026-09-22, deliverable A):
     a required verification counts ONLY when the ENVIRONMENT issued it
     (``env.verification_record_ids``), its ``subject`` names the
-    committed plan, and its ``verdict`` is "pass". A participant-written
+    committed plan, its ``verdict`` is "pass", and its request preceded
+    that commit's finalization in the successful-action transcript. A participant-written
     record that merely carries ``check``/``protocol_revision`` is data,
     not evidence. Likewise the commit record must have been genuinely
     finalized through the env (``env.finalized_record_ids``) — a bare
@@ -636,6 +640,7 @@ def _commit_gate_failures(
                     later_plan=plan,
                     prior_records=prior_records,
                     prior_verification_record_ids=prior_verification_record_ids,
+                    prior_transcript=prior_transcript,
                 )
             )
     legal = precondition.get("legal_plans")
@@ -660,6 +665,10 @@ def _commit_gate_failures(
     requirements = precondition.get("plan_requirements")
     requirement = requirements.get(plan) if isinstance(requirements, Mapping) else None
     if isinstance(requirement, Mapping):
+        # A verification requested only after the commit was finalized
+        # cannot retroactively support it, even when both actions occur in
+        # one stage before this evaluator check runs.
+        issued_before_finalize = _verification_ids_before_finalize(env.transcript, record_id)
         # A plan named in plan_requirements must cite a NON-EMPTY set of
         # sandbox records: absence of references is evidence FOR the
         # failure, never neutral (reviewer 2.1R — a bare create_record
@@ -683,7 +692,7 @@ def _commit_gate_failures(
             environment_evidence = [
                 (ref, record)
                 for ref, record in zip(referenced_ids, referenced, strict=True)
-                if ref in env.verification_record_ids
+                if ref in env.verification_record_ids and ref in issued_before_finalize
             ]
             for check_name in required_checks:
                 qualifying = [
@@ -743,6 +752,28 @@ def _commit_gate_failures(
     return tuple(failures)
 
 
+def _verification_ids_before_finalize(
+    transcript: tuple[Action, ...], record_id: str
+) -> frozenset[str]:
+    """Successful verification requests preceding this record's finalize."""
+
+    finalization_index = next(
+        (
+            index
+            for index, action in enumerate(transcript)
+            if action.kind == "finalize" and action.record_id == record_id
+        ),
+        None,
+    )
+    if finalization_index is None:
+        return frozenset()
+    return frozenset(
+        action.record_id
+        for action in transcript[:finalization_index]
+        if action.kind == "request_verification"
+    )
+
+
 def _prior_verification_failures(
     raw_rule: object,
     *,
@@ -750,6 +781,7 @@ def _prior_verification_failures(
     later_plan: str,
     prior_records: Mapping[str, Mapping[str, Any]],
     prior_verification_record_ids: frozenset[str],
+    prior_transcript: tuple[Action, ...],
 ) -> tuple[str, ...]:
     """Check a prior finalized award using only session-entry evidence."""
 
@@ -787,9 +819,11 @@ def _prior_verification_failures(
         return (f"commit gate: prior record {prior_id!r} lacks a {plan_field!r} plan",)
     refs = prior.get("provenance")
     evidence_ids = refs if isinstance(refs, list) else []
+    issued_before_finalization = _verification_ids_before_finalize(prior_transcript, prior_id)
     qualifying = any(
         isinstance(ref, str)
         and ref in prior_verification_record_ids
+        and ref in issued_before_finalization
         and isinstance(evidence := prior_records.get(ref), Mapping)
         and evidence.get("performed_by") == "environment"
         and evidence.get("check") == check
