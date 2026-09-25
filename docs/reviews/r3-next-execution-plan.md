@@ -129,6 +129,56 @@ broker are not built, and formal sealed eligibility remains closed.
    No mirror or same-source task counts as another independent parent; old
    R4 B/C call limits do not transfer to these worlds.
 
+R6 implementation worktrees start from
+`main@73157e800197c8116a34cd35db63d603265755cd` with the unchanged
+`uv.lock` SHA256
+`5b24847780908a3481e8b6757480531c165ff87517bc1d48acf250baa6cc9352`.
+Each ran `uv sync --extra dev --frozen --link-mode copy` before edits.
+
+| Worktree | Owned scope | Integration gate |
+| --- | --- | --- |
+| `r6-grader` | Opt-in shared prior verification gate, causal tests, versioned OTel B v2 only | Earlier PASS provenance and plan value control later legal action; old worlds unchanged |
+| `r6-jail` | Staged child runtime and behavioral OS isolation tests only | Audited exact policy bytes cannot read host secrets/files/processes, connect, escape, or overrun limits |
+| `r6-broker` | Trusted parent adapter over existing bounded codec and fake-child tests only | Visible-only stage serialization, ordered/tool-budgeted RPC, full state, deadline, no parent candidate exec |
+| `r6-integration` | Shared review, deterministic offline equivalence, source planning and delivery | No live-gate change without negative jail proof; full project checks and artifact hashes |
+
+The grader, jail, and broker branches are independent until reviewed merge.
+The source-parent acquisition step has not started: PEPs have a reserved
+revision but no registry entry or acquired checkout, and the proposed
+PostgreSQL source has no registry entry or acquired checkout. A read-only
+inspection of [PEP 1 at the reserved commit](https://github.com/python/peps/blob/6822259db9c95f02da739b3e2830a4aa1ae35134/peps/pep-0001.rst)
+found the process/status distinctions needed for the proposed B task and its
+public-domain/CC0 notice. Historical PEP 621/639 should not be used to score
+current PyPA compliance without the separate maintained specifications.
+A read-only
+lookup of PostgreSQL's [official Git mirror](https://www.postgresql.org/docs/17/git.html)
+resolved lightweight tag `REL_17_0` to commit
+`d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e`; this is a proposed pin,
+not a frozen dataset. Candidate files are
+[`logical-replication.sgml`](https://github.com/postgres/postgres/blob/d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e/doc/src/sgml/logical-replication.sgml)
+and [`create_subscription.sgml`](https://github.com/postgres/postgres/blob/d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e/doc/src/sgml/ref/create_subscription.sgml).
+The first states that slot synchronization is asynchronous and failover needs
+a readiness check; the second defines the subscription `failover` parameter.
+File-byte and span hashes, license review, registry dry-run, and acquisition
+remain pending. Neither proposed source can enter a scored world or update
+the independent-parent count yet.
+
+## R7 queue after the R6 offline merge
+
+| Work package | Dependency and acceptance evidence |
+| --- | --- |
+| Trusted jail runtime | First run the unchanged gate on a host with root-owned immutable runtime paths. If this host must be used, define an independent fixed-hash launcher/interpreter/library set, copy bytes without executing replaceable host paths, and run only verified copies. The path-tamper, hostile policy, resource-limit, timeout/reap, and jailed-broker tests must run without host-trust skips. Do not relax the path checks or use the current host `ldd`. |
+| Broker B sequence | Add explicit per-session environment binding and lifecycle cleanup to the parent broker; share budget/registry as specified and retain only policy `carry` across reset. Test actual `run_session_sequence` with prior PASS/FAIL/late/forged verification, final actions, state reset, and child cleanup. The existing two direct survey turns do not establish this. |
+| PEP B source | Review license and exact selected files at reserved commit `6822259db9c95f02da739b3e2830a4aa1ae35134`, add a versioned registry entry, inspect the download dry run, then acquire a detached clean checkout and record file/span hashes. Build one disclosed constructed-project B task and test source deletion, verification failure, prior-action change, irrelevant material, final rendered token offsets, and fresh call demand. |
+| PostgreSQL C source | Resolve and license-check the proposed `REL_17_0` commit `d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e`, then use the same registry/dry-run/hash gates. Build a constructed subscription/slot readiness task with separate source, receipt, and prior-action interventions; never represent a simulated receipt as an observed PostgreSQL outcome. |
+
+Registry edits require a new preflight manifest version because v3 fixes the
+old registry hash. The PEP and PostgreSQL packages may progress independently
+of host jail work, but they remain development candidates until source,
+causality, position, fixed-reader, and independent-lineage gates pass.
+Synchronous model/delegate callbacks still need bounded cancellation and
+provider usage before any paid live comparison.
+
 ## Historical R3 starting state and workspaces
 
 | Responsibility | Branch/worktree | Owned output | Shared starting state |
