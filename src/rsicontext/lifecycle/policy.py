@@ -316,18 +316,27 @@ class PolicyHook:
     def _ask_model(self, prompt: str) -> ModelReply:
         """The metered model channel the Turn exposes to the policy.
 
-        R1.1: the cumulative budget gates the call BEFORE it is made —
-        model usage cannot bypass the arm's resource pack.
+        The cumulative budget gates a dispatch and its known local input
+        estimate before calling the responder. ``tool_budget.calls`` counts
+        every request attempt; ``model_calls`` counts actual dispatches.
+        Output cannot be preflighted without a bounded provider response.
         """
 
         if self._responder is None:
+            self.tool_budget.charge(0, 0)
             return ModelReply(ok=False, cause="no model channel installed")
         if not isinstance(prompt, str) or not prompt.strip():
+            self.tool_budget.charge(0, 0)
             return ModelReply(ok=False, cause="ask_model requires a non-empty prompt")
         refusal = self.tool_budget.enforce("ask_model")
         if refusal is not None:
+            self.tool_budget.charge(0, 0)
             return ModelReply(ok=False, cause=refusal)
         tokens_in = max(1, len(prompt.split()))
+        refusal = self.tool_budget.enforce_input("ask_model", tokens_in)
+        if refusal is not None:
+            self.tool_budget.charge(0, 0)
+            return ModelReply(ok=False, cause=refusal)
         self.model_calls += 1
         self.model_tokens_in += tokens_in
         self.tool_budget.charge(tokens_in, 0)
@@ -448,6 +457,7 @@ class PolicyHook:
             if action.kind == "request_verification":
                 refusal = self.tool_budget.enforce("request_verification (action)")
                 if refusal is not None:
+                    self.tool_budget.charge(0, 0)
                     self.policy_errors.append(f"action dropped: {refusal}")
                     continue
                 self.tool_budget.charge_verification()

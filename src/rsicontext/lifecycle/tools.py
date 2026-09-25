@@ -60,8 +60,11 @@ class ToolBudget:
     Review §3.5: a counter without a cap is not a budget. ``max_calls``
     and ``max_tokens`` are cumulative caps; once exceeded, every further
     tool call refuses BEFORE executing (a named refusal receipt, never a
-    silent pass, never a crash). Failed attempts still meter — a policy
-    cannot probe for free. ``enforce()`` is the gate every tool passes.
+    silent pass, never a crash). ``calls`` counts every attempted request,
+    including refusals, while ``PolicyHook.model_calls`` counts only model
+    dispatches. Failed attempts cannot probe for free. Known input estimates
+    are checked before external dispatch; output is charged afterward and
+    cannot be hard-capped here without a bounded provider response.
     """
 
     tokens_in: int = 0
@@ -82,7 +85,7 @@ class ToolBudget:
         return f"verif-{self.verification_seq}"
 
     def charge_verification(self) -> None:
-        """One env verification executed (any syntax): counted and metered."""
+        """Count one admitted verification request, regardless of env verdict."""
 
         self.calls += 1
 
@@ -100,6 +103,15 @@ class ToolBudget:
             return f"tool budget exhausted: call cap {self.max_calls} reached ({name})"
         if self.max_tokens is not None and (self.tokens_in + self.tokens_out) >= self.max_tokens:
             return f"tool budget exhausted: token cap {self.max_tokens} reached ({name})"
+        return None
+
+    def enforce_input(self, name: str, tokens_in: int) -> str | None:
+        """Refuse known input cost before dispatch; output is not yet known."""
+
+        if self.max_tokens is not None and (
+            self.tokens_in + self.tokens_out + tokens_in > self.max_tokens
+        ):
+            return f"tool budget exhausted: token cap {self.max_tokens} exceeded by input ({name})"
         return None
 
     def charge(self, tokens_in: int, tokens_out: int) -> None:
@@ -337,6 +349,11 @@ class ToolSurface:
             self._budget.receipts.append(receipt)
             return receipt
         tokens_in = DELEGATE_OVERHEAD_TOKENS + sum(max(1, len(doc.split())) for doc in docs)
+        refusal = self._budget.enforce_input("delegate", tokens_in)
+        if refusal is not None:
+            receipt = ToolReceipt(tool="delegate", ok=False, cause=refusal)
+            self._budget.receipts.append(receipt)
+            return receipt
         self._budget.charge_input(tokens_in)
         try:
             answer = self._delegate_runner(query, docs)
