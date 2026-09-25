@@ -28,7 +28,8 @@ from rsicontext.security.audit import PolicyAuditor
 _CHILD_SOURCE = Path(__file__).with_name("_policy_child.py")
 _SET_PRIV = Path("/usr/bin/setpriv")
 _UNSHARE = Path("/usr/bin/unshare")
-_SECCOMP = Path("/usr/lib/x86_64-linux-gnu/libseccomp.so.2")
+_SECCOMP = Path("/usr/lib/x86_64-linux-gnu/libseccomp.so.2.5.3")
+_LDD = Path("/usr/bin/ldd")
 _PROBE = """
 import __future__, builtins, ctypes, errno, hashlib, json, math, os, re, resource
 import statistics, struct, sys, types, typing
@@ -56,8 +57,10 @@ def _material_json(value: object) -> bytes:
 
 
 def _ldd_dependencies(path: Path) -> set[Path]:
+    _assert_trusted_file(_LDD)
+    _assert_trusted_file(path)
     result = subprocess.run(
-        ["/usr/bin/ldd", str(path)], check=True, capture_output=True, text=True, timeout=10
+        [str(_LDD), str(path)], check=True, capture_output=True, text=True, timeout=10
     )
     dependencies: set[Path] = set()
     for line in result.stdout.splitlines():
@@ -72,6 +75,7 @@ def _ldd_dependencies(path: Path) -> set[Path]:
 
 
 def _stdlib_import_closure(python: Path) -> tuple[Path, set[Path]]:
+    _assert_trusted_file(python)
     result = subprocess.run(
         [str(python), "-I", "-S", "-c", _PROBE],
         check=True,
@@ -93,6 +97,7 @@ def _stdlib_import_closure(python: Path) -> tuple[Path, set[Path]]:
         source = Path(item).resolve()
         if not source.is_file() or not source.is_relative_to(stdlib):
             raise JailSetupError(f"import closure escaped Python stdlib: {source}")
+        _assert_trusted_file(source)
         files.add(source)
     return stdlib, files
 
@@ -100,6 +105,7 @@ def _stdlib_import_closure(python: Path) -> tuple[Path, set[Path]]:
 def _copy_exact(
     source: Path, destination: Path, files: dict[str, str], root: Path, *, executable: bool = False
 ) -> None:
+    _assert_trusted_file(source)
     if not source.is_file() or destination.exists():
         raise JailSetupError(f"missing or duplicate jail material: {destination}")
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -111,17 +117,44 @@ def _copy_exact(
     files[str(destination.relative_to(root))] = source_hash
 
 
-def _assert_traversable_parent(root: Path) -> None:
-    if not root.is_absolute() or root.is_symlink():
-        raise JailSetupError("jail root must be an absolute, non-symlink path")
-    for ancestor in root.parents:
-        metadata = ancestor.stat()
-        if (
-            ancestor.is_symlink()
-            or not stat.S_ISDIR(metadata.st_mode)
-            or not metadata.st_mode & stat.S_IXOTH
-        ):
+def _assert_trusted_ancestors(path: Path, *, traversable: bool = False) -> None:
+    """Reject path replacement by anyone except root before any root execution."""
+
+    if not path.is_absolute():
+        raise JailSetupError("material path must be absolute")
+    for ancestor in path.parents:
+        metadata = ancestor.lstat()
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+            raise JailSetupError(f"untrusted path ancestor: {ancestor}")
+        if metadata.st_uid != 0:
+            raise JailSetupError(f"non-root-owned path ancestor: {ancestor}")
+        writable = bool(metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH))
+        sticky_tmp = (
+            ancestor == Path("/tmp")  # nosec B108 - audited sticky ancestor, not a temp output
+            and bool(metadata.st_mode & stat.S_ISVTX)
+            and path.parent != ancestor
+        )
+        if writable and not sticky_tmp:
+            raise JailSetupError(f"untrusted writable path ancestor: {ancestor}")
+        if traversable and not metadata.st_mode & stat.S_IXOTH:
             raise JailSetupError(f"host UID 65534 cannot traverse {ancestor}")
+
+
+def _assert_trusted_file(path: Path) -> None:
+    _assert_trusted_ancestors(path)
+    metadata = path.lstat()
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_uid != 0
+        or metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+    ):
+        raise JailSetupError(f"untrusted runtime or launcher file: {path}")
+
+
+def _assert_traversable_parent(root: Path) -> None:
+    if root.is_symlink():
+        raise JailSetupError("jail root must not be a symlink")
+    _assert_trusted_ancestors(root, traversable=True)
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,8 +166,15 @@ class StagedPolicyJail:
     manifest_sha256: str
 
     def verify(self) -> None:
+        _assert_traversable_parent(self.root)
         manifest_path = self.root / "MANIFEST.json"
-        if manifest_path.is_symlink() or _sha256(manifest_path) != self.manifest_sha256:
+        manifest_stat = manifest_path.lstat()
+        if (
+            not stat.S_ISREG(manifest_stat.st_mode)
+            or manifest_stat.st_uid != 0
+            or manifest_stat.st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+            or _sha256(manifest_path) != self.manifest_sha256
+        ):
             raise JailSetupError("jail manifest changed")
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict) or payload.get("policy_sha256") != self.policy_sha256:
@@ -142,6 +182,10 @@ class StagedPolicyJail:
         files = payload.get("files")
         if not isinstance(files, dict):
             raise JailSetupError("jail manifest files are missing")
+        if files.get("bin/python3.12") != payload.get("python_sha256") or files.get(
+            "child.py"
+        ) != payload.get("child_sha256"):
+            raise JailSetupError("staged interpreter or child cross-pin mismatch")
         entries = tuple(self.root.rglob("*"))
         actual_files: set[str] = set()
         for entry in entries:
@@ -247,9 +291,12 @@ def stage_policy_jail(
         raise JailSetupError("staging needs host root to own immutable jail files")
     root = root.absolute()
     _assert_traversable_parent(root)
+    for trusted in (_CHILD_SOURCE, _SET_PRIV, _UNSHARE, _SECCOMP, _LDD):
+        _assert_trusted_file(trusted)
     if root.exists() or len(expected_python_sha256) != 64:
         raise JailSetupError("jail root exists or interpreter pin is missing")
-    python = python_executable.resolve()
+    _assert_trusted_file(python_executable)
+    python = python_executable
     if _sha256(python) != expected_python_sha256:
         raise JailSetupError("interpreter SHA256 differs from the declared pin")
     try:
@@ -280,7 +327,9 @@ def stage_policy_jail(
     for library in libraries:
         dependencies.update(_ldd_dependencies(library))
     for library in sorted(dependencies):
-        destination = root / "lib" / "x86_64-linux-gnu" / library.name
+        _assert_trusted_file(library)
+        staged_name = "libseccomp.so.2" if library == _SECCOMP else library.name
+        destination = root / "lib" / "x86_64-linux-gnu" / staged_name
         if library.name.startswith("ld-linux"):
             destination = root / "lib64" / library.name
         if destination.exists():
@@ -321,6 +370,8 @@ def launch_policy_jail(
     """Launch only the trusted child with preopened broker FDs; never use preexec_fn."""
 
     artifact.verify()
+    for trusted in (_SET_PRIV, _UNSHARE):
+        _assert_trusted_file(trusted)
     manifest = json.loads((artifact.root / "MANIFEST.json").read_text(encoding="utf-8"))
     launchers = cast(dict[str, str], manifest["pre_jail_launchers"])
     if any(_sha256(Path(path)) != digest for path, digest in launchers.items()):
