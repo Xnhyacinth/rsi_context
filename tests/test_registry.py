@@ -30,6 +30,8 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         "musique-answerable-data-qualification",
         "hotpotqa",
         "2wikimultihopqa",
+        "otel-semconv-v1.43.0",
+        "kubernetes-enhancements-kep753",
         "gepa",
         "mce",
         "meta-harness",
@@ -57,6 +59,17 @@ def test_project_registry_has_required_entries_and_modes() -> None:
     assert "qualification only" in musique_data.notes
     assert entries["hotpotqa"].revision == "3635853403a8735609ee997664e1528f4480762a"
     assert entries["2wikimultihopqa"].revision == "13800e5be57df1b4040b9b1588c6c811779e69e9"
+    for entry_id, revision in (
+        ("otel-semconv-v1.43.0", "89aae438b3b3b0a8dd33003c9d70592baf7dbd0d"),
+        ("kubernetes-enhancements-kep753", "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a"),
+    ):
+        entry = entries[entry_id]
+        assert entry.kind == "dataset"
+        assert entry.integration == "adapter"
+        assert entry.source_type == "git"
+        assert entry.revision == revision
+        assert entry.checksum.value == revision
+        assert entry.checksum.verified
 
 
 def test_registry_rejects_duplicate_ids() -> None:

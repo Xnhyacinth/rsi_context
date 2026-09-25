@@ -164,6 +164,42 @@
       "notes": "Official repository HEAD verified on 2026-08-29. The separately hosted data archive is not pinned by this entry and must pass license and content-checksum review before use."
     },
     {
+      "id": "otel-semconv-v1.43.0",
+      "name": "OpenTelemetry semantic conventions v1.43.0",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/open-telemetry/semantic-conventions.git",
+      "revision": "89aae438b3b3b0a8dd33003c9d70592baf7dbd0d",
+      "license": "Apache-2.0",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "89aae438b3b3b0a8dd33003c9d70592baf7dbd0d",
+        "verified": true
+      },
+      "notes": "Pinned official source for a proposed independent Gate 2 development parent. Selected database span and SQL convention documents require post-acquisition blob and byte verification; no benchmark world has qualified yet."
+    },
+    {
+      "id": "kubernetes-enhancements-kep753",
+      "name": "Kubernetes enhancements KEP-753",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/kubernetes/enhancements.git",
+      "revision": "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a",
+      "license": "Apache-2.0",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a",
+        "verified": true
+      },
+      "notes": "Pinned official KEP-753 design and metadata for a proposed independent Gate 2 development parent. Constructed sandbox actions must be identified as such; no benchmark world has qualified yet."
+    },
+    {
       "id": "longmemeval-v2",
       "name": "LongMemEval-V2",
       "kind": "dataset",
