@@ -15,7 +15,7 @@ from rsicontext.lifecycle.brokered_policy import BrokeredPolicyHook, BrokerError
 from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.runner import StageView
 from rsicontext.lifecycle.spec import DescriptionAxes, DocumentRef
-from rsicontext.lifecycle.tools import ToolBudget, ToolSurface
+from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget, ToolSurface
 from rsicontext.security.policy_protocol import encode_message, read_frame
 
 
@@ -326,6 +326,28 @@ def test_oversized_header_poison_does_not_update_state() -> None:
     try:
         with pytest.raises(BrokerError, match="invalid policy frame length"):
             hook.on_stage(_stage())
+        assert hook.state == {}
+        with pytest.raises(BrokerError, match="closed"):
+            hook.on_stage(_stage("s2"))
+    finally:
+        _finish(hook, thread, failures)
+
+
+def test_unexpected_registry_failure_poison_keeps_original_cause() -> None:
+    class ExplodingRegistry(DocumentRegistry):
+        def get(self, doc_id: str) -> DocumentRef | None:
+            raise RuntimeError(f"registry lookup failed for {doc_id}")
+
+    def worker(reader: BufferedReader, writer: BufferedWriter) -> None:
+        read_frame(reader)
+        _send(writer, _request(1, "reread", {"doc_id": "missing", "span": None}))
+
+    hook, thread, failures = _peer(worker)
+    hook.registry = ExplodingRegistry()
+    try:
+        with pytest.raises(BrokerError, match="registry lookup failed") as failure:
+            hook.on_stage(_stage())
+        assert isinstance(failure.value.__cause__, RuntimeError)
         assert hook.state == {}
         with pytest.raises(BrokerError, match="closed"):
             hook.on_stage(_stage("s2"))

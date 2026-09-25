@@ -366,7 +366,7 @@ class BrokeredPolicyHook:
                     actions=tuple(admitted),
                 )
             raise ProtocolError("worker turn ended without decision")
-        except (OSError, ValueError, BrokerError) as exc:
+        except Exception as exc:
             self.policy_errors.append(f"broker failed: {type(exc).__name__}: {exc}")
             self.close()
             raise BrokerError(f"policy broker failed: {exc}") from exc

@@ -9,7 +9,8 @@ validated by the R5 codec and routed in the parent through `ToolSurface`,
 `ToolBudget`, or the injected model responder. The parent reconstructs typed
 actions, gates verification actions against the same budget, and stores the
 bounded full state. A framing, sequence, pipe, or monotonic deadline error
-closes the descriptors and poisons the hook.
+closes the descriptors and poisons the hook. Unexpected trusted callback
+exceptions take the same path and remain chained as the cause of `BrokerError`.
 
 Offline fake-pipe tests cover two stages on one worker, visible projection,
 reread equivalence, action conversion, verification-action caps, overbudget
