@@ -30,6 +30,7 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         "musique-answerable-data-qualification",
         "hotpotqa",
         "2wikimultihopqa",
+        "otel-semconv-v1.24.0",
         "otel-semconv-v1.43.0",
         "kubernetes-enhancements-kep753",
         "python-pep-process",

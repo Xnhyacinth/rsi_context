@@ -164,6 +164,24 @@
       "notes": "Official repository HEAD verified on 2026-08-29. The separately hosted data archive is not pinned by this entry and must pass license and content-checksum review before use."
     },
     {
+      "id": "otel-semconv-v1.24.0",
+      "name": "OpenTelemetry semantic conventions v1.24.0",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/open-telemetry/semantic-conventions.git",
+      "revision": "cafda7127683b7f667e27cdbd3220510b6f998c9",
+      "license": "Apache-2.0",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "cafda7127683b7f667e27cdbd3220510b6f998c9",
+        "verified": true
+      },
+      "notes": "Official v1.24.0 lightweight tag resolved on canonical remote on 2026-09-26. Historical experimental database conventions for a version-matched development contrast; selected bytes and license require post-acquisition audit."
+    },
+    {
       "id": "otel-semconv-v1.43.0",
       "name": "OpenTelemetry semantic conventions v1.43.0",
       "kind": "dataset",
