@@ -51,6 +51,10 @@ from rsicontext.participant.recuris_real_arm import (
     RecurisAdaptedImprover,
     package_to_state,
 )
+from rsicontext.security.isolated_policy import (
+    PolicyIsolationUnavailable,
+    require_isolated_policy_executor,
+)
 
 SEARCH_CANDIDATES = 3  # K — declared in advance (stats-contract §6)
 
@@ -83,6 +87,11 @@ def main() -> int:
     started = time.monotonic()
     live = not args.offline
     if live:
+        try:
+            require_isolated_policy_executor()
+        except PolicyIsolationUnavailable as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
         import os
 
         if not os.environ.get("SIFLOW_API_KEY"):

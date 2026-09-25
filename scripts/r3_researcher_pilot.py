@@ -34,6 +34,7 @@ from r3_compare import _api_profile, _canonical_sha256, _git_identity, _source_s
 from rsicontext.lifecycle.material_v4_dossier import build_research_v4_dossier
 from rsicontext.lifecycle.strong_model_fixed import strong_model_fixed_policy_text
 from rsicontext.security.audit import PolicyAuditor
+from rsicontext.security.isolated_policy import require_isolated_policy_executor
 
 PLANNED_ATTEMPTS = 2
 RESEARCHER_MAX_OUTPUT_TOKENS = 8192
@@ -307,6 +308,10 @@ def _identity_still_frozen(identity: dict[str, object]) -> bool:
 
 
 def run(output: Path) -> dict[str, object]:
+    # A researcher-authored candidate would otherwise reach load_policy and
+    # PolicyHook in this credentialed evaluator process. Refuse before any
+    # provider call, candidate load, or output artifact is created.
+    require_isolated_policy_executor()
     if output.exists():
         raise FileExistsError(f"refusing to overwrite pilot artifact: {output}")
     if not os.environ.get("SIFLOW_API_KEY"):

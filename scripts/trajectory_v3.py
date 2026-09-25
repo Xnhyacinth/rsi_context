@@ -63,6 +63,10 @@ from rsicontext.participant.snapshot import (
     run_evaluation_branch,
 )
 from rsicontext.reader_tiers import MIN_VARIANCE_REPEATS as _MIN_VARIANCE_REPEATS
+from rsicontext.security.isolated_policy import (
+    PolicyIsolationUnavailable,
+    require_isolated_policy_executor,
+)
 from rsicontext.session import SessionKind, SessionStateStore
 
 READER_ENDPOINT = "https://api.siflow.cn/model-api/chat/completions"
@@ -364,6 +368,8 @@ class TrajectoryHook:
     def _strategy_namespace(self) -> dict[str, object]:
         if self.strategy_text is None:
             return {}
+        if not self.offline:
+            require_isolated_policy_executor()
         namespace: dict[str, object] = {}
         try:
             exec(self.strategy_text, namespace)
@@ -968,6 +974,17 @@ def main() -> int:
     if args.author_repeats and args.rounds != 1:
         print("--author-repeats runs alongside --rounds 1 only", file=sys.stderr)
         return 2
+    if args.researcher and args.offline:
+        print("--researcher is live-only (the researcher is a real model)", file=sys.stderr)
+        return 2
+    if not args.offline:
+        # Both the scripted and researcher-authored S1 strategies reach
+        # TrajectoryHook's host-process exec. No fixed-only CLI mode exists.
+        try:
+            require_isolated_policy_executor()
+        except PolicyIsolationUnavailable as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
 
     started = time.monotonic()
     offline_answers = {
@@ -1468,6 +1485,8 @@ def _researcher_round(
     retry-loop's view of transport/empty failures, so the caller can
     separate endpoint reliability from authoring variance.
     """
+
+    require_isolated_policy_executor()
 
     from rsicontext.participant.api_researcher import (
         APIResearcherConfig,
