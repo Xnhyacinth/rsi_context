@@ -10,7 +10,9 @@ from pathlib import Path
 from rsicontext.lifecycle.env import Action, ProjectState
 from rsicontext.lifecycle.material_k8s_parent import SOURCE_SHA256, build_k8s_sidecar_sessions
 from rsicontext.lifecycle.runner import StageResponse, StageView, run_lifecycle
+from rsicontext.lifecycle.session_sequence import run_session_sequence
 from rsicontext.lifecycle.spec import DocumentRef
+from rsicontext.session.state import canonical_state_bytes
 
 
 def _verify(record_id: str, check: str, subject: str) -> Action:
@@ -37,12 +39,20 @@ class ReferenceHook:
     """A test skeleton that chooses from visible source text and receipts."""
 
     def __init__(
-        self, *, carry: dict[str, object] | None = None, stale_readiness: bool = False
+        self,
+        *,
+        carry: dict[str, object] | None = None,
+        state: dict[str, object] | None = None,
+        stale_readiness: bool = False,
     ) -> None:
         self.source_text: dict[str, str] = {}
-        self.carry = dict(carry or {})
+        self.state = state if state is not None else {}
+        state_carry = self.state.get("carry")
+        self.carry = state_carry if isinstance(state_carry, dict) else dict(carry or {})
+        self.state["carry"] = self.carry
         self.amendment_text = ""
         self.first_step = 0
+        self.second_done = False
         self.stale_readiness = stale_readiness
 
     def on_stage(self, stage: StageView) -> StageResponse:
@@ -93,6 +103,9 @@ class ReferenceHook:
                     _commit("sidecar_rollout", passing[0].subject, "verify-native"),
                 )
         if stage.stage_id == "kep753-readiness-rollout":
+            if self.second_done:
+                return StageResponse("readiness rollout complete")
+            self.second_done = True
             first_plan = self.carry.get("first_plan")
             plan = first_plan if isinstance(first_plan, str) else "unresolved-plan"
             if (
@@ -130,6 +143,56 @@ def test_reference_recovery_and_later_rollout_pass() -> None:
     assert env.records["verify-native"]["verdict"] == "pass"
     assert env.records["verify-ready-current"]["protocol_revision"] == 2
     assert env.check_revisions == {"readiness-contract": 2}
+
+
+def test_real_session_sequence_delivers_carry_and_meters_bytes() -> None:
+    first, second = build_k8s_sidecar_sessions()
+    env = ProjectState()
+    states: list[dict[str, object]] = []
+
+    def hook_factory(state: dict[str, object]) -> ReferenceHook:
+        states.append(state)
+        return ReferenceHook(state=state)
+
+    record = run_session_sequence(
+        [first, second], hook_factory, envs=[env, env], max_turns_per_stage=4
+    )
+    assert len(states) == 2
+    assert [session.passed for session in record.sessions] == [True, True]
+    assert all(session.persist_ok for session in record.sessions)
+    first_carry = record.sessions[0].final_carry
+    assert first_carry == {"first_plan": "native-sidecar", "probe_supported": True}
+    assert states[1]["carry"] == first_carry
+    assert record.sessions[0].carry_bytes == len(canonical_state_bytes(first_carry))
+    assert 0 < record.sessions[0].carry_bytes <= 65536
+    assert record.cost()["model_calls"] == 0
+
+
+def test_real_session_sequence_refuses_oversized_carry() -> None:
+    first, second = build_k8s_sidecar_sessions()
+    env = ProjectState()
+    states: list[dict[str, object]] = []
+
+    class OversizeHook(ReferenceHook):
+        def on_stage(self, stage: StageView) -> StageResponse:
+            response = super().on_stage(stage)
+            if stage.stage_id == "kep753-s1-end":
+                self.carry["padding"] = "x" * 65536
+            return response
+
+    def hook_factory(state: dict[str, object]) -> ReferenceHook:
+        states.append(state)
+        return OversizeHook(state=state) if len(states) == 1 else ReferenceHook(state=state)
+
+    record = run_session_sequence(
+        [first, second], hook_factory, envs=[env, env], max_turns_per_stage=4
+    )
+    assert record.sessions[0].passed
+    assert not record.sessions[0].persist_ok
+    assert record.sessions[0].carry_bytes > 65536
+    assert "carry exceeds" in record.sessions[0].persist_cause
+    assert states[1]["carry"] == {}
+    assert not record.sessions[1].passed
 
 
 def test_later_rollout_fails_without_prior_finalize_even_if_repaired_in_session() -> None:
