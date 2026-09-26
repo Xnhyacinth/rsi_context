@@ -7,6 +7,14 @@ and registry SHA256
 `c071cbfc5c33f69b01abb8b0c58033590711482adbad66bb0c261bc5ef6b67e2`.
 The original main checkout's unrelated untracked `logs/` is preserved.
 
+R16 adds a new pinned Kafka-site intake entry to `configs/registry.json`,
+changing its SHA256 to
+`e063e0c4291de8e560d5928ce2c847b003ede8c0b2bd69a85265df0707a1a6a7`.
+The R15 PEP paid artifact remains bound to its original registry bytes and
+`main@93e7773`; replay it from that immutable commit, rather than treating
+the changed R16 HEAD as byte-identical. The R16 KEP launch must bind the new
+registry hash before any provider call.
+
 | Isolated owner | Scope and initial evidence |
 | --- | --- |
 | `work/r16-kep` | Guarded live admission for the existing KEP-753 fixed-reader three-arm card; owns new runner, launch/geometry registration, targeted tests and preregistration. No paid call before parent review. |
