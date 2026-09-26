@@ -135,6 +135,11 @@ user messages, generation wrapper, and disabled-thinking chat template. The
 prospective fixed reader's two prompt functions are in
 `scripts/audit_r18_iceberg_geometry.py`; a future runner must call these
 unchanged and verify provider input parity. No provider usage is claimed.
+The S1 answer grammar permits mixed field values, but the geometry audit
+registers S2 prompts only for the two coherent data/file rule bundles and
+the all-unknown bundle. A future live runner must treat every other S1 reply
+as a named failure **before** S2 dispatch, or version a larger prompt and
+budget registration; the current geometry does not cover those continuations.
 
 | Prospective worker input | Final-chat input tokens | 32K remaining after 2,048 requested output |
 | --- | ---: | ---: |

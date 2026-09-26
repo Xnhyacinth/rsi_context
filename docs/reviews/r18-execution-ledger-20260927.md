@@ -1,6 +1,7 @@
 # R18 source-dependency and calibration execution ledger
 
-Status: **in progress**. The R18 branches started from clean
+Status: **KEP paid calibration complete; Iceberg remains an unqualified offline
+candidate**. The R18 branches started from clean
 `main@781565c9a4f4933f4af83d9e7dcf9a3f8024ef5c`; the original
 untracked `logs/` in main remains untouched. Each worktree has its own
 project-local environment synced from the unchanged `uv.lock` SHA-256
@@ -38,6 +39,30 @@ credential resolution.
 No R18 model or GPU calls had been made when this ledger was opened. The
 researcher effective-update-rate pretest still lacks a trusted host jail and
 live worker adapter; see the [R17 runtime audit](r17-researcher-runtime-and-budget-audit-20260927.md).
+
+## R18 outcome and next admission
+
+The [KEP paid calibration](r18-kep-short-rule-calibration-result-20260927.md)
+completed four target requests and two exact-profile canaries with **1,534
+provider input / 78 output tokens**, zero unknown usage and no auxiliary
+calls. The explicit short authentic rule did not produce a correct membership
+or effective-request answer. This fails the prospective short-task feasibility
+screen for the frozen Qwen reader and prompt; no further KEP source-dependency
+spend is justified from these results. The constructed new-Pod oracle and
+scope limits are in the result note.
+
+The [Iceberg offline candidate](r18-iceberg-row-scan-candidate.md) uses a
+contiguous, authentic 118,725-byte slice of a pinned 184,975-byte spec and
+four explicitly constructed rule edits. Its source-conditioned private action
+changes while the fixed request and procedural receipts stay matched.
+Offline tests and exact [local chat geometry](r18-iceberg-geometry.json)
+establish construction and a 24,883-token authentic S1 input, not a model
+dependency result. The full-file prompt is 42,169 tokens and misses the 32K
+benchmark window. A next paid screen would need a new committed launch and
+request hashes, a real two-session fixed reader with controlled source
+reread, source-free and identity-only model controls, two reader families,
+provider usage accounting and an explicit rule for mixed S1 replies. No
+Iceberg provider or GPU call was made in R18.
 
 ## Why these screens precede a benchmark score
 
