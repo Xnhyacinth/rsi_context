@@ -228,6 +228,7 @@ def run_development_pilot(
     if len(specs) != MAX_TRAJECTORIES:
         raise AssertionError("development pilot trajectory count changed")
     cases: list[dict[str, object]] = []
+    task_failed = False
     for name, sessions, clear_carry, no_reread in specs:
         first, second = sessions
         env = ProjectState()
@@ -281,10 +282,19 @@ def run_development_pilot(
         )
         if worker.failed:
             break
+        if name in ("full-16", "full-17") and not all(s.passed for s in record.sessions):
+            task_failed = True
+            break
     return {
         "schema_version": 1,
         "scope": "postgresql_adaptive_fixed_reader_development_only",
-        "status": "stopped-on-worker-failure" if worker.failed else "completed-development-screen",
+        "status": (
+            "stopped-on-worker-failure"
+            if worker.failed
+            else "stopped-on-full-task-failure"
+            if task_failed
+            else "completed-development-screen"
+        ),
         "profile_id": profile.id,
         "profile_sha256": profile.profile_hash,
         "policy_sha256": _sha(postgresql_model_fixed_policy_text().encode()),
