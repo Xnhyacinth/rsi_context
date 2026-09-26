@@ -258,18 +258,24 @@ def test_protocol_failures_stop_before_second_target(
     assert not (tmp_path / failure / "post_canary.json").exists()
 
 
-def test_live_disabled_refuses_before_credential_resolution(
+def test_live_v2_checks_credentials_before_any_http(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(
-        runner, "_read_launch", lambda: (json.loads(runner._LAUNCH.read_bytes()), "test")
-    )
+    _prepared(monkeypatch)
+
+    def refuse_credential(*_args: object, **_kwargs: object) -> None:
+        raise ValueError("test credential refusal")
+
     monkeypatch.setattr(
         runner, "resolve_api_endpoint",
-        lambda *_args, **_kwargs: pytest.fail("disabled launch resolved credentials"),
+        refuse_credential,
+    )
+    monkeypatch.setattr(
+        runner, "_urlopen_transport",
+        lambda *_args, **_kwargs: pytest.fail("credential refusal reached HTTP"),
     )
     result = runner.run_guarded(
-        source_root=SOURCE, tokenizer_path=TOKENIZER, run_dir=tmp_path / "disabled"
+        source_root=SOURCE, tokenizer_path=TOKENIZER, run_dir=tmp_path / "no-credential"
     )
     assert result["status"] == "refused-or-interrupted"
     assert result["failure_type"] == "ValueError"
@@ -327,7 +333,23 @@ def test_cli_rejects_protocol_complete_but_wrong_panel(
 
 def test_committed_launch_and_bound_code_match_head() -> None:
     launch, digest = runner._read_launch()
+    assert runner._LAUNCH_REL == "configs/r20_iceberg_short_paid_launch_v2.json"
+    assert launch["schema_version"] == 2
     assert launch["global_call_cap"] == 6
-    assert launch["live_enabled"] is False
+    assert launch["live_enabled"] is True
+    assert launch["registration_sha256"] == runner._sha(short.REGISTRATION.read_bytes())
     assert launch["private_oracle_sha256"] == ORACLE_SHA256
     assert digest == runner._sha(runner._LAUNCH.read_bytes())
+    v1_raw = (ROOT / "configs/r20_iceberg_short_paid_launch_v1.json").read_bytes()
+    assert runner._sha(v1_raw) == (
+        "3bd1b78f5bf02fd7eb3a1d6e7d42d380e4a3fa82c9c4c6a4425a0e859418fb78"
+    )
+    v1 = json.loads(v1_raw)
+    for field in set(v1) - {"schema_version", "scope", "live_enabled", "bound_file_sha256"}:
+        assert launch[field] == v1[field]
+    producer = "scripts/r20_iceberg_short_paid_runner.py"
+    assert {name: digest for name, digest in launch["bound_file_sha256"].items()
+            if name != producer} == {
+        name: digest for name, digest in v1["bound_file_sha256"].items()
+        if name != producer
+    }

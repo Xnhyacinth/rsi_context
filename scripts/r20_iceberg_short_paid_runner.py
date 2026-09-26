@@ -42,7 +42,7 @@ from rsicontext.lifecycle.material_iceberg_row_scan import (  # noqa: E402
     SOURCE_SHA256,
 )
 
-_LAUNCH_REL = "configs/r20_iceberg_short_paid_launch_v1.json"
+_LAUNCH_REL = "configs/r20_iceberg_short_paid_launch_v2.json"
 _LAUNCH = ROOT / _LAUNCH_REL
 _REGISTRATION_REL = "configs/r20_iceberg_short_registration_v1.json"
 _BOUND_FILES = (
@@ -98,9 +98,9 @@ def _read_launch() -> tuple[dict[str, object], str]:
     if (
         not isinstance(value, dict)
         or set(value) != required
-        or value["schema_version"] != 1
-        or value["scope"] != "r20-iceberg-short-paid-feasibility"
-        or type(value["live_enabled"]) is not bool
+        or value["schema_version"] != 2
+        or value["scope"] != "r20-iceberg-short-paid-feasibility-v2"
+        or value["live_enabled"] is not True
     ):
         raise ValueError("R20 short launch schema or scope differs")
     registration_raw = short.REGISTRATION.read_bytes()
