@@ -210,6 +210,27 @@ def test_wrong_first_plan_still_tests_second_and_post_canary(
     assert [row["correct"] for row in task["cases"]] == [False, True]
 
 
+def test_fixed_suppress_shortcut_is_observed_in_both_arms(
+    tokenizer: ChatTokenizer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _prepared(monkeypatch)
+    calls: list[str] = []
+    run_dir = tmp_path / "fixed-suppress"
+    result = runner.run_guarded(
+        source_root=SOURCE,
+        tokenizer_path=TOKENIZER,
+        run_dir=run_dir,
+        transport_override=_route(
+            canary._profile(), tokenizer, calls, second_answer="plan=suppress-row"
+        ),
+    )
+    assert calls == ["canary", "data-counter", "file-counter", "canary"]
+    assert result["status"] == "completed-synthetic-screen"
+    assert result["task_feasible"] is False
+    task = json.loads((run_dir / "task.json").read_bytes())
+    assert [row["correct"] for row in task["cases"]] == [True, False]
+
+
 def test_terminal_newline_is_valid_outer_whitespace(
     tokenizer: ChatTokenizer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

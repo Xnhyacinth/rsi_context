@@ -89,3 +89,19 @@ The guarded live CLI is
 --tokenizer-path <pinned-tokenizer> --run-dir <new-private-external-dir>`.
 It is reserved for a clean committed producer and independent review. No
 Siflow or GPU call was made while preparing this preregistration.
+
+## Clean-commit synthetic verification
+
+At clean producer commit `f0a6f37ff3405acbaecdf8993a2d6ae24cf5edc2`, a
+separate injected-SSE full-chain run used the real committed-launch check and
+`require_clean_producer`. Only the network transport was replaced. The
+[private run directory](/volume/pt-dev/qjiu/rsi_context_external/r19-preflight/iceberg-short-synthetic-f0a6f37-v1/)
+contains `identity.json` SHA-256
+`ed6f4fb1e66588b4bb27589401dcb16006fce54534113c2c6cacf18d03e48225`
+and `final.json` SHA-256
+`321858aa83378a73c0202aaa4c644d4d4c6942401c3721bdfbea504aaf0f5286`.
+It attests the clean producer and exact launch hash, records
+pre-canary → data → file → post-canary, four injected requests, zero unknown
+usage, and private 0700/0600 permissions. Its `task_feasible=true` is a
+synthetic wiring result; `provider_block_valid=false`, and it gives no model
+behavior evidence.
