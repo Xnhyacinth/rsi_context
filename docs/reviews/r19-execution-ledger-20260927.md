@@ -46,6 +46,13 @@ arm; preflight cannot substitute an evaluator-expected carry.
 Malformed or mixed session-1 fields must be counted and stop that arm before
 session 2; no default legal action may be substituted. The evaluator-only
 authentic plan is `suppress-row`; the constructed-rule plan is `emit-row`.
+The current fixed row facts discriminate the data-versus-file counter and
+unpartitioned-global exception. They do not discriminate strict versus
+nonstrict sequence comparison (no equality boundary) or all-versus-any
+equality IDs (each delete has one ID). A correct four-field S1 answer is
+separate extraction evidence; an S2 pass cannot prove all four clauses were
+used. Any stronger multi-clause task needs a new request, world and oracle
+version with equal-sequence and multi-ID cases before paid testing.
 
 The long-source paid screen, if admitted, is **one-reader development feasibility**,
 not a success-rate estimate, full lifecycle completion, cross-model result or
