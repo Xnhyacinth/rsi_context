@@ -35,6 +35,7 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         "kubernetes-enhancements-kep753",
         "python-pep-process",
         "apache-kafka-site-kip848-intake",
+        "apache-iceberg-spec-1.9.2-intake",
         "postgresql-rel-16-0",
         "postgresql-rel-17-0",
         "gepa",
@@ -70,6 +71,7 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         ("kubernetes-enhancements-kep753", "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a"),
         ("python-pep-process", "6822259db9c95f02da739b3e2830a4aa1ae35134"),
         ("apache-kafka-site-kip848-intake", "379dba2230101f7ca1b73658808d67e6e48bf909"),
+        ("apache-iceberg-spec-1.9.2-intake", "071d5606bc6199a0be9b3f274ec7fbf111d88821"),
         ("postgresql-rel-16-0", "c372fbbd8e911f2412b80a8c39d7079366565d67"),
         ("postgresql-rel-17-0", "d7ec59a63d745ba74fba0e280bbf85dc6d1caa3e"),
     ):
