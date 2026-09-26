@@ -241,7 +241,8 @@ def test_cross_case_registered_request_refuses_before_transport() -> None:
     assert calls == []
     assert result["worker_attempt_count"] == 0
     failures = cast(list[dict[str, str]], result["preflight_failures"])
-    assert "different case or stage" in failures[0]["error"]
+    assert failures[0]["error_code"] == "preflight_rejected"
+    assert failures[0]["error_type"] == "ValueError"
 
 
 def test_cumulative_local_input_ceiling_refuses_before_transport() -> None:
@@ -260,7 +261,8 @@ def test_cumulative_local_input_ceiling_refuses_before_transport() -> None:
     assert calls == []
     assert result["worker_attempt_count"] == 0
     failures = cast(list[dict[str, str]], result["preflight_failures"])
-    assert "cumulative local input ceiling" in failures[0]["error"]
+    assert failures[0]["error_code"] == "preflight_rejected"
+    assert failures[0]["error_type"] == "ValueError"
 
 
 @pytest.mark.parametrize(

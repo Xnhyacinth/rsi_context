@@ -1,6 +1,6 @@
 # R15 fixed-reader controls and B/C budget execution ledger
 
-Status: design and offline implementation in progress. The common starting
+Status: offline implementation and admission review in progress. The common starting
 point is clean `main@dc76d798bfc49e58d599fc77bca8529a40cd063d` (apart
 from the original main checkout's unrelated `logs/`). The registry and
 `uv.lock` retain SHA256
@@ -28,6 +28,43 @@ the unchanged jail trust check; therefore no paid researcher-update pretest
 may run here. The local credential loader is the adjacent
 `/volume/pt-dev/qjiu/wynckeliao-env/ops/env/local-env.sh`; it provides the
 key but not the fixed Siflow endpoint, and neither value is recorded here.
+
+## R15 offline results and review findings
+
+The PEP screen enumerates six complete two-session cases (PEP 621 and 639,
+each under full source, identity-only, and source-free material). Its clean
+Qwen-template geometry artifact registers eight unique requests and a
+worst-path aggregate of 18,171 local input tokens. Twelve requested replies
+at 2,048 tokens give a 42,747-token planning ceiling. The public runner now
+requires a committed artifact registration and rechecks source, tokenizer,
+profile, producer files, worlds and cumulative local input before transport.
+That final registration has not yet been frozen after integration changes.
+The independent review found the missing registration gate and a shared
+worker exception path that could persist a transport exception containing a
+credential. Both code paths have been repaired; their integration checks
+remain part of the final gate. No PEP provider request has run.
+
+The KEP screen registers three complete two-session cases (full source,
+source-free, and both explicit order-rule blocks neutralized), twelve possible
+exact requests and at most nine worker attempts. Its local per-case worst-path
+input ceilings are 21,819, 702 and 21,591 tokens respectively, for 44,112
+input tokens in total; nine requested replies add at most 18,432 tokens,
+yielding a 62,544-token local planning envelope. The attested dry-run recorded
+nine **synthetic** SSE calls and 44,108/71 synthetic input/output tokens;
+`provider_usage_total=null`. The full-source synthetic trajectory passed both
+sessions; the two controls passed the first session and failed the second.
+These scripted replies establish only runner and receipt plumbing. The
+independent review found that the public offline runner accepts an arbitrary
+handler wrapped as `SyntheticTransport`; the shipped CLI always creates its
+own fake handler and refuses `--execute`, while the wrapper needs hardening
+before the runner is reused. No KEP provider request has run.
+
+The two cards together have a 105,291-token local planning envelope across
+their separate caps. These are upper bounds on locally rendered input plus
+requested output, not measured Siflow usage, price, or a researcher budget.
+Neither card is a qualified independent parent yet. KEP's neutralization
+retains indirect cues, and PEP identity-only tests must still show whether
+the model uses the historical rule rather than a version shortcut.
 
 Before any paid task call, freeze the exact case list, question-general
 policy, source and intervention hashes, request JSON hashes, final rendered
