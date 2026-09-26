@@ -141,6 +141,9 @@ floor. The 15 jail-related skips are the expected fail-closed result of
 untrusted `/usr/bin` ancestors, and the one live researcher smoke lacked an
 endpoint. Raw test log SHA256:
 `ab81b91d14c16de3b48fd20051481118c285700fab560758d7502d9a5e23e7a4`.
+This broad run preceded the final non-ASCII serialization fix; the affected
+pilot and geometry tests were rerun against the final code with both pinned
+PostgreSQL sources.
 An earlier broad run omitted the PEP root and dummy key; it had one fixture
 failure and extra source skips, so it is superseded by this corrected run.
 
