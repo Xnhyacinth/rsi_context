@@ -182,6 +182,7 @@ def test_complete_synthetic_panel_has_six_calls_and_private_ledger(
         transport_override=_route(canary._profile(), tokenizer, calls),
     )
     assert result["status"] == "completed-synthetic-screen"
+    assert result["scope"] == "r20-iceberg-short-paid-feasibility-v2"
     assert result["task_feasible"] is True
     assert result["provider_block_valid"] is False
     assert result["qualified_parent"] is False
@@ -258,6 +259,7 @@ def test_protocol_failures_stop_before_second_target(
     assert not (tmp_path / failure / "post_canary.json").exists()
 
 
+@pytest.mark.usefixtures("tokenizer")
 def test_live_v2_checks_credentials_before_any_http(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -278,6 +280,7 @@ def test_live_v2_checks_credentials_before_any_http(
         source_root=SOURCE, tokenizer_path=TOKENIZER, run_dir=tmp_path / "no-credential"
     )
     assert result["status"] == "refused-or-interrupted"
+    assert result["scope"] == "r20-iceberg-short-paid-feasibility-v2"
     assert result["failure_type"] == "ValueError"
     assert "attempted_http_calls" not in result
 

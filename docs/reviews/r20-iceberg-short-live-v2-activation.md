@@ -10,11 +10,11 @@ and `live_enabled=false`. Its synthetic result remains a v1 result.
 The [v2 launch](../../configs/r20_iceberg_short_paid_launch_v2.json) has
 `schema_version=2`, scope `r20-iceberg-short-paid-feasibility-v2`, and
 `live_enabled=true`. SHA-256:
-`2e9cec18f3ace313064d0c1ddfd86222d266060f735e7b763bbb6a96d81cf230`.
+`26a62e88611d8e26d7e17bd28529913651a7ac7d0c65ccf3c43f776c4aed2241`.
 The [v1 registration](../../configs/r20_iceberg_short_registration_v1.json)
 remains SHA-256
 `a528a02fd8b90d9a69ed0a1bb68c0a0ee89bb854026c459e2e5b7a65d4936e58`.
-The runner now names v2 and requires this exact committed manifest, every
+The runner and final result now name v2. The runner requires the committed manifest, every
 bound producer byte, clean worktree, pinned source/tokenizer/runtime, and
 private oracle before credential resolution.
 
@@ -36,19 +36,3 @@ uv run --frozen --no-sync --with transformers==5.15.0 \
   --source-root /volume/pt-dev/qjiu/rsi_context_external/data/apache-iceberg-spec-1.9.2-intake \
   --tokenizer-path /volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b
 ```
-
-At clean producer commit `d29c1d8a764a8fd3e68c01a94342a0ea38c84484`, an
-injected-SSE run passed the real committed-launch, source, tokenizer,
-runtime, canary, journal, and end-attestation checks. Its
-[private artifact](/volume/pt-dev/qjiu/rsi_context_external/r20-live-preflight/iceberg-short-live-v2-synthetic-d29c1d8/)
-has identity SHA-256
-`698e8b46a9dff19a9950c5802fc48e9505586c7dbe4008e80a215915fafcf1d7`
-and final SHA-256
-`7bd6e30e858fc8eefbc712e88cbf106b163d21a9236f03ba0b8ce1d397849460`.
-It records four injected target requests, two injected canaries, zero unknown
-usage, 13,196 planned tokens, private 0700/0600 permissions, and
-`provider_block_valid=false`. Its `task_feasible=true` verifies wiring only;
-no model behavior was observed. The committed focused suite passed 9 tests;
-scoped Ruff, strict mypy, and Bandit passed. Independent review precedes any
-paid block. The CLI uses a fresh external private run directory and fails
-closed on launch, material, credential, or provider-protocol drift.

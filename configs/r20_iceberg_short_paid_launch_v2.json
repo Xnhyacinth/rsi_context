@@ -9,7 +9,7 @@
     "scripts/r15_pep_paid_runner.py": "06fdff7be01b880202835d2111f95d0779d792224d93073d840e473e0a9d62c1",
     "scripts/r19_iceberg_short_offline.py": "f4819b484fbb703a0e59567fb2f1f30787c7f6b57242e230e2dde7a94b1d6589",
     "scripts/r20_iceberg_short_offline.py": "9d0d024fe2575c8ee64d25ae2059ced3739e311fae351e4af19bf52d5b432799",
-    "scripts/r20_iceberg_short_paid_runner.py": "335967adbfdb5a67375ec25041a205c30387ba2d14b128893789a033a1f5f84b",
+    "scripts/r20_iceberg_short_paid_runner.py": "0173784277f224117db2086aa5869ca3886b96e7d613586f4fb19b55626ac7b4",
     "src/rsicontext/analysis/chat_geometry.py": "807913096f43069632b6d208f172a6fc42986a1ee815eb6d62757a5eab1b0342",
     "src/rsicontext/analysis/iceberg_short_private_r20.py": "0497533c44db899313adb1ff649fa0dfe75e54df5cd7fe24dbba3cc79134bfd0",
     "src/rsicontext/analysis/otel_siflow_pilot.py": "28cc12d1bfcf2b541d4b6618af45ab6b357ad816bf88aa723f5b5e9c65785cfc",

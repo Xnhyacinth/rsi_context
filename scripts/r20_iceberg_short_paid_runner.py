@@ -251,7 +251,7 @@ def run_guarded(
     synthetic = transport_override is not None
     result: dict[str, object] = {
         "schema_version": 1,
-        "scope": "r20-iceberg-short-paid-feasibility",
+        "scope": "r20-iceberg-short-paid-feasibility-v2",
         "mode": "injected-test" if synthetic else "live-siflow",
         "status": "refused",
         "provider_block_valid": False,
