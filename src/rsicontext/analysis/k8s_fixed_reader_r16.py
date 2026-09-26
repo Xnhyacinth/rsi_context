@@ -1,4 +1,4 @@
-"""Offline, bounded fixed-reader screen for the KEP-753 resource-order card.
+"""Versioned R16 KEP rule controls and bounded fixed-reader screen.
 
 The same runner can accept a fake SSE transport for contract tests. No live
 transport is wired here; the R15 CLI refuses paid execution until preregistration
@@ -19,7 +19,7 @@ from rsicontext.analysis.otel_siflow_pilot import _Worker
 from rsicontext.eval.openai_compatible import Transport
 from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint
 from rsicontext.lifecycle.env import ProjectState
-from rsicontext.lifecycle.k8s_model_fixed_r15 import k8s_model_fixed_policy_text
+from rsicontext.lifecycle.k8s_model_fixed_r16 import k8s_model_fixed_r16_policy_text
 from rsicontext.lifecycle.material_k8s_r14 import SOURCE_FILES, build_k8s_resource_order_sessions
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.session_sequence import run_session_sequence
@@ -32,17 +32,53 @@ WORLD_SHA256 = (
     "4565339a3636212ede2dd7fd3ef9e4f4d961e613c939a0f6c2a6010e3e96042a",
     "542cae04f4b34a356bf321771bc988590bb238dd49afad7250c69cd57100a99e",
 )
-CASE_ORDER = ("full-source", "source-free", "both-order-rules-neutralized")
-MAX_TRAJECTORIES = 3
-MAX_WORKER_ATTEMPTS = 9
-_MARKER = "[[doc:kep753-resource-source]]\n"
-_WITHHELD = _MARKER + "[SOURCE WITHHELD: no KEP rule supplied]"
+CASE_ORDER = (
+    "full-source",
+    "source-free",
+    "identity-only",
+    "both-order-rules-neutralized",
+    "same-identity-conservative-rule",
+)
+MAX_TRAJECTORIES = 5
+MAX_WORKER_ATTEMPTS = 15
+_ORIGINAL_MARKER = "[[doc:kep753-resource-source]]\n"
+_MARKER = "[[doc:reference-source]]\n"
+_WITHHOLDING_TEXT = "[SOURCE WITHHELD]"
+_WITHHELD = _MARKER + _WITHHOLDING_TEXT
+_IDENTITY_ONLY = (
+    _MARKER + "Title: Sidecar Containers\nIdentity: KEP-753\n"
+    "URL: https://github.com/kubernetes/enhancements/tree/"
+    "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a/keps/sig-node/753-sidecar-containers\n"
+    + _WITHHOLDING_TEXT
+)
 _README = "keps/sig-node/753-sidecar-containers/README.md"
 # Complete LF-terminated line blocks: first formula and its explanation, then
 # the later equivalent calculation. Everything outside these blocks stays exact.
 _RULE_SPANS = (
     (780, 794, "501730735b2c8397ddd7f19062551a0976d497a749122bcfa411f1f116191f34"),
     (835, 848, "8cf06b1272661b01402a79e3c74eff995c018074f2f237e3b76bfc7ca38fdf42"),
+)
+_COUNTERFACTUAL_SPANS = (
+    (774, 778),
+    (780, 794),
+    (835, 848),
+)
+_COUNTERFACTUAL_REPLACEMENTS = (
+    "Every native sidecar counts throughout the init stage, regardless of "
+    "order.\n\n"
+    "`Max ( Max(nonSidecarInitContainers) + Sum(all Sidecar Containers), "
+    "Sum(all Sidecar Containers) + Sum(Containers) )`\n",
+    "Every regular init includes every sidecar regardless of its index.\n\n```\n"
+    "InitContainerUse(i) = Sum(all Sidecar Containers) + InitContainer(i)\n"
+    "```\n\nThe effective request is `Max(Max(each InitContainerUse), "
+    "Sum(all Sidecar Containers) + Sum(Containers))`.\n",
+    "Sidecar usage is added to every regular init container irrespective of "
+    "order. Defining `InitContainerUse` as:\n\n```\n"
+    "InitContainerUse(i) = Sum(all Sidecar Containers) + "
+    "Max(Spec.InitContainers[i].Resources, Status.InitContainerStatuses[i].ResourcesAllocated)\n"
+    "```\n\nThe effective request is:\n\n```\n"
+    "Max ( Max( each InitContainerUse ) , Sum(all Sidecar Containers) + "
+    "Sum(each ContainerUse) ) + pod overhead\n```\n",
 )
 
 
@@ -134,23 +170,138 @@ def neutralize_both_order_rules(source_text: str) -> tuple[str, dict[str, object
 
 
 def _source_variant(
-    sessions: tuple[LifecycleInstance, LifecycleInstance], text: str
+    sessions: tuple[LifecycleInstance, LifecycleInstance],
+    text: str,
+    *,
+    case: str,
 ) -> tuple[LifecycleInstance, LifecycleInstance]:
     first, second = sessions
     survey = first.stages[0]
-    changed = replace(survey.documents[0], text=text)
-    return replace(first, stages=(replace(survey, documents=(changed,)), *first.stages[1:])), second
+    original = survey.documents[0]
+    changed = replace(
+        original,
+        doc_id="reference-source",
+        title=(
+            original.title
+            if case == "full-source"
+            else "Reference material"
+            if case == "source-free"
+            else "Constructed rule material"
+        ),
+        source_url=(
+            original.source_url
+            if case == "full-source"
+            else f"benchmark:constructed/r16-kep-{case}"
+        ),
+        text=text,
+    )
+    first_stages = list(first.stages)
+    first_stages[0] = replace(
+        survey,
+        documents=(changed,),
+        gold_evidence_ids=(changed.doc_id,),
+        prompt_text="Review the supplied reference and its resource calculation.",
+    )
+    brief = first_stages[1].documents[0]
+    first_stages[1] = replace(
+        first_stages[1],
+        documents=(replace(brief, text=brief.text.replace("KEP proposal's", "reference's")),),
+    )
+    amendment = second.stages[1].documents[0]
+    second_stages = list(second.stages)
+    second_stages[1] = replace(
+        second_stages[1],
+        documents=(
+            replace(amendment, text=amendment.text.replace("KEP formula", "reference rule")),
+        ),
+    )
+    return replace(first, stages=tuple(first_stages)), replace(second, stages=tuple(second_stages))
+
+
+def transplant_conservative_rule(source_text: str) -> tuple[str, dict[str, object]]:
+    """Construct one internally consistent all-sidecar source counterfactual."""
+
+    if not source_text.startswith(_MARKER):
+        raise ValueError("counterfactual requires the generic pinned source marker")
+    raw = source_text[len(_MARKER) :].encode()
+    if _sha(raw) != SOURCE_FILES[_README]:
+        raise ValueError("counterfactual requires the complete pinned KEP README")
+    lines = raw.splitlines(keepends=True)
+    edits: list[tuple[int, int, bytes, bytes]] = []
+    for (first, last), replacement_text in zip(
+        _COUNTERFACTUAL_SPANS, _COUNTERFACTUAL_REPLACEMENTS, strict=True
+    ):
+        start = sum(len(line) for line in lines[: first - 1])
+        end = sum(len(line) for line in lines[:last])
+        edits.append((start, end, raw[start:end], replacement_text.encode()))
+    changed = raw
+    for start, end, _before, replacement in reversed(edits):
+        changed = changed[:start] + replacement + changed[end:]
+    source_cursor = changed_cursor = 0
+    for start, end, _before, replacement in edits:
+        untouched = raw[source_cursor:start]
+        if changed[changed_cursor : changed_cursor + len(untouched)] != untouched:
+            raise ValueError("counterfactual changed bytes outside registered spans")
+        source_cursor = end
+        changed_cursor += len(untouched) + len(replacement)
+    if changed[changed_cursor:] != raw[source_cursor:]:
+        raise ValueError("counterfactual changed the source suffix")
+    if any(
+        phrase in changed
+        for phrase in (
+            b"sidecar containers with index < i",
+            b"before the first sidecar containers",
+            b"sidecar resource usage needs to be summed into those init",
+        )
+    ):
+        raise ValueError("original ordered-prefix rule remains in counterfactual")
+    return _MARKER + changed.decode(), {
+        "kind": "constructed-all-sidecar-rule; not authentic upstream",
+        "original_raw_sha256": _sha(raw),
+        "constructed_raw_sha256": _sha(changed),
+        "untouched_bytes_exact": True,
+        "spans": [
+            {
+                "start_line": _COUNTERFACTUAL_SPANS[index][0],
+                "end_line": _COUNTERFACTUAL_SPANS[index][1],
+                "start_byte": start,
+                "end_byte": end,
+                "original_sha256": _sha(before),
+                "replacement_sha256": _sha(replacement),
+            }
+            for index, (start, end, before, replacement) in enumerate(edits)
+        ],
+    }
 
 
 def case_materials(
     sessions: tuple[LifecycleInstance, LifecycleInstance],
 ) -> tuple[tuple[str, tuple[LifecycleInstance, LifecycleInstance]], ...]:
     original = sessions[0].stages[0].documents[0].text
-    neutralized, _ledger = neutralize_both_order_rules(original)
+    if not original.startswith(_ORIGINAL_MARKER):
+        raise ValueError("R16 KEP source marker differs from pinned parent")
+    generic = _MARKER + original[len(_ORIGINAL_MARKER) :]
+    neutralized, _ledger = neutralize_both_order_rules(generic)
+    counterfactual, _counterfactual_ledger = transplant_conservative_rule(generic)
+    counterfactual_pair = _source_variant(sessions, counterfactual, case=CASE_ORDER[4])
+    first, second = counterfactual_pair
+    target = second.stages[2]
+    condition = target.commit_precondition
+    if not isinstance(condition, Mapping) or condition.get("legal_plans") != ["admit-at-1000m"]:
+        raise ValueError("counterfactual second-session oracle differs from original")
+    changed_stage = replace(
+        target, commit_precondition={**condition, "legal_plans": ["hold-at-1000m"]}
+    )
+    counterfactual_pair = (
+        first,
+        replace(second, stages=(*second.stages[:2], changed_stage, *second.stages[3:])),
+    )
     return (
-        (CASE_ORDER[0], sessions),
-        (CASE_ORDER[1], _source_variant(sessions, _WITHHELD)),
-        (CASE_ORDER[2], _source_variant(sessions, neutralized)),
+        (CASE_ORDER[0], _source_variant(sessions, generic, case=CASE_ORDER[0])),
+        (CASE_ORDER[1], _source_variant(sessions, _WITHHELD, case=CASE_ORDER[1])),
+        (CASE_ORDER[2], _source_variant(sessions, _IDENTITY_ONLY, case=CASE_ORDER[2])),
+        (CASE_ORDER[3], _source_variant(sessions, neutralized, case=CASE_ORDER[3])),
+        (CASE_ORDER[4], counterfactual_pair),
     )
 
 
@@ -241,10 +392,8 @@ def enumerate_allowed_prompt_geometry(
     sessions = build_k8s_resource_order_sessions(source_root)
     _verify_base_world(sessions)
     cases = case_materials(sessions)
-    neutralized, _ledger = neutralize_both_order_rules(sessions[0].stages[0].documents[0].text)
     approved = frozenset(
-        _sha(text.encode())
-        for text in (sessions[0].stages[0].documents[0].text, _WITHHELD, neutralized)
+        _sha(pair[0].stages[0].documents[0].text.encode()) for _name, pair in cases
     )
     prompts: dict[str, set[str]] = {}
     for case_name, pair in cases:
@@ -280,7 +429,7 @@ def enumerate_allowed_prompt_geometry(
                 ) -> PolicyHook:
                     return PolicyHook(
                         state,
-                        k8s_model_fixed_policy_text(),
+                        k8s_model_fixed_r16_policy_text(),
                         tool_budget=case_budget,
                         registry=case_registry,
                         responder=responder,
@@ -301,8 +450,8 @@ def enumerate_allowed_prompt_geometry(
                     )
                 for prompt in observed:
                     prompts.setdefault(prompt, set()).add(case_name)
-    if len(prompts) != 12:
-        raise ValueError(f"expected 12 exact prompt variants, observed {len(prompts)}")
+    if len(prompts) != 14:
+        raise ValueError(f"expected 14 exact prompt variants, observed {len(prompts)}")
     output: list[dict[str, object]] = []
     for prompt, owners in prompts.items():
         geometry = measure_k8s_worker_prompt(
@@ -336,9 +485,12 @@ def _synthetic_sse(
         raise ValueError("synthetic request messages differ from profile")
     prompt = messages[1]["content"]
     if _MARKER in prompt:
-        if "[SOURCE WITHHELD" in prompt:
+        if _WITHHOLDING_TEXT in prompt:
             answer = "formula=unknown"
-        elif "[Ordered-prefix calculation withheld" in prompt:
+        elif (
+            "[Ordered-prefix calculation withheld" in prompt
+            or "Sum(all Sidecar Containers)" in prompt
+        ):
             answer = "formula=conservative"
         else:
             answer = "formula=prefix"
@@ -419,8 +571,8 @@ def _run_screen_unverified(
 
     if profile.profile_hash != PROFILE_SHA256:
         raise ValueError("R15 KEP shared profile hash changed")
-    if len(geometry_registry) != 12:
-        raise ValueError("R15 KEP geometry registry must contain 12 prompt variants")
+    if len(geometry_registry) != 14:
+        raise ValueError("R16 KEP geometry registry must contain 14 prompt variants")
     registered: dict[str, dict[str, object]] = {}
     for item in geometry_registry:
         digest = item.get("prompt_sha256")
@@ -436,9 +588,12 @@ def _run_screen_unverified(
     sessions = build_k8s_resource_order_sessions(source_root)
     _verify_base_world(sessions)
     cases = case_materials(sessions)
-    original = sessions[0].stages[0].documents[0].text
-    neutralized, intervention = neutralize_both_order_rules(original)
-    approved = frozenset(_sha(text.encode()) for text in (original, _WITHHELD, neutralized))
+    full_source = cases[0][1][0].stages[0].documents[0].text
+    _neutralized, intervention = neutralize_both_order_rules(full_source)
+    _counterfactual, counterfactual_intervention = transplant_conservative_rule(full_source)
+    approved = frozenset(
+        _sha(pair[0].stages[0].documents[0].text.encode()) for _name, pair in cases
+    )
     current_case = ""
     case_attempt_index = 0
     stage_order = ("source-survey", "resource-request-stage", "resource-order-change")
@@ -501,7 +656,7 @@ def _run_screen_unverified(
         ) -> PolicyHook:
             return PolicyHook(
                 state,
-                k8s_model_fixed_policy_text(),
+                k8s_model_fixed_r16_policy_text(),
                 tool_budget=case_budget,
                 registry=case_registry,
                 responder=responder,
@@ -564,9 +719,9 @@ def _run_screen_unverified(
     return {
         "schema_version": 1,
         "scope": (
-            "kep753_b_longitudinal_fixed_reader_offline_development_only"
+            "kep753_b_longitudinal_r16_fixed_reader_offline_development_only"
             if synthetic
-            else "kep753_b_longitudinal_fixed_reader_paid_development"
+            else "kep753_b_longitudinal_r16_fixed_reader_paid_development"
         ),
         "live_ready": False,
         "usage_provenance": "synthetic_sse_transport_only" if synthetic else "provider_sse",
@@ -590,10 +745,11 @@ def _run_screen_unverified(
         "profile_id": profile.id,
         "profile_sha256": profile.profile_hash,
         "geometry_registry_sha256": _sha(_canonical(geometry_registry)),
-        "policy_sha256": _sha(k8s_model_fixed_policy_text().encode()),
+        "policy_sha256": _sha(k8s_model_fixed_r16_policy_text().encode()),
         "source_file_sha256": SOURCE_FILES[_README],
         "base_world_sha256": WORLD_SHA256,
         "source_intervention": intervention,
+        "counterfactual_intervention": counterfactual_intervention,
         "provider_usage_total": None if synthetic else usage_total,
         "synthetic_usage_total": usage_total if synthetic else None,
         "attempts": worker.attempts,
@@ -610,7 +766,7 @@ def run_offline_screen(
     transport: SyntheticTransport,
     geometry_registry: list[dict[str, object]],
 ) -> dict[str, object]:
-    """Keep the R15 entrypoint synthetic-only, including wrapped transports."""
+    """Keep the R16 offline entrypoint synthetic-only."""
 
     if profile.profile_hash != PROFILE_SHA256:
         raise ValueError("R15 KEP shared profile hash changed")
@@ -644,4 +800,5 @@ __all__ = [
     "neutralize_both_order_rules",
     "require_paid_gate",
     "run_offline_screen",
+    "transplant_conservative_rule",
 ]
