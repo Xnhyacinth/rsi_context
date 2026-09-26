@@ -1,0 +1,122 @@
+{
+  "auxiliary_call_cap": 0,
+  "case_order": [
+    "data-counter-match",
+    "file-counter-match",
+    "data-counter-mismatch",
+    "unknown-diagnostic"
+  ],
+  "fixed_request_sha256": "c40f5990b10264635cc4770b3c3483ab5d093f530ce7f5b9645d552e6f559ef7",
+  "interpretation": "short rule application only; no long-source or parent qualification",
+  "local_input_plus_requested_ceiling": 8976,
+  "local_input_tokens": 784,
+  "mismatch_request_sha256": "41e4049e61adc441bd625b44c27bed2574d8726008c1af5c6d910b1ddea05804",
+  "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+  "r18_geometry_sha256": "aec96c97e921163431f306728c5469ce8e9673186a73f19b0de46f90afa35448",
+  "registry_sha256": "7ac3a92dcbf9128c2b39ef16978bb9d08854612a85126b98165f62ecd8a9c1a0",
+  "requested_output_tokens": 8192,
+  "requests": [
+    {
+      "case": "data-counter-match",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          30,
+          55
+        ],
+        "evidence_to_query_tokens": 121,
+        "query_span_tokens": [
+          176,
+          188
+        ],
+        "rendered_input_tokens": 197,
+        "rendered_utf8_bytes": 877,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          188
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "1a2310ab46352fa72468610385c1d21223f5ee0014fcf6489ebd28ae5f0540b8",
+      "request_sha256": "814650d717b43e4811ce2bdd27b065779d754f7f38e71fb9bc4fd44e4286f28b"
+    },
+    {
+      "case": "file-counter-match",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          30,
+          55
+        ],
+        "evidence_to_query_tokens": 121,
+        "query_span_tokens": [
+          176,
+          188
+        ],
+        "rendered_input_tokens": 197,
+        "rendered_utf8_bytes": 877,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          188
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "c7c10e84869b9747391594525c6aeff4917b6f0f696c542e8d60aaf4dfa9d903",
+      "request_sha256": "1ea4c2b84ffbcf713226bc4aca1cb1522ecc4f3fc5b7c00fa2087725cf5c5791"
+    },
+    {
+      "case": "data-counter-mismatch",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          30,
+          55
+        ],
+        "evidence_to_query_tokens": 121,
+        "query_span_tokens": [
+          176,
+          188
+        ],
+        "rendered_input_tokens": 197,
+        "rendered_utf8_bytes": 877,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          188
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "733def5593ec90d7cd09c11d961a5bf6ea31e5b38de7d972ca3f733bbc24bd26",
+      "request_sha256": "ce6cd0698753dedcf362828b443c83a791cd1001a1a71cd844be3e40bd62ab2f"
+    },
+    {
+      "case": "unknown-diagnostic",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          30,
+          51
+        ],
+        "evidence_to_query_tokens": 121,
+        "query_span_tokens": [
+          172,
+          184
+        ],
+        "rendered_input_tokens": 193,
+        "rendered_utf8_bytes": 865,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          184
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "82738261214953a2efe57b4f52206c65b343c1163126e4d92f5f322b7fd2ee08",
+      "request_sha256": "2c2cbc4dcd7c9304a97c3933d0e71efcec8de486d71c348a34fb614c058412f4"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "r20-iceberg-s2-only-feasibility",
+  "source_revision": "071d5606bc6199a0be9b3f274ec7fbf111d88821",
+  "source_sha256": "e68cd90f7e243f33996717f877077e40773a8ffb57978232458b9e5bf2b9c5cb",
+  "target_call_cap": 4,
+  "tokenizer_manifest_sha256": "8ff74a229e5d1771200efaaa7e411028fd6ab68a080d93138d76476e9e494290"
+}
