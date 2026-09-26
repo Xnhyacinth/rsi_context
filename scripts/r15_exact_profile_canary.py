@@ -8,7 +8,9 @@ import hashlib
 import importlib
 import importlib.metadata
 import json
+import os
 import sys
+import tempfile
 import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
@@ -21,7 +23,7 @@ from rsicontext.analysis.chat_geometry import (  # noqa: E402
     ChatTokenizer,
     measure_chat_geometry,
 )
-from rsicontext.analysis.otel_siflow_pilot import _Worker  # noqa: E402
+from rsicontext.analysis.otel_siflow_pilot import _validated_usage, _Worker  # noqa: E402
 from rsicontext.eval.openai_compatible import Transport, _urlopen_transport  # noqa: E402
 from rsicontext.experiment.api import (  # noqa: E402
     APIProfile,
@@ -78,6 +80,47 @@ def _sha(raw: bytes) -> str:
 
 def _canonical(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+
+
+def _artifact_bytes(result: Mapping[str, object]) -> bytes:
+    return (json.dumps(result, indent=2, sort_keys=True, ensure_ascii=True) + "\n").encode()
+
+
+def _sync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _reserve_artifact(path: Path, result: Mapping[str, object]) -> None:
+    """Reserve a private evidence file before a credential or request is used."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+    descriptor = os.open(path, flags, 0o600)
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(_artifact_bytes(result))
+        stream.flush()
+        os.fsync(stream.fileno())
+    _sync_directory(path.parent)
+
+
+def _update_artifact(path: Path, result: Mapping[str, object]) -> None:
+    """Keep the previous valid ledger if a later write cannot complete."""
+
+    descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(_artifact_bytes(result))
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        _sync_directory(path.parent)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def registration() -> dict[str, object]:
@@ -232,6 +275,15 @@ def _safe_attempt(attempt: Mapping[str, object] | None, *, synthetic: bool) -> d
         }
     response_id = attempt.get("response_id")
     response_sha = attempt.get("response_sha256")
+    response_id_valid = False
+    response_id_sha256: str | None = None
+    if isinstance(response_id, str):
+        try:
+            response_id.encode("utf-8")
+            response_id_valid = True
+        except UnicodeEncodeError:
+            pass
+        response_id_sha256 = _sha(response_id.encode("utf-8", errors="surrogatepass"))
     result: dict[str, object] = {
         "attempted": True,
         "status": "ok" if attempt.get("status") == "ok" else "failed",
@@ -244,7 +296,8 @@ def _safe_attempt(attempt: Mapping[str, object] | None, *, synthetic: bool) -> d
         "response_sha256": response_sha
         if isinstance(response_sha, str) and len(response_sha) == 64
         else None,
-        "response_id_sha256": _sha(response_id.encode()) if isinstance(response_id, str) else None,
+        "response_id_sha256": response_id_sha256,
+        "response_id_valid": response_id_valid,
         "model_echo_exact": attempt.get("response_model") == "Qwen/Qwen3.6-27B",
         "finish_stop": attempt.get("finish_reason") == "stop",
         "usage": safe_usage,
@@ -292,6 +345,7 @@ def run_canary(
         and answer == EXPECTED_ANSWER
         and len(worker.attempts) == MAX_CALLS
         and attempt.get("status") == "ok"
+        and attempt.get("response_id_valid") is True
         and attempt.get("model_echo_exact") is True
         and attempt.get("finish_stop") is True
         and isinstance(usage, dict)
@@ -301,6 +355,8 @@ def run_canary(
     if failure_type is None and not passed:
         if answer != EXPECTED_ANSWER:
             failure_type = "AnswerMismatch"
+        elif attempt.get("response_id_valid") is not True:
+            failure_type = "ResponseIdentityInvalid"
         elif isinstance(usage, dict) and usage.get("output_tokens") != local_output_tokens:
             failure_type = "OutputUsageMismatch"
         elif isinstance(usage, dict) and usage.get("input_tokens") != EXPECTED_INPUT_TOKENS:
@@ -319,7 +375,7 @@ def run_canary(
     }
 
 
-def main(argv: list[str] | None = None, *, transport_override: Transport | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true")
@@ -330,38 +386,37 @@ def main(argv: list[str] | None = None, *, transport_override: Transport | None 
     args = parser.parse_args(argv)
     if args.output.exists() or args.output.is_symlink():
         parser.error(f"output already exists: {args.output}")
-    injected = transport_override is not None
-    synthetic = bool(args.dry_run or injected)
+    if args.execute and args.output.resolve().is_relative_to(ROOT.resolve()):
+        parser.error("execute output must be outside the producer worktree")
+    synthetic = bool(args.dry_run)
     result: dict[str, object] = {
         "schema_version": 1,
         "kind": "r15-exact-profile-source-free-canary",
-        "mode": "dry-run" if args.dry_run else "execute-test" if injected else "execute",
-        "transport_kind": "injected-test"
-        if injected
-        else "offline-fake"
-        if args.dry_run
-        else "live-siflow",
-        "status": "refused",
+        "mode": "dry-run" if args.dry_run else "execute",
+        "transport_kind": "offline-fake" if args.dry_run else "live-siflow",
+        "status": "preflight",
         "registration": registration(),
         "registration_sha256": registration_sha256(),
         "live_model_called": False,
+        "call_count": 0,
+        "attempt": {"attempted": False, "usage": None},
         "provider_usage_total": None,
         "synthetic_usage_total": None,
     }
+    try:
+        _reserve_artifact(args.output, result)
+    except OSError as exc:
+        parser.error(f"cannot reserve output artifact: {type(exc).__name__}")
     try:
         if args.execute and args.registration_sha256 != registration_sha256():
             raise CanaryRefusal("registration-mismatch")
         if args.dry_run and args.registration_sha256 is not None:
             raise CanaryRefusal("dry-run-does-not-take-registration")
-        if args.dry_run and injected:
-            raise CanaryRefusal("dry-run-forbids-injected-transport")
-        if args.execute and not injected and args.output.resolve().is_relative_to(ROOT.resolve()):
-            raise CanaryRefusal("execute-output-must-be-external")
         before = producer_attestation(
             ROOT, _PRODUCER_FILES, package_names=("transformers", "tokenizers", "jinja2")
         )
         result["code_identity"] = {"producer_attestation": before}
-        if args.execute and not injected:
+        if args.execute:
             require_clean_producer(before)
         profile = _profile()
         if args.execute:
@@ -373,13 +428,46 @@ def main(argv: list[str] | None = None, *, transport_override: Transport | None 
         tokenizer = _tokenizer(args.tokenizer_path)
         geometry = _geometry(tokenizer, profile)
         result["local_geometry"] = geometry["local_template_geometry"]
-        transport = (
-            transport_override
-            if transport_override is not None
-            else _fake_transport(profile, tokenizer)
-            if synthetic
-            else _urlopen_transport
-        )
+        result["status"] = "preflight-passed"
+        _update_artifact(args.output, result)
+
+        def live_transport(request: urllib.request.Request, timeout: float) -> bytes:
+            if result["call_count"] != 0:
+                raise CanaryRefusal("canary-call-cap-reached")
+            if request.full_url != ENDPOINT or not isinstance(request.data, bytes):
+                raise CanaryRefusal("canary-request-route-drift")
+            result.update(
+                status="dispatch-started",
+                live_model_called=True,
+                call_count=1,
+                attempt={
+                    "attempted": True,
+                    "status": "dispatch-started",
+                    "request_sha256": _sha(request.data),
+                    "usage": None,
+                },
+            )
+            try:
+                _update_artifact(args.output, result)
+            except OSError:
+                result["live_model_called"] = False
+                result["status"] = "dispatch-blocked-on-artifact-write"
+                raise
+            raw = _urlopen_transport(request, timeout)
+            usage = _validated_usage(raw)
+            result["provider_usage_total"] = usage
+            result["attempt"] = {
+                "attempted": True,
+                "status": "response-received",
+                "request_sha256": _sha(request.data),
+                "response_sha256": _sha(raw),
+                "usage": usage,
+                "usage_provenance": "provider-reported",
+            }
+            _update_artifact(args.output, result)
+            return raw
+
+        transport = _fake_transport(profile, tokenizer) if synthetic else live_transport
         try:
             result.update(
                 run_canary(
@@ -395,18 +483,15 @@ def main(argv: list[str] | None = None, *, transport_override: Transport | None 
                 ROOT, _PRODUCER_FILES, package_names=("transformers", "tokenizers", "jinja2")
             )
             require_stable_attestation(before, after)
-        result["live_model_called"] = bool(args.execute and not injected and result["call_count"])
     except Exception as exc:
         result["status"] = "refused"
         result["failure_type"] = type(exc).__name__
         result["failure_code"] = str(exc) if isinstance(exc, CanaryRefusal) else "preflight-error"
-        result["live_model_called"] = bool(
-            args.execute and not injected and result.get("call_count", 0)
-        )
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.output.open("x", encoding="utf-8") as stream:
-        json.dump(result, stream, indent=2, sort_keys=True, ensure_ascii=False)
-        stream.write("\n")
+    try:
+        _update_artifact(args.output, result)
+    except OSError:
+        print("canary artifact update failed; prior ledger retained", file=sys.stderr)
+        return 2
     print(
         json.dumps(
             {
