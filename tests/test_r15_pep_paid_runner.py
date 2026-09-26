@@ -333,6 +333,38 @@ def test_repository_run_directory_is_rejected_before_creation() -> None:
     assert not run_dir.exists()
 
 
+def test_forged_launch_manifest_refuses_without_credential_or_transport(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    forged = tmp_path / "forged-launch.json"
+    forged.write_text(runner._LAUNCH_PATH.read_text().replace("42747", "42748"))
+    monkeypatch.setattr(runner, "_LAUNCH_PATH", forged)
+    monkeypatch.setattr(
+        runner,
+        "resolve_api_endpoint",
+        lambda *_args, **_kwargs: pytest.fail("credential must not be resolved"),
+    )
+    calls: list[str] = []
+    run_dir = tmp_path / "forged-run"
+
+    def fake(_request: urllib.request.Request, _timeout: float) -> bytes:
+        calls.append("called")
+        return b""
+
+    result = runner.run_guarded(
+        source_root=_SOURCE,
+        tokenizer_path=_TOKENIZER,
+        run_dir=run_dir,
+        transport_override=fake,
+    )
+    assert result["status"] == "refused-or-interrupted"
+    assert "attempted_http_calls" not in result
+    assert calls == []
+    assert (run_dir / "reservation.json").exists()
+    assert (run_dir / "attempts.jsonl").exists()
+    assert (run_dir / "final.json").exists()
+
+
 @pytest.mark.parametrize(
     "usage,expected_event",
     (

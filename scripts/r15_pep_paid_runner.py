@@ -511,7 +511,7 @@ def run_guarded(
     return result
 
 
-def main(argv: list[str] | None = None, *, transport_override: Transport | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--execute", action="store_true", required=True)
     parser.add_argument("--source-root", type=Path, required=True)
@@ -522,7 +522,6 @@ def main(argv: list[str] | None = None, *, transport_override: Transport | None 
         source_root=args.source_root,
         tokenizer_path=args.tokenizer_path,
         run_dir=args.run_dir,
-        transport_override=transport_override,
     )
     print(json.dumps({"status": result["status"], "run_dir": str(args.run_dir)}, sort_keys=True))
     return 0 if result["status"] == "completed-development-screen" else 2
