@@ -29,17 +29,24 @@ evidence, not a qualified parent or a live launch.
 The short paid KEP rule-projection screen failed even with the decisive rule
 provided directly. R19 therefore does **not** spend further on KEP. Iceberg
 tests a different, authentic long-form source at the measured 32K-compatible
-contiguous excerpt. The fixed reader may make one target call to classify four
-answer-free rule fields in session 1 and one target call in session 2 using
+contiguous excerpt. Before paying for 25K-token source arms, a separate
+prospective short-input check should give the Iceberg rule bundle explicitly
+for each answer-changing side and test the fixed row request. That check
+requires its own registered requests, canaries and usage; it measures task
+feasibility only. The fixed reader may then make one target call to classify
+four answer-free rule fields in session 1 and one target call in session 2 using
 only the validated carry and identical constructed row request. Every
 source-full, constructed-rule, source-free and identity-only arm starts fresh.
 The coherent all-unknown bundle remains a valid carry and proceeds to S2,
 including in withheld controls, so a model prior/default can be observed.
+Each arm must also continue S2 with either other accepted coherent bundle
+when that is what the model actually returned, even if it is wrong for the
+arm; preflight cannot substitute an evaluator-expected carry.
 Malformed or mixed session-1 fields must be counted and stop that arm before
 session 2; no default legal action may be substituted. The evaluator-only
 authentic plan is `suppress-row`; the constructed-rule plan is `emit-row`.
 
-The first paid screen, if admitted, is **one-reader development feasibility**,
+The long-source paid screen, if admitted, is **one-reader development feasibility**,
 not a success-rate estimate, full lifecycle completion, cross-model result or
 qualified independent parent. Admission requires a committed exact launch,
 source and prompt hashes, full API request registration, final-chat offsets,
