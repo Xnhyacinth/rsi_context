@@ -166,9 +166,12 @@ def test_protocol_fault_stops_before_s2(tmp_path: Path, fault: str) -> None:
 def test_uncommitted_launch_is_refused_before_dispatch(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fake_launch = tmp_path / "forged-launch.json"
-    fake_launch.write_bytes((reader.ROOT / reader._LAUNCH_REL).read_bytes())
-    monkeypatch.setattr(reader, "_LAUNCH_REL", str(fake_launch))
+    committed = reader._committed_bytes
+    monkeypatch.setattr(
+        reader,
+        "_committed_bytes",
+        lambda relative: b"forged" if relative == reader._LAUNCH_REL else committed(relative),
+    )
     result, run_dir = _run(tmp_path)
     assert result["status"] == "refused-or-interrupted"
     assert result["failure_type"] == "ValueError"
