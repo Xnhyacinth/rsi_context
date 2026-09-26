@@ -348,8 +348,8 @@ def test_committed_launch_and_bound_code_match_head() -> None:
     for field in set(v1) - {"schema_version", "scope", "live_enabled", "bound_file_sha256"}:
         assert launch[field] == v1[field]
     producer = "scripts/r20_iceberg_short_paid_runner.py"
-    assert {name: digest for name, digest in launch["bound_file_sha256"].items()
-            if name != producer} == {
+    bound = cast(dict[str, str], launch["bound_file_sha256"])
+    assert {name: digest for name, digest in bound.items() if name != producer} == {
         name: digest for name, digest in v1["bound_file_sha256"].items()
         if name != producer
     }
