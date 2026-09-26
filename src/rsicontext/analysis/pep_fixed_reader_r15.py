@@ -569,7 +569,7 @@ def _validate_registration(
         "profile_sha256",
         "tokenizer_manifest_sha256",
         "source_revision",
-        "total_provider_token_ceiling",
+        "local_plus_requested_token_ceiling",
     }:
         raise ValueError("PEP geometry registration schema is invalid")
     if registration.get("schema_version") != 1 or registration.get("scope") != "r15-pep-reader":
@@ -648,7 +648,7 @@ def _validate_registration(
     if (
         not isinstance(input_cap, int)
         or not isinstance(output_cap, int)
-        or input_cap + output_cap != registration.get("total_provider_token_ceiling")
+        or input_cap + output_cap != registration.get("local_plus_requested_token_ceiling")
     ):
         raise ValueError("PEP cumulative provider-token ceiling differs from registration")
 

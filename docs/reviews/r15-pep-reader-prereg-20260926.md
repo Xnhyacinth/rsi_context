@@ -1,19 +1,19 @@
 # R15 PEP historical-license fixed-reader development screen
 
-Status: **offline construction and geometry preregistration; task HTTP
-closed**. This is a benchmark-owned adaptive two-call policy over the R14
+Status: **offline geometry frozen; task HTTP closed**. This is a
+benchmark-owned adaptive two-call policy over the R14
 historical PEP 621/639 two-session card. It is not a qualified parent, a
 sealed task, a current PyPA compliance test, or a researcher policy run.
 `scripts/r15_pep_reader_screen.py --execute` refuses before credential or
-network access until the parent freezes a geometry artifact, budget, canaries,
-and launch gate. No provider results are reported here.
+network access. The geometry and local planning budget are frozen; the exact
+provider canaries and launch gate remain pending. No provider results are
+reported here.
 
-The public `run_pep_screen` function also refuses transport until the fixed
-path `configs/r15_pep_fixed_reader_registration_v1.json` is committed. That
-registration is deliberately absent during this intake. After code and
-geometry settle, the parent must review the dry-run artifact and commit a
-registration containing its exact SHA-256, profile hash, tokenizer manifest
-hash, source revision, and total provider-token ceiling. At dispatch, the
+The public `run_pep_screen` function requires the committed
+`configs/r15_pep_fixed_reader_registration_v1.json` and matching tracked
+`configs/r15_pep_fixed_reader_geometry_v1.json`. The registration records
+the geometry's exact SHA-256, profile hash, tokenizer manifest hash, source
+revision, and local-input-plus-requested-output planning ceiling. At dispatch, the
 screen verifies the registration bytes against its Git HEAD blob, the
 artifact bytes, all six current world/material hashes, the clean detached
 source and selected file hashes, the pinned tokenizer files and runtime,
@@ -87,8 +87,9 @@ from task attempts before this can be launched.
 The pre-dispatch budget also rejects a request that would make cumulative
 local input exceed the reviewed six-case worst-case bound. Exact provider
 input must equal that local count per call; response output is capped by the
-profile and the registered total ceiling is the sum of the local input and
-12 × 2,048 output-token bounds.
+profile. The registered planning ceiling sums local input and twelve
+requested 2,048-token output bounds; actual provider usage must be recorded
+and checked separately.
 
 The task result schema records each source/world/policy/profile/request
 hash, local evidence and query intervals, both-session completion, final
@@ -118,10 +119,10 @@ intervals for each registered request, with source Git/bytes, tokenizer,
 profile, policy, and producer identities. It also sums the maximum local
 input tokens across all three valid response branches for each case and
 reports the 12 × 2,048 profile output-token ceiling. It makes no network
-call. Before
-any paid execution, the parent must review and freeze its SHA-256, verify
-the worst-case input and 2,048-output envelope against a total provider
-token cap, run matching synthetic pre/post canaries, and specify stop rules.
+call. The committed registration now fixes its SHA-256 and planning envelope.
+Before task HTTP, run a real exact-profile pre-canary with provider usage;
+run a post-canary only under the launch stop rules. Synthetic canaries remain
+contract tests, not provider evidence.
 If identity-only or source-free behavior already solves both versions,
 retain the diagnostic and reject this lineage for the intended
 long-context dependency claim; do not relabel it as a qualified parent.

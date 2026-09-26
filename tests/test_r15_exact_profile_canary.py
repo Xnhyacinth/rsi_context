@@ -13,6 +13,7 @@ from typing import cast
 import pytest
 
 from rsicontext.analysis.chat_geometry import ChatTokenizer
+from rsicontext.eval.openai_compatible import _urlopen_transport
 
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "scripts"))
@@ -91,6 +92,29 @@ def test_execute_registration_refusal_writes_artifact_before_dispatch(
     assert artifact["failure_code"] == "registration-mismatch"
     assert artifact["live_model_called"] is False
     assert "secret-never-persist-r15" not in output.read_text()
+
+
+def test_dry_run_rejects_injected_transport_before_dispatch(tmp_path: Path) -> None:
+    output = tmp_path / "dry-run-injected.json"
+    assert (
+        canary.main(_args("--dry-run", output), transport_override=_urlopen_transport) == 2
+    )
+    artifact = json.loads(output.read_text())
+    assert artifact["failure_code"] == "dry-run-forbids-injected-transport"
+    assert artifact["live_model_called"] is False
+
+
+def test_live_execute_requires_external_output_path_before_dispatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    producer_root = tmp_path / "producer"
+    producer_root.mkdir()
+    monkeypatch.setattr(canary, "ROOT", producer_root)
+    output = producer_root / "canary.json"
+    assert canary.main(_args("--execute", output, registration=canary.registration_sha256())) == 2
+    artifact = json.loads(output.read_text())
+    assert artifact["failure_code"] == "execute-output-must-be-external"
+    assert artifact["live_model_called"] is False
 
 
 def test_execute_missing_key_refuses_with_artifact(
@@ -202,10 +226,14 @@ def test_execute_failure_is_named_and_sanitized(
     assert artifact["status"] == "failed"
     assert artifact["live_model_called"] is False
     assert artifact["failure_type"] in {
-        "AnswerMismatch",
+        "OutputUsageMismatch",
         "ReaderProtocolError",
         "ValueError",
         "RuntimeError",
+        "_AbortAfterFailure",
     }
+    if failure == "wrong-output-usage":
+        assert artifact["failure_type"] == "OutputUsageMismatch"
+        assert artifact["answer_exact"] is True
     assert "secret-never-persist-r15" not in output.read_text()
     assert "Bearer" not in output.read_text()
