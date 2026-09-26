@@ -148,3 +148,19 @@ RSICONTEXT_PEP_SOURCE_ROOT=/volume/pt-dev/qjiu/rsi_context_external/data/python-
 RSICONTEXT_K8S_SOURCE_ROOT=/volume/pt-dev/qjiu/rsi_context_external/data/kubernetes-enhancements-kep753 \
 uv run --frozen --no-sync pytest -q tests/test_pep_r14.py tests/test_k8s_r14.py tests/test_brokered_researcher_exercise.py tests/test_qualify_r4_bc_budget.py
 ```
+
+## R15 integration addendum
+
+The later fixed-reader implementation supplied exact local geometry and a
+separate, frozen **PEP development** budget: six complete cases, 12 task
+calls, two in-block canaries, zero auxiliary calls, 42,747 task and 46,967
+global local-input-plus-requested-output planning tokens. The real Siflow
+block used 18,168/57 task and 124/4 in-block canary provider input/output
+tokens, with zero unknown usage. Two earlier standalone canaries used another
+124/4. These facts update the fixed-reader development budget only; they do
+not admit a researcher budget or change the host-jail refusal. Both PEP
+identity-only controls passed, so that source lineage is rejected for a
+dependency-qualified parent. KEP's 62,544-token offline planning envelope
+and nine synthetic calls are not real provider usage; its live launch is still
+closed. Full identities, controls and artifact hashes are in
+[`r15-results-20260927.md`](r15-results-20260927.md).

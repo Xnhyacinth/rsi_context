@@ -1,6 +1,7 @@
 # R15 fixed-reader controls and B/C budget execution ledger
 
-Status: offline implementation and admission review in progress. The common starting
+Status: planning snapshot; completed R15 evidence is in
+[`r15-results-20260927.md`](r15-results-20260927.md). The common starting
 point is clean `main@dc76d798bfc49e58d599fc77bca8529a40cd063d` (apart
 from the original main checkout's unrelated `logs/`). The registry and
 `uv.lock` retain SHA256
@@ -38,11 +39,11 @@ worst-path aggregate of 18,171 local input tokens. Twelve requested replies
 at 2,048 tokens give a 42,747-token planning ceiling. The public runner now
 requires a committed artifact registration and rechecks source, tokenizer,
 profile, producer files, worlds and cumulative local input before transport.
-That final registration has not yet been frozen after integration changes.
+The final registration was subsequently frozen and used in the paid block.
 The independent review found the missing registration gate and a shared
 worker exception path that could persist a transport exception containing a
-credential. Both code paths have been repaired; their integration checks
-remain part of the final gate. No PEP provider request has run.
+credential. Both code paths were repaired before paid execution; see the
+linked results ledger for canaries, provider usage and control outcomes.
 
 The KEP screen registers three complete two-session cases (full source,
 source-free, and both explicit order-rule blocks neutralized), twelve possible
@@ -54,19 +55,20 @@ nine **synthetic** SSE calls and 44,108/71 synthetic input/output tokens;
 `provider_usage_total=null`. The full-source synthetic trajectory passed both
 sessions; the two controls passed the first session and failed the second.
 These scripted replies establish only runner and receipt plumbing. The
-independent review found that the public offline runner accepts an arbitrary
-handler wrapped as `SyntheticTransport`; the shipped CLI always creates its
-own fake handler and refuses `--execute`, while the wrapper needs hardening
-before the runner is reused. No KEP provider request has run.
+independent review found that the public offline runner accepted an arbitrary
+handler wrapped as `SyntheticTransport`; that path was hardened to a
+factory-only local fake. KEP `--execute` still refuses, and no KEP provider
+request has run.
 
 The two cards together have a 105,291-token local planning envelope across
 their separate caps. These are upper bounds on locally rendered input plus
 requested output, not measured Siflow usage, price, or a researcher budget.
-Neither card is a qualified independent parent yet. KEP's neutralization
-retains indirect cues, and PEP identity-only tests must still show whether
-the model uses the historical rule rather than a version shortcut.
+Neither card is a qualified independent parent. KEP's neutralization retains
+indirect cues; the later PEP identity-only paid controls pass, ruling out a
+rule-text dependency claim for that lineage.
 
-Before any paid task call, freeze the exact case list, question-general
+The following were the preregistered launch rules. Before any paid task call,
+freeze the exact case list, question-general
 policy, source and intervention hashes, request JSON hashes, final rendered
 chat token intervals, per-call output ceiling, global provider-token/call
 cap, stop rules and pre/post canary identities. A pre-canary or material/
