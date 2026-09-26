@@ -44,6 +44,11 @@ and `6081edc9ffc22e5363c2f97edde1c354cf6114d8be7f13b071abd6f0dc49a07e`.
 The directory is mode `0700`, each file `0600`, and the producer remained
 clean. Each of the six calls has one journaled dispatch and response event;
 there was no retry or auxiliary call.
+Two earlier shell-level launch attempts stopped before the guarded runner
+reserved a directory or dispatched a request: one required an unnecessary
+`SIFLOW_BASE_URL` environment variable, and the next found its parent output
+directory absent. The final launch used the runner's pinned endpoint with
+the provided key; neither earlier attempt made a provider call.
 
 Provider-reported usage was **1,410 input / 74 output tokens for four target
 calls**, plus **124 input / 4 output tokens for two canaries**, for **1,534
