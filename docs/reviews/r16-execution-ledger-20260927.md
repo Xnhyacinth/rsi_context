@@ -1,7 +1,10 @@
 # R16 independent-parent and KEP admission ledger
 
-Status: in progress; no R16 provider or GPU call. All four R16 worktrees
-started from `main@93e77734ee392e0a601ec28c3b705d4ba8f85d03` with frozen
+Status: KEP paid development gate stopped on an authentic full-source
+second-session failure; no GPU call. See
+[`r16-kep-live-result-20260927.md`](r16-kep-live-result-20260927.md) for the
+four actual Siflow calls, provider usage and immutable evidence. All four R16
+worktrees started from `main@93e77734ee392e0a601ec28c3b705d4ba8f85d03` with frozen
 `uv.lock` SHA256 `5b24847780908a3481e8b6757480531c165ff87517bc1d48acf250baa6cc9352`
 and registry SHA256
 `c071cbfc5c33f69b01abb8b0c58033590711482adbad66bb0c261bc5ef6b67e2`.

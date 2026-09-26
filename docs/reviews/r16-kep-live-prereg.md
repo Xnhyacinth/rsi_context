@@ -2,9 +2,10 @@
 
 Status: **offline only, no R16 paid request made**. R15's original offline
 and real evidence is unchanged. The R15 KEP `--execute` command remains closed.
-This new version uses one benchmark-owned generic policy and five constructed
-material arms. A separate guarded runner may be considered after independent
-review of this registration, the clean producer, and the offline fake chain.
+This new version uses one benchmark-owned generic policy and five material
+arms, one authentic and four controlled variants. A separate guarded runner
+may be considered after independent review of this registration, the clean
+producer, and the offline fake chain.
 
 ## Common task and materials
 
