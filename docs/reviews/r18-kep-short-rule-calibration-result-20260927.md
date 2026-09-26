@@ -42,7 +42,8 @@ values are respectively
 `7dc8a42af1dfa8a13c2e317be69c29765bfab9d9284d4fcaa65261cc17114274`,
 and `6081edc9ffc22e5363c2f97edde1c354cf6114d8be7f13b071abd6f0dc49a07e`.
 The directory is mode `0700`, each file `0600`, and the producer remained
-clean. Each of the six calls has one journaled dispatch and response event;
+clean at `b85aa1d3112d0af0006b5b851dee684e1bdc3fbd`. Each of the six calls
+has one journaled dispatch and response event;
 there was no retry or auxiliary call.
 Two earlier shell-level launch attempts stopped before the guarded runner
 reserved a directory or dispatched a request: one required an unnecessary
