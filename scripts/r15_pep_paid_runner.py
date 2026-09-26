@@ -199,6 +199,8 @@ class _JournalTransport:
     def __call__(self, request: urllib.request.Request, timeout: float) -> bytes:
         if self.phase not in {"pre-canary", "task", "post-canary"}:
             raise RuntimeError("unknown provider phase")
+        if request.full_url != canary.ENDPOINT:
+            raise RuntimeError("provider request endpoint differs from frozen URL")
         if not isinstance(request.data, bytes):
             raise RuntimeError("provider request lacks body")
         request_hash = _sha(request.data)
@@ -478,6 +480,12 @@ def run_guarded(
                     else "post-canary-failed"
                 )
                 if result["status"] == "completed-development-screen":
+                    if (
+                        journal.task_attempts != MAX_WORKER_ATTEMPTS
+                        or journal.canary_attempts != 2
+                        or journal.attempts != launch["global_call_cap"]
+                    ):
+                        raise RuntimeError("completed block lacks all registered provider calls")
                     _read_launch_manifest()
                     _validate_registration(
                         cases,

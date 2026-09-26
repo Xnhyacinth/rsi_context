@@ -421,6 +421,31 @@ def test_usage_parser_exception_retains_response_hash_and_unknown_usage(
     assert journal.unknown_usage_attempts == 1
 
 
+def test_journal_rejects_endpoint_drift_before_transport(tmp_path: Path) -> None:
+    calls: list[str] = []
+
+    def fake(_request: urllib.request.Request, _timeout: float) -> bytes:
+        calls.append("called")
+        return b""
+
+    source = _canary_request()
+    request = urllib.request.Request(
+        "https://wrong.example/model-api/chat/completions",
+        data=source.data,
+        method="POST",
+    )
+    journal = runner._JournalTransport(
+        base=fake,
+        journal_path=tmp_path / "attempts.jsonl",
+        geometry={"registered_requests": {}},
+        manifest=_launch(),
+    )
+    with pytest.raises(RuntimeError, match="endpoint differs"):
+        journal(request, 1.0)
+    assert calls == []
+    assert journal.attempts == 0
+
+
 def test_cli_requires_explicit_execute_flag() -> None:
     with pytest.raises(SystemExit):
         runner.main(
