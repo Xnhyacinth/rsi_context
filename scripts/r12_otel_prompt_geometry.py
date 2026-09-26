@@ -128,8 +128,7 @@ def build_report(
         if len(case.worker.prompts) != 2:
             raise ValueError("full OTel case must have exactly two worker requests")
         calls = [
-            measure_otel_worker_prompt(tokenizer, profile, prompt)
-            for prompt in case.worker.prompts
+            measure_otel_worker_prompt(tokenizer, profile, prompt) for prompt in case.worker.prompts
         ]
         if [call["stage"] for call in calls] != ["source-survey", "project-request-stage"]:
             raise ValueError("OTel worker call order changed")
@@ -140,7 +139,9 @@ def build_report(
             "world_sha256": [
                 _sha(
                     json.dumps(
-                        session.to_dict(), sort_keys=True, separators=(",", ":"),
+                        session.to_dict(),
+                        sort_keys=True,
+                        separators=(",", ":"),
                         ensure_ascii=False,
                     ).encode("utf-8")
                 )
@@ -152,12 +153,13 @@ def build_report(
     newer = build_otel_source_contrast_sessions(roots["1.43"], revision="1.43")
     deleted = remove_otel_decisive_row(newer[0].stages[0].documents[0].text)
     deletion_case = run_case("row-deleted-143", newer, source_text=deleted)
-    if len(deletion_case.worker.prompts) != 1:
-        raise ValueError("registered row deletion should produce only the survey worker call")
-    deleted_call = measure_otel_worker_prompt(
-        tokenizer, profile, deletion_case.worker.prompts[0]
-    )
-    if deleted_call["decisive_row_status"] != "removed":
+    if len(deletion_case.worker.prompts) != 2 or len(set(deletion_case.worker.prompts)) != 1:
+        raise ValueError("registered row deletion must survey the same source twice")
+    deleted_calls = [
+        measure_otel_worker_prompt(tokenizer, profile, prompt)
+        for prompt in deletion_case.worker.prompts
+    ]
+    if any(call["decisive_row_status"] != "removed" for call in deleted_calls):
         raise ValueError("registered deletion was not recognized")
     return {
         "schema_version": 1,
@@ -176,7 +178,7 @@ def build_report(
         "registered_row_deletion_143": {
             "visible_source_sha256": _sha(deleted.encode("utf-8")),
             "fake_worker_only": deletion_case.summary(),
-            "call": deleted_call,
+            "calls": deleted_calls,
         },
     }
 
@@ -214,7 +216,8 @@ def main() -> int:
     tokenizer = cast(
         ChatTokenizer,
         transformers.AutoTokenizer.from_pretrained(
-            str(args.tokenizer_path), local_files_only=True,  # nosec B615
+            str(args.tokenizer_path),
+            local_files_only=True,  # nosec B615
         ),
     )
     profile = load_api_profiles(_PROFILE_PATH).get(PROFILE_ID)

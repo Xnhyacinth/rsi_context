@@ -31,9 +31,7 @@ _ROW_SHA256 = {
     "1.43": "e72da5becec0b61970037df08120d2f2e5f5fd1596405f520224f219237173c8",
 }
 _DELETED_143_RAW_SHA256 = "09f04822434b135bf4be57406e51e561bb488764cc9e581962425ba11f306946"
-_DELETED_143_MATERIAL_SHA256 = (
-    "80fab68f70ce6d1542c5cfeb45b95b1e6cf6dbbfe4d67aadbb59f87dd9ccd97c"
-)
+_DELETED_143_MATERIAL_SHA256 = "80fab68f70ce6d1542c5cfeb45b95b1e6cf6dbbfe4d67aadbb59f87dd9ccd97c"
 
 
 def _sha(raw: bytes) -> str:
@@ -47,8 +45,7 @@ def _row(source: str, revision: str) -> str:
         for line in source.splitlines(keepends=True)
         if line.startswith(f"| [`{key}`]")
         and "Recommended" in line
-        and f"The database {'statement' if revision == '1.24' else 'query'} "
-        f"being executed." in line
+        and f"The database {'statement' if revision == '1.24' else 'query'} being executed." in line
     ]
     if len(rows) != 1 or _sha(rows[0].encode("utf-8")) != _ROW_SHA256[revision]:
         raise ValueError("source has missing, ambiguous, or modified decisive table row")
@@ -105,9 +102,7 @@ def _payload(profile: APIProfile, prompt: str) -> dict[str, object]:
 def _source_span(
     tokenizer: ChatTokenizer, messages: list[dict[str, str]], source: str
 ) -> list[int]:
-    geometry = measure_chat_geometry(
-        tokenizer, messages, enable_thinking=False, evidence=source
-    )
+    geometry = measure_chat_geometry(tokenizer, messages, enable_thinking=False, evidence=source)
     span = geometry["evidence_span_tokens"]
     if not isinstance(span, list):
         raise ValueError("local tokenizer could not locate complete OTel source")

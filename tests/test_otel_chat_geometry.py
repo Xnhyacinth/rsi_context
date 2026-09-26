@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 import rsicontext.analysis.otel_chat_geometry as otel_geometry
+from rsicontext.analysis.otel_model_screen import run_case
 from rsicontext.experiment.api import load_api_profiles
+from rsicontext.lifecycle.material_otel_source_contrast import build_otel_source_contrast_sessions
 
 PROFILE = load_api_profiles(
     Path(__file__).resolve().parent.parent / "configs/r12_otel_siflow_worker_profile_v1.json"
@@ -61,9 +64,7 @@ def pinned_synthetic_source(monkeypatch: pytest.MonkeyPatch) -> str:
     monkeypatch.setattr(otel_geometry, "SOURCE_SHA256", {"1.43": _sha(_RAW)})
     monkeypatch.setattr(otel_geometry, "_ROW_SHA256", {"1.43": _sha(_ROW)})
     monkeypatch.setattr(otel_geometry, "_DELETED_143_RAW_SHA256", _sha(deleted))
-    monkeypatch.setattr(
-        otel_geometry, "_DELETED_143_MATERIAL_SHA256", _sha(_MARKER + deleted)
-    )
+    monkeypatch.setattr(otel_geometry, "_DELETED_143_MATERIAL_SHA256", _sha(_MARKER + deleted))
     return _MARKER + _RAW
 
 
@@ -143,3 +144,19 @@ def test_later_request_span_is_after_retained_attribute() -> None:
 def test_missing_boundary_or_request_fails_closed(prompt: str) -> None:
     with pytest.raises(ValueError):
         otel_geometry.measure_otel_worker_prompt(CharacterTokenizer(), PROFILE, prompt)
+
+
+def test_registered_deletion_surveys_twice_when_reread_is_available() -> None:
+    configured = os.environ.get("RSICONTEXT_OTEL_SOURCE_ROOT")
+    if not configured:
+        pytest.skip("set RSICONTEXT_OTEL_SOURCE_ROOT to pinned detached checkout")
+    sessions = build_otel_source_contrast_sessions(Path(configured), revision="1.43")
+    source = sessions[0].stages[0].documents[0].text
+    case = run_case(
+        "registered-row-deleted-143",
+        sessions,
+        source_text=otel_geometry.remove_otel_decisive_row(source),
+    )
+    assert len(case.worker.prompts) == 2
+    assert case.worker.prompts[0] == case.worker.prompts[1]
+    assert case.worker.replies == ["invalid", "invalid"]
