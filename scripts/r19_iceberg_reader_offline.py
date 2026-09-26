@@ -1,15 +1,15 @@
 """R19 Iceberg prospective reader: bounded offline synthetic chain only.
 
-Registry-bound paid launch identity is deliberately deferred until the R19
-registry settles. This runner never resolves credentials or uses a network
-transport. An injected transport exercises the exact Qwen request envelope,
-private fsynced journal, two canaries and two-session reader loop.
+This runner never resolves credentials or uses a network transport. Its sealed
+synthetic transport exercises the frozen Qwen request envelope, private fsynced
+journal, two canaries and two-session reader loop.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import sys
 import urllib.request
 from dataclasses import dataclass
@@ -52,6 +52,23 @@ CANARY_CALL_CAP = 2
 GLOBAL_CALL_CAP = TASK_CALL_CAP + CANARY_CALL_CAP
 R18_GEOMETRY_PATH = ROOT / "docs/reviews/r18-iceberg-geometry.json"
 R18_GEOMETRY_SHA256 = "aec96c97e921163431f306728c5469ce8e9673186a73f19b0de46f90afa35448"
+REGISTRY_SHA256 = "7ac3a92dcbf9128c2b39ef16978bb9d08854612a85126b98165f62ecd8a9c1a0"
+_GEOMETRY_REL = "configs/r19_iceberg_reader_geometry_v1.json"
+_LAUNCH_REL = "configs/r19_iceberg_reader_launch_v1.json"
+_BOUND_FILES = (
+    "scripts/r19_iceberg_reader_offline.py",
+    "src/rsicontext/analysis/iceberg_fixed_reader_r19.py",
+    "scripts/audit_r18_iceberg_geometry.py",
+    "src/rsicontext/lifecycle/material_iceberg_row_scan.py",
+    "src/rsicontext/lifecycle/session_sequence.py",
+    "src/rsicontext/analysis/otel_siflow_pilot.py",
+    "src/rsicontext/experiment/api.py",
+    "scripts/r15_exact_profile_canary.py",
+    "scripts/r15_pep_paid_runner.py",
+    "configs/r15_siflow_fixed_reader_profile_v1.json",
+    "configs/registry.json",
+    "uv.lock",
+)
 _FAULTS = frozenset(
     ("mixed-first", "missing-usage-first", "wrong-model-first", "non-stop-first", "authentic-wrong")
 )
@@ -63,6 +80,68 @@ def _sha(raw: bytes) -> str:
 
 def _canonical(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+
+
+def _committed_bytes(relative: str) -> bytes:
+    return subprocess.run(  # nosec B603, B607
+        ["git", "-C", str(ROOT), "show", f"HEAD:{relative}"],
+        check=True,
+        capture_output=True,
+        timeout=10,
+    ).stdout
+
+
+def _read_frozen_registration() -> tuple[dict[str, object], dict[str, object]]:
+    """Require clean committed producer, exact launch bytes and registered requests."""
+
+    status = subprocess.run(  # nosec B603, B607
+        ["git", "-C", str(ROOT), "status", "--porcelain", "--untracked-files=all"],
+        check=True,
+        capture_output=True,
+        timeout=10,
+    ).stdout
+    if status:
+        raise ValueError("R19 producer worktree is not clean")
+    geometry_bytes = (ROOT / _GEOMETRY_REL).read_bytes()
+    launch_bytes = (ROOT / _LAUNCH_REL).read_bytes()
+    if geometry_bytes != _committed_bytes(_GEOMETRY_REL) or launch_bytes != _committed_bytes(
+        _LAUNCH_REL
+    ):
+        raise ValueError("R19 geometry or launch differs from committed HEAD")
+    launch = json.loads(launch_bytes)
+    required = {
+        "schema_version", "scope", "geometry_sha256", "registry_sha256",
+        "profile_sha256", "endpoint_sha256", "canary_registration_sha256",
+        "task_call_cap", "canary_call_cap", "global_call_cap", "auxiliary_call_cap",
+        "task_local_plus_requested_ceiling", "global_local_plus_requested_ceiling",
+        "bound_file_sha256", "live_enabled",
+    }
+    if not isinstance(launch, dict) or set(launch) != required or (
+        launch["schema_version"] != 1
+        or launch["scope"] != "r19-iceberg-prospective-fixed-reader-offline"
+        or launch["live_enabled"] is not False
+        or launch["geometry_sha256"] != _sha(geometry_bytes)
+    ):
+        raise ValueError("R19 frozen launch identity differs")
+    bound = launch["bound_file_sha256"]
+    if not isinstance(bound, dict) or set(bound) != set(_BOUND_FILES):
+        raise ValueError("R19 bound producer set differs")
+    for relative in _BOUND_FILES:
+        raw = (ROOT / relative).read_bytes()
+        if raw != _committed_bytes(relative) or bound[relative] != _sha(raw):
+            raise ValueError(f"R19 producer differs from launch: {relative}")
+    registration = json.loads(geometry_bytes)
+    if not isinstance(registration, dict):
+        raise ValueError("R19 geometry is not an object")
+    fields = (
+        "registry_sha256", "profile_sha256", "endpoint_sha256",
+        "canary_registration_sha256", "task_call_cap", "canary_call_cap",
+        "global_call_cap", "auxiliary_call_cap", "task_local_plus_requested_ceiling",
+        "global_local_plus_requested_ceiling",
+    )
+    if any(launch[name] != registration.get(name) for name in fields):
+        raise ValueError("R19 launch and geometry disagree")
+    return registration, launch
 
 
 def _request(profile: APIProfile, prompt: str) -> dict[str, object]:
@@ -210,6 +289,8 @@ def build_registration(source_root: Path, tokenizer_root: Path) -> dict[str, obj
 
     if _sha(R18_GEOMETRY_PATH.read_bytes()) != R18_GEOMETRY_SHA256:
         raise ValueError("R18 geometry artifact changed")
+    if _sha((ROOT / "configs/registry.json").read_bytes()) != REGISTRY_SHA256:
+        raise ValueError("R19 registry differs from pinned post-Gemma intake")
     actual = r18_geometry.audit(
         source_root, tokenizer_root, ROOT / "configs/r15_siflow_fixed_reader_profile_v1.json"
     )
@@ -254,7 +335,7 @@ def build_registration(source_root: Path, tokenizer_root: Path) -> dict[str, obj
         "scope": "r19-iceberg-prospective-fixed-reader-offline",
         "qualified_parent": False,
         "r18_geometry_sha256": R18_GEOMETRY_SHA256,
-        "registry_sha256_observed": _sha((ROOT / "configs/registry.json").read_bytes()),
+        "registry_sha256": REGISTRY_SHA256,
         "source": actual["source"],
         "source_git": actual["source_git"],
         "world_sha256": worlds,
@@ -459,7 +540,10 @@ def run_offline_screen(
     }
     journal: journal_tools._JournalTransport | None = None
     try:
+        frozen, launch = _read_frozen_registration()
         registration = build_registration(source_root, tokenizer_root)
+        if registration != frozen:
+            raise ValueError("R19 source, tokenizer or request geometry differs from frozen launch")
         profile = canary._profile()
         tokenizer = canary._tokenizer(tokenizer_root)
         transport = SyntheticTransport(profile, tokenizer, fault)
@@ -478,7 +562,7 @@ def run_offline_screen(
             run_dir / "identity.json",
             {
                 "registration_sha256": _sha(_canonical(registration)),
-                "registry_sha256_observed": registration["registry_sha256_observed"],
+                "registry_sha256": registration["registry_sha256"],
                 "source": registration["source"],
                 "source_git": registration["source_git"],
                 "world_sha256": registration["world_sha256"],
@@ -488,7 +572,9 @@ def run_offline_screen(
                 "task_call_cap": TASK_CALL_CAP,
                 "global_call_cap": GLOBAL_CALL_CAP,
                 "auxiliary_call_cap": 0,
-                "producer_status": "dynamic-offline; no clean-commit launch attestation",
+                "producer_status": "clean-committed-and-launch-bound; synthetic-only",
+                "launch_sha256": _sha((ROOT / _LAUNCH_REL).read_bytes()),
+                "geometry_sha256": launch["geometry_sha256"],
             },
         )
         journal_tools._sync_directory(run_dir)

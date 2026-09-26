@@ -1,0 +1,30 @@
+{
+  "auxiliary_call_cap": 0,
+  "bound_file_sha256": {
+    "configs/r15_siflow_fixed_reader_profile_v1.json": "c3bb91d662d588e0a0a69101fb8fd851a1c910ded66e4387d4afccc9c9002ff6",
+    "configs/registry.json": "7ac3a92dcbf9128c2b39ef16978bb9d08854612a85126b98165f62ecd8a9c1a0",
+    "scripts/audit_r18_iceberg_geometry.py": "348a38ccd39d14701f408a574aa4b5e5bccf241d77536058f47b45f3653821e5",
+    "scripts/r15_exact_profile_canary.py": "88367a775dc28b9ae9bc7ef85b15134ba4d9514a0d37d47915c93951901e8333",
+    "scripts/r15_pep_paid_runner.py": "06fdff7be01b880202835d2111f95d0779d792224d93073d840e473e0a9d62c1",
+    "scripts/r19_iceberg_reader_offline.py": "7264bd5f08fe99eceeb12817ff6d3d1c3cd3c9e92340b535ef4830d95535d9dc",
+    "src/rsicontext/analysis/iceberg_fixed_reader_r19.py": "d53571fb84a3bda7895fee75bfd3dca2174a416d26907a9407d7e9dc11b9ee6f",
+    "src/rsicontext/analysis/otel_siflow_pilot.py": "28cc12d1bfcf2b541d4b6618af45ab6b357ad816bf88aa723f5b5e9c65785cfc",
+    "src/rsicontext/experiment/api.py": "53039df4ddaa59dca5c47990d51d3fff939e80e7aec1abaebb09fc2506e015bc",
+    "src/rsicontext/lifecycle/material_iceberg_row_scan.py": "60a0880b52cf997bdf04899fe0e7e2c72b641d4a20fd478f532f412297f02337",
+    "src/rsicontext/lifecycle/session_sequence.py": "b1752247af8b0520b7f2ee47c46a0f58638121898c9314ef9b9a45d7ceac023d",
+    "uv.lock": "5b24847780908a3481e8b6757480531c165ff87517bc1d48acf250baa6cc9352"
+  },
+  "canary_call_cap": 2,
+  "canary_registration_sha256": "cd535eecd54f99d4822d631efad942f1e874f15ac535b98bc32d2582293e4953",
+  "endpoint_sha256": "b49d7116deaf5df5ed7102ea5d67a9b4ab6a7d5fb0808bb9ef540e0e400234d7",
+  "geometry_sha256": "53d0669031172f8c05fa70bb95971b7394f891461794aa35b663d0d5d79f6559",
+  "global_call_cap": 10,
+  "global_local_plus_requested_ceiling": 72052,
+  "live_enabled": false,
+  "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+  "registry_sha256": "7ac3a92dcbf9128c2b39ef16978bb9d08854612a85126b98165f62ecd8a9c1a0",
+  "schema_version": 1,
+  "scope": "r19-iceberg-prospective-fixed-reader-offline",
+  "task_call_cap": 8,
+  "task_local_plus_requested_ceiling": 67832
+}
