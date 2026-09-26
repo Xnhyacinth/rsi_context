@@ -1,0 +1,149 @@
+{
+  "amendment_sha256": "198bf01062a787132bab32cdb58e624cf31625434ebdd4d04b2c007629ee5431",
+  "auxiliary_call_cap": 0,
+  "case_order": [
+    "coarse-membership",
+    "coarse-numeric",
+    "explicit-membership",
+    "explicit-numeric"
+  ],
+  "coarse_material_sha256": "0fc506411eaa8fee8c67ed70e04b6a7725f09c6c5131c2500a25c8c564481246",
+  "interpretation": "development feasibility only; no source-dependency or parent claim",
+  "local_input_plus_requested_ceiling": 9732,
+  "local_input_tokens": 1540,
+  "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+  "projected_rule_sha256": "c7bf434d4f0a26e3311fca78fd4075459bf4730bc54cf1941f07e5b80b383493",
+  "r16_observation": {
+    "observed_first_plan": "hold-at-1000m",
+    "observed_formula": "formula=prefix",
+    "observed_later_plan": "hold-at-1000m",
+    "r16_task_sha256": "15520c0aedba2d471d7e85085b1d05813a366b22f401ae5b641e669468e6a36d"
+  },
+  "r17_observation": {
+    "observed_effective_cpu_m": 1200,
+    "observed_membership": {
+      "a_sidecar_m": 300,
+      "b_sidecar_m": 0
+    },
+    "observed_plan": "hold-at-1000m",
+    "r17_task_sha256": "c3ec0144de17c477e64d2aae97c2c3ec48d3ebb201e6c74c111b09b412ad84ec"
+  },
+  "requested_output_tokens": 8192,
+  "requests": [
+    {
+      "case": "coarse-membership",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          120,
+          123
+        ],
+        "evidence_to_query_tokens": 5,
+        "query_span_tokens": [
+          128,
+          291
+        ],
+        "rendered_input_tokens": 300,
+        "rendered_utf8_bytes": 1352,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          291
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "0f9591b95d56cfaa5b3557dda73ded67fbdc85f7c2cd4a90f5635adf19564e6d",
+      "request_sha256": "f52a7de27f200ab272b6c8c330bc177b7b02889720f46ad1afae72c3834bbaec"
+    },
+    {
+      "case": "coarse-numeric",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          126,
+          129
+        ],
+        "evidence_to_query_tokens": 5,
+        "query_span_tokens": [
+          134,
+          297
+        ],
+        "rendered_input_tokens": 306,
+        "rendered_utf8_bytes": 1288,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          297
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "3e72557ecb758ab60e1171a3a2148194644a44177077413e4f21757fcadc2b39",
+      "request_sha256": "02779171aacf5810fe3a09b604c4344d870d11ea829102a481e552cf1b001693"
+    },
+    {
+      "case": "explicit-membership",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          120,
+          287
+        ],
+        "evidence_to_query_tokens": 5,
+        "query_span_tokens": [
+          292,
+          455
+        ],
+        "rendered_input_tokens": 464,
+        "rendered_utf8_bytes": 2082,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          455
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "95bb77354c43af5ecbf1c643d0b68f287ac778abfe51b7e69793979902a639bc",
+      "request_sha256": "6585228b89784a9f9dd2050b52c848a1d48c1b6c963dec755b2ef47f23a55f94"
+    },
+    {
+      "case": "explicit-numeric",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          126,
+          293
+        ],
+        "evidence_to_query_tokens": 5,
+        "query_span_tokens": [
+          298,
+          461
+        ],
+        "rendered_input_tokens": 470,
+        "rendered_utf8_bytes": 2018,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          461
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "003f53de016d642840761b4d5eb40ca218474122e29348f716a1ae6eda78f036",
+      "request_sha256": "b5b49a77f56cd96e63c617fc14001653fb3dd2a6e1ef1aa8b4b977a9e56dcb2b"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "r18-kep-short-input-rule-projection-calibration",
+  "source_readme_sha256": "ba9ef6b591cb626023c6e8a0c77cbc3f3cd2ede98d6ab3ff086e41ebef0cdf21",
+  "source_revision": "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a",
+  "source_rule_spans": [
+    {
+      "first_line": 780,
+      "last_line": 794,
+      "raw_sha256": "501730735b2c8397ddd7f19062551a0976d497a749122bcfa411f1f116191f34",
+      "utf8_bytes": 439
+    },
+    {
+      "first_line": 835,
+      "last_line": 838,
+      "raw_sha256": "4704a8c456cfa800a08d64e11cd7f2416ec68dd648b8ce91fe76e61fbda9b3f2",
+      "utf8_bytes": 305
+    }
+  ],
+  "target_call_cap": 4
+}
