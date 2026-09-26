@@ -89,7 +89,7 @@ The guarded runner is
 [`scripts/r17_kep_diagnostic_paid_runner.py`](../../scripts/r17_kep_diagnostic_paid_runner.py).
 Its frozen launch manifest is
 [`configs/r17_kep_diagnostic_paid_launch_v1.json`](../../configs/r17_kep_diagnostic_paid_launch_v1.json),
-SHA-256 `353e138ee3392bfbda0376d9f623a453820ebb85f52a664dcf5312f44686b020`.
+SHA-256 `0a7eb9915ff9d70d3f177bed2b46a34b8a6b07026c86cd196070dbfd5bb84e62`.
 It binds committed producer/registry/profile bytes, tokenizer snapshot and
 runtime, source revision and README, and the immutable R16 observation before
 credential resolution. Its private, fsynced attempt log records each dispatch

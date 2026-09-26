@@ -59,6 +59,7 @@ def fake_route(
     calls: list[str],
     *,
     bad_membership: bool = False,
+    missing_usage: bool = False,
 ) -> Transport:
     canary_fake = canary._fake_transport(profile, tokenizer)
     registration = json.loads(runner._REGISTRATION_PATH.read_text())
@@ -77,7 +78,7 @@ def fake_route(
         calls.append("canary" if prompt == canary.PROMPT else "task")
         if prompt == canary.PROMPT:
             return canary_fake(request, timeout)
-        return offline._fake_sse(
+        raw = offline._fake_sse(
             request,
             timeout,
             tokenizer=tokenizer,
@@ -85,6 +86,9 @@ def fake_route(
             answers=answers,
             expected=expected,
         )
+        if missing_usage:
+            return b"\n".join(line for line in raw.split(b"\n") if b'"usage"' not in line)
+        return raw
 
     return route
 
@@ -156,6 +160,29 @@ def test_invalid_task_reply_stops_before_remaining_calls_and_post_canary(
     assert calls == ["canary", "task", "task"]
     assert result["task_http_calls"] == 2
     assert not (run_dir / "post_canary.json").exists()
+
+
+def test_missing_provider_usage_stops_without_retry_or_post_canary(
+    tokenizer: ChatTokenizer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SIFLOW_BASE_URL", raising=False)
+    calls: list[str] = []
+    run_dir = tmp_path / "missing-usage"
+    result = runner.run_guarded(
+        source_root=SOURCE,
+        r16_task=TASK,
+        tokenizer_path=TOKENIZER,
+        run_dir=run_dir,
+        transport_override=fake_route(canary._profile(), tokenizer, calls, missing_usage=True),
+    )
+    assert result["status"] == "usage-unverified"
+    assert calls == ["canary", "task"]
+    assert result["task_http_calls"] == 1
+    assert result["canary_http_calls"] == 1
+    assert not (run_dir / "post_canary.json").exists()
+    events = [json.loads(line) for line in (run_dir / "attempts.jsonl").read_text().splitlines()]
+    assert any(event["event"] == "response-received" and event["provider_usage"] is None
+               for event in events)
 
 
 def test_forged_launch_refuses_before_credential_or_transport(

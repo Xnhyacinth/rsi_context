@@ -363,11 +363,12 @@ def run_guarded(
             if (
                 task["worker_attempt_count"] != journal.task_attempts
                 or task["provider_usage_total"] != observed_task_usage
-                or observed_task_usage["unknown_usage_attempts"] != 0
             ):
                 raise RuntimeError("R17 worker attempts or usage differ from journal")
             result["task_provider_usage_total"] = None if synthetic else observed_task_usage
-            if task["status"] != "completed-diagnostic":
+            if observed_task_usage["unknown_usage_attempts"] != 0:
+                result["status"] = "usage-unverified"
+            elif task["status"] != "completed-diagnostic":
                 result["status"] = "task-worker-or-format-failed"
             else:
                 journal.phase = "post-canary"
