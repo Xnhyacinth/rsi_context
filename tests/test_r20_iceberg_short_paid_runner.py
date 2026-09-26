@@ -141,8 +141,8 @@ def test_registration_and_private_truth_table(tokenizer: ChatTokenizer) -> None:
         SOURCE, TOKENIZER, profile=profile, tokenizer=tokenizer
     )
     assert frozen["case_order"] == list(short.CASE_ORDER)
-    assert frozen["local_input_tokens"] == 736
-    assert frozen["local_input_plus_requested_ceiling"] == 8928
+    assert frozen["local_input_tokens"] == 784
+    assert frozen["local_input_plus_requested_ceiling"] == 8976
     assert verified_oracle() == {
         "data-counter-match": "plan=suppress-row",
         "file-counter-match": "plan=emit-row",
@@ -152,6 +152,7 @@ def test_registration_and_private_truth_table(tokenizer: ChatTokenizer) -> None:
     assert "plan=suppress-row" not in registration_text
     assert "plan=emit-row" not in registration_text
     a, b, c, d = (short.decision_user(case) for case in short.CASE_ORDER)
+    assert all("same partition spec 2, region=A" in prompt for prompt in (a, b, c, d))
     assert a.replace("counter=data", "counter=<counter>") == b.replace(
         "counter=file", "counter=<counter>"
     )
@@ -187,7 +188,7 @@ def test_complete_synthetic_panel_has_six_calls_and_private_ledger(
     assert result["attempted_http_calls"] == 6
     assert result["task_http_calls"] == 4
     assert result["canary_http_calls"] == 2
-    assert result["local_plus_requested_tokens"] == 13148
+    assert result["local_plus_requested_tokens"] == 13196
     assert calls == ["canary", *short.CASE_ORDER, "canary"]
     task = json.loads((run_dir / "task.json").read_bytes())
     assert [row["correct"] for row in task["cases"]] == [True, True, True, None]
@@ -280,7 +281,7 @@ def test_forged_launch_refuses_before_credential_resolution_or_transport(
 ) -> None:
     committed_launch = runner._LAUNCH.read_bytes()
     forged = tmp_path / "forged.json"
-    forged.write_text(runner._LAUNCH.read_text().replace("13148", "13149"))
+    forged.write_text(runner._LAUNCH.read_text().replace("13196", "13197"))
     monkeypatch.setattr(runner, "_LAUNCH", forged)
     monkeypatch.setattr(
         runner,

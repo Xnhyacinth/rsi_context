@@ -14,15 +14,16 @@ The source is the detached Apache Iceberg commit
 `e68cd90f7e243f33996717f877077e40773a8ffb57978232458b9e5bf2b9c5cb`.
 The [pinned specification](https://github.com/apache/iceberg/blob/071d5606bc6199a0be9b3f274ec7fbf111d88821/format/spec.md)
 states that equality delete pruning uses the data sequence number (line 688),
-requires a strict earlier sequence (line 848), treats unpartitioned equality
-deletes as global (line 853), and deletes a row when every equality column
+requires a strict earlier sequence (line 848), applies a delete in the same
+partition (lines 843-853), and deletes a row when every equality column
 matches (line 1136). The local source and tokenizer are rechecked through the
 R19 source audit before any request. R19 material and launch files are not
 modified.
 
 The constructed facts are one data row with field-id 1 value 42, data
-sequence 7, file sequence 12, and one unpartitioned equality delete with
-sequence 8 and `equality_ids=[1]`. No other delete exists. The query and
+sequence 7, file sequence 12, and one equality delete with sequence 8 and
+`equality_ids=[1]`. Both files have partition spec 2, region=A. No other
+delete exists. The query and
 output format are identical across arms. This table is evaluator-side; no
 correct plan is present in the model-visible registration.
 
@@ -46,20 +47,20 @@ reply or unknown usage stops further dispatch.
 ## Frozen geometry and budget
 
 The offline [`registration`](../../configs/r20_iceberg_short_registration_v1.json)
-SHA-256 is `df17a2c7939eab743129d94aca60fb02777ed26b8608e882549c8bb912649dc2`.
-The A/B/C final chat is 185 tokens each; D is 181, all measured by the pinned
+SHA-256 is `a528a02fd8b90d9a69ed0a1bb68c0a0ee89bb854026c459e2e5b7a65d4936e58`.
+The A/B/C final chat is 197 tokens each; D is 193, all measured by the pinned
 Qwen tokenizer and template. Every prompt has a unique retained-rule evidence
-span before a later query; the rule-to-query separation is 109 tokens. The
+span before a later query; the rule-to-query separation is 121 tokens. The
 prompt/request SHA-256 per arm, exact chat geometry, source identity, registry,
 profile, and tokenizer manifest are in the registration. The separate
 [`launch`](../../configs/r20_iceberg_short_paid_launch_v1.json) binds all
 producer bytes, the registration, canaries, private oracle, and budgets. Its
-SHA-256 is `27d8acf046e39e60f855263fac809e9d52dfaa2647b69531d44eb6aef3278692`.
+SHA-256 is `b2fbeeb4322cac6c3f25ff97a79ccd5747583915cdc1f3efe3f83b9bc76d16a1`.
 
 Maximum requests: **4 target + 2 canary, zero auxiliary**. Target local input
-totals 736 tokens; requested target output totals 8,192, giving an 8,928
+totals 784 tokens; requested target output totals 8,192, giving an 8,976
 target planning ceiling. Two canaries add 62 local input and 4,096 requested
-output, giving **13,148 local input plus requested output** for the entire
+output, giving **13,196 local input plus requested output** for the entire
 block. This is a request ceiling, not observed Siflow usage. Every target
 still permits exactly one target-model call; provider usage and identity must
 be returned and reconciled in the private fsynced journal.
@@ -80,19 +81,3 @@ uv run --frozen --no-sync --with transformers==5.15.0 \
 Successful offline or synthetic wiring does not satisfy the task. If a later
 reviewed paid block is valid but A/B/C fail, the long-source Iceberg screen
 remains disallowed by this preregistration.
-
-## Clean-commit synthetic check
-
-At clean producer commit `e87c08c799ade4d17ed867600650282bce6b5b9f`, an
-injected-SSE run exercised the committed launch, source/tokenizer checks,
-both canaries, four target requests, fsynced journal, and final attestation.
-The [private synthetic artifact](/volume/pt-dev/qjiu/rsi_context_external/r20-preflight/iceberg-short-synthetic-e87c08c-v1/)
-has identity SHA-256
-`c89aaa23b497c4b702cfb3a6d0b70174764549687bfaa707a8f1b24906038002`
-and final SHA-256
-`472c4a7293ec7fca7f6d1e5faec61fd67fca7afaedadee32a281e3613fbbda34`.
-It records six injected requests, zero unknown usage, 13,148 planned tokens,
-private 0700/0600 permissions, and `provider_block_valid=false`. Its
-`task_feasible=true` verifies the synthetic wiring only; no model result was
-observed. The focused suite passed 9 tests, with scoped Ruff, strict mypy,
-and Bandit clean.

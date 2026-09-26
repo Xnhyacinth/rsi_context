@@ -52,11 +52,12 @@ def request_text(delete_value: int) -> str:
     if delete_value not in (42, 99):
         raise ValueError("unregistered Iceberg delete value")
     return (
-        "A format-version 2 table scan reads one existing data file with a row "
-        "whose field id 1 has value 42. The data file's data sequence number is 7 "
-        "and its file sequence number is 12. Exactly one equality delete file "
-        "passes query and metrics filters. It has data sequence number 8, an "
-        "unpartitioned partition spec, equality_ids=[1], and delete value "
+        "A format-version 2 table scan reads one existing data file in partition "
+        "spec 2, region=A, with a row whose field id 1 has value 42. The data "
+        "file's data sequence number is 7 and its file sequence number is 12. "
+        "Exactly one equality delete file passes query and metrics filters. It "
+        "has data sequence number 8, the same partition spec 2, region=A, "
+        "equality_ids=[1], and delete value "
         f"{delete_value}. There are no other delete files or deletion vectors. "
         "Decide whether that row is emitted or suppressed under the retained rule."
     )
