@@ -96,3 +96,26 @@ tokenizer manifest, and a local-only text `AutoTokenizer` load. The snapshot
 is not a Siflow canary or second-reader result. Reader launch registrations
 must bind this new registry SHA; historical v1 launches remain immutable and
 should refuse the changed registry.
+
+## Offline reader result so far
+
+The [R19 reader preregistration](r19-iceberg-reader-prereg-20260927.md) is
+committed with local geometry SHA-256
+`53d0669031172f8c05fa70bb95971b7394f891461794aa35b663d0d5d79f6559`
+and offline-only launch SHA-256
+`c4f7f72ec0f02d3163c2e7b9cabe7c1ec3ada6ed1405fc9afd25e9e2a69982b8`.
+It sets `live_enabled=false`; no credentialed transport path is present.
+Independent science review found no blocker **within this offline scope**.
+Integration focused tests passed 35 with three expected historical R18 skips.
+
+A clean integration checkout ran one sealed synthetic four-arm chain at
+`/volume/pt-dev/qjiu/rsi_context_external/r19-preflight/iceberg-reader-synthetic-v1/`:
+**8 synthetic task requests, 2 synthetic canaries, zero auxiliary calls**.
+Its `task.json` and `final.json` SHA-256 are
+`ff2a3b0abc0dc6f3eaee8688eabc36b2e24634d70c18ae6ad2c28e2f0e8eeb0b`
+and `90e497035295bad9b2cdb158715792abbe4d34d2e7c28ef63cc260c9082886de`.
+Private evidence is mode 0600 under a mode-0700 directory. The synthetic
+source-free and identity-only arms both chose `suppress-row` despite an
+all-unknown source rule and passed their authentic private action gate. This
+demonstrates a **possible default-plan shortcut in the test harness**, not a
+model result; real controls must rule it out before source-dependence claims.
