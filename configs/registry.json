@@ -254,6 +254,24 @@
       "notes": "Pinned official Kafka-site KIP-848 source intake only; no task qualification or source-byte audit yet."
     },
     {
+      "id": "apache-iceberg-spec-1.9.2-intake",
+      "name": "Apache Iceberg 1.9.2 format specification intake",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/apache/iceberg.git",
+      "revision": "071d5606bc6199a0be9b3f274ec7fbf111d88821",
+      "license": "Apache-2.0; verify selected source notices after acquisition",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "071d5606bc6199a0be9b3f274ec7fbf111d88821",
+        "verified": true
+      },
+      "notes": "Apache-owned format/spec.md intake at the peeled apache-iceberg-1.9.2 tag commit; no task, oracle, model result or parent qualification yet."
+    },
+    {
       "id": "postgresql-rel-16-0",
       "name": "PostgreSQL 16.0 logical replication source",
       "kind": "dataset",
