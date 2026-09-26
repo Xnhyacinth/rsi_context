@@ -81,3 +81,20 @@ uv run --frozen --no-sync --with transformers==5.15.0 \
 Successful offline or synthetic wiring does not satisfy the task. If a later
 reviewed paid block is valid but A/B/C fail, the long-source Iceberg screen
 remains disallowed by this preregistration.
+
+## Clean-commit synthetic check
+
+At clean producer commit `1a78073a3f1395ccc8a24a4cf6b49a31decd01ab`, an
+injected-SSE run exercised the committed launch, same-partition request,
+source/tokenizer checks, both canaries, four target requests, fsynced journal,
+and final attestation. The
+[private synthetic artifact](/volume/pt-dev/qjiu/rsi_context_external/r20-preflight/iceberg-short-synthetic-1a78073-v2/)
+has identity SHA-256
+`680ce87633a8a35f094af5ed8690414d3a8d36236d0926674ae9ddd0febbeed2`
+and final SHA-256
+`7bd6e30e858fc8eefbc712e88cbf106b163d21a9236f03ba0b8ce1d397849460`.
+It records six injected requests, zero unknown usage, 13,196 planned tokens,
+private 0700/0600 permissions, and `provider_block_valid=false`. Its
+`task_feasible=true` verifies synthetic wiring only; no model result was
+observed. The focused suite passed 9 tests; scoped Ruff, strict mypy, and
+Bandit passed.
