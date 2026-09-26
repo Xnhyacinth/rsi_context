@@ -16,7 +16,6 @@ from pathlib import Path
 
 from rsicontext.analysis.chat_geometry import ChatTokenizer, measure_chat_geometry
 from rsicontext.analysis.otel_siflow_pilot import _Worker
-from rsicontext.eval.openai_compatible import Transport
 from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint
 from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.k8s_model_fixed_r15 import k8s_model_fixed_policy_text
@@ -46,14 +45,18 @@ _RULE_SPANS = (
 )
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class SyntheticTransport:
-    """Explicit offline transport capability; never resolve a live endpoint."""
+    """Fixed local SSE generator with no injectable network handler."""
 
-    handler: Transport
+    tokenizer: ChatTokenizer
+    profile: APIProfile
+    fault: str | None = None
+    call_count: int = 0
 
-    def __call__(self, request: urllib.request.Request, timeout: float) -> bytes:
-        return self.handler(request, timeout)
+    def __call__(self, request: urllib.request.Request, _timeout: float) -> bytes:
+        self.call_count += 1
+        return _synthetic_sse(request, self.tokenizer, self.profile, self.call_count, self.fault)
 
 
 def _sha(raw: bytes) -> str:
@@ -309,74 +312,88 @@ def enumerate_allowed_prompt_geometry(
     return sorted(output, key=lambda item: (str(item["stage"]), str(item["prompt_sha256"])))
 
 
-def make_synthetic_transport(tokenizer: ChatTokenizer, profile: APIProfile) -> SyntheticTransport:
-    """Return a local scripted SSE transport for dry-run contract checks only."""
-
-    count = 0
-
-    def transport(request: urllib.request.Request, _timeout: float) -> bytes:
-        nonlocal count
-        if not isinstance(request.data, bytes):
-            raise ValueError("synthetic request has no JSON body")
-        body = json.loads(request.data)
-        if not isinstance(body, dict) or body.get("model") != profile.model:
-            raise ValueError("synthetic request model differs from profile")
-        messages = body.get("messages")
-        if (
-            not isinstance(messages, list)
-            or len(messages) != 2
-            or messages[0] != {"role": "system", "content": profile.system_prompt}
-            or not isinstance(messages[1], dict)
-            or not isinstance(messages[1].get("content"), str)
-        ):
-            raise ValueError("synthetic request messages differ from profile")
-        prompt = messages[1]["content"]
-        if _MARKER in prompt:
-            if "[SOURCE WITHHELD" in prompt:
-                answer = "formula=unknown"
-            elif "[Ordered-prefix calculation withheld" in prompt:
-                answer = "formula=conservative"
-            else:
-                answer = "formula=prefix"
-        elif "Project request:\n" in prompt:
-            answer = "plan=hold-at-1000m"
-        elif "Order amendment:\n" in prompt:
-            answer = (
-                "plan=admit-at-1000m"
-                if "Retained formula: formula=prefix" in prompt
-                else "plan=hold-at-1000m"
-            )
+def _synthetic_sse(
+    request: urllib.request.Request,
+    tokenizer: ChatTokenizer,
+    profile: APIProfile,
+    count: int,
+    fault: str | None,
+) -> bytes:
+    if not isinstance(request.data, bytes):
+        raise ValueError("synthetic request has no JSON body")
+    body = json.loads(request.data)
+    if not isinstance(body, dict) or body.get("model") != profile.model:
+        raise ValueError("synthetic request model differs from profile")
+    messages = body.get("messages")
+    if (
+        not isinstance(messages, list)
+        or len(messages) != 2
+        or messages[0] != {"role": "system", "content": profile.system_prompt}
+        or not isinstance(messages[1], dict)
+        or not isinstance(messages[1].get("content"), str)
+    ):
+        raise ValueError("synthetic request messages differ from profile")
+    prompt = messages[1]["content"]
+    if _MARKER in prompt:
+        if "[SOURCE WITHHELD" in prompt:
+            answer = "formula=unknown"
+        elif "[Ordered-prefix calculation withheld" in prompt:
+            answer = "formula=conservative"
         else:
-            raise ValueError("synthetic transport received an unknown prompt")
-        count += 1
-        input_geometry = measure_chat_geometry(tokenizer, messages, enable_thinking=False)
-        input_tokens = input_geometry["rendered_input_tokens"]
-        output_tokens = len(
-            tokenizer(answer, add_special_tokens=False, return_offsets_mapping=True)["input_ids"]
+            answer = "formula=prefix"
+    elif "Project request:\n" in prompt:
+        answer = "plan=hold-at-1000m"
+    elif "Order amendment:\n" in prompt:
+        answer = (
+            "plan=admit-at-1000m"
+            if "Retained formula: formula=prefix" in prompt
+            else "plan=hold-at-1000m"
         )
-        if not isinstance(input_tokens, int) or output_tokens < 1:
-            raise ValueError("synthetic tokenizer failed to count the request")
-        identity = {"id": f"offline-kep-{count}", "model": profile.model}
-        content = {
-            **identity,
-            "choices": [{"delta": {"content": answer}, "finish_reason": "stop"}],
-        }
-        usage = {
-            **identity,
-            "choices": [],
-            "usage": {"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
-        }
-        return (
-            "data: "
-            + json.dumps(content)
-            + "\n\n"
-            + "data: "
-            + json.dumps(usage)
-            + "\n\n"
-            + "data: [DONE]\n\n"
-        ).encode()
+    else:
+        raise ValueError("synthetic transport received an unknown prompt")
+    input_geometry = measure_chat_geometry(tokenizer, messages, enable_thinking=False)
+    input_tokens = input_geometry["rendered_input_tokens"]
+    output_tokens = len(
+        tokenizer(answer, add_special_tokens=False, return_offsets_mapping=True)["input_ids"]
+    )
+    if not isinstance(input_tokens, int) or output_tokens < 1:
+        raise ValueError("synthetic tokenizer failed to count the request")
+    identity = {"id": f"offline-kep-{count}", "model": profile.model}
+    content = {
+        **identity,
+        "choices": [{"delta": {"content": answer}, "finish_reason": "stop"}],
+    }
+    usage = {
+        **identity,
+        "choices": [],
+        "usage": {"prompt_tokens": input_tokens, "completion_tokens": output_tokens},
+    }
+    raw = (
+        "data: "
+        + json.dumps(content)
+        + "\n\n"
+        + "data: "
+        + json.dumps(usage)
+        + "\n\n"
+        + "data: [DONE]\n\n"
+    ).encode()
+    if fault == "wrong-model":
+        return raw.replace(profile.model.encode(), b"Unregistered/Model")
+    if fault == "non-stop":
+        return raw.replace(b'"finish_reason": "stop"', b'"finish_reason": "length"')
+    if fault == "missing-usage":
+        return b"\n".join(line for line in raw.split(b"\n") if b'"usage"' not in line)
+    return raw
 
-    return SyntheticTransport(transport)
+
+def make_synthetic_transport(
+    tokenizer: ChatTokenizer, profile: APIProfile, *, fault: str | None = None
+) -> SyntheticTransport:
+    """Return the fixed local SSE generator for offline contract checks only."""
+
+    if fault not in (None, "wrong-model", "non-stop", "missing-usage"):
+        raise ValueError("unknown synthetic fault")
+    return SyntheticTransport(tokenizer, profile, fault)
 
 
 def require_paid_gate() -> None:
@@ -402,6 +419,8 @@ def run_offline_screen(
         raise ValueError("R15 KEP shared profile hash changed")
     if type(transport) is not SyntheticTransport:
         raise TypeError("offline screen requires an explicit synthetic transport")
+    if transport.tokenizer is not tokenizer or transport.profile != profile:
+        raise TypeError("offline screen requires its fixed tokenizer and profile")
     if len(geometry_registry) != 12:
         raise ValueError("R15 KEP geometry registry must contain 12 prompt variants")
     registered: dict[str, dict[str, object]] = {}

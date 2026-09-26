@@ -168,13 +168,7 @@ def test_geometry_or_profile_drift_refuses_before_transport(
     registry: list[dict[str, object]],
     drift: str,
 ) -> None:
-    calls = 0
     fake = make_synthetic_transport(tokenizer, profile)
-
-    def counted(request: urllib.request.Request, timeout: float) -> bytes:
-        nonlocal calls
-        calls += 1
-        return fake(request, timeout)
 
     if drift == "profile":
         with pytest.raises(ValueError, match="shared profile hash"):
@@ -183,7 +177,7 @@ def test_geometry_or_profile_drift_refuses_before_transport(
                 profile=replace(profile, system_prompt="changed"),
                 endpoint=_endpoint(),
                 tokenizer=tokenizer,
-                transport=SyntheticTransport(counted),
+                transport=fake,
                 geometry_registry=registry,
             )
     else:
@@ -204,12 +198,12 @@ def test_geometry_or_profile_drift_refuses_before_transport(
             profile=profile,
             endpoint=_endpoint(),
             tokenizer=tokenizer,
-            transport=SyntheticTransport(counted),
+            transport=fake,
             geometry_registry=altered,
         )
         assert result["status"] == "stopped-on-worker-failure"
         assert result["preflight_failures"]
-    assert calls == 0
+    assert fake.call_count == 0
 
 
 def test_attempt_cap_refuses_before_tenth_transport(
@@ -220,24 +214,18 @@ def test_attempt_cap_refuses_before_tenth_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("rsicontext.analysis.k8s_fixed_reader_r15.MAX_WORKER_ATTEMPTS", 2)
-    calls = 0
     fake = make_synthetic_transport(tokenizer, profile)
-
-    def counted(request: urllib.request.Request, timeout: float) -> bytes:
-        nonlocal calls
-        calls += 1
-        return fake(request, timeout)
 
     result = run_offline_screen(
         source_root,
         profile=profile,
         endpoint=_endpoint(),
         tokenizer=tokenizer,
-        transport=SyntheticTransport(counted),
+        transport=fake,
         geometry_registry=registry,
     )
     assert result["status"] == "stopped-on-attempt-cap"
-    assert result["worker_attempt_count"] == calls == 2
+    assert result["worker_attempt_count"] == fake.call_count == 2
     refusals = result["attempt_cap_refusals"]
     assert isinstance(refusals, int) and refusals >= 1
 
@@ -252,12 +240,7 @@ def test_private_world_hash_drift_refuses_before_transport(
     monkeypatch.setattr(
         "rsicontext.analysis.k8s_fixed_reader_r15.WORLD_SHA256", ("0" * 64, "1" * 64)
     )
-    calls = 0
-
-    def forbidden(_request: urllib.request.Request, _timeout: float) -> bytes:
-        nonlocal calls
-        calls += 1
-        raise AssertionError("private-world drift reached transport")
+    fake = make_synthetic_transport(tokenizer, profile)
 
     with pytest.raises(ValueError, match="canonical evaluator world"):
         run_offline_screen(
@@ -265,10 +248,10 @@ def test_private_world_hash_drift_refuses_before_transport(
             profile=profile,
             endpoint=_endpoint(),
             tokenizer=tokenizer,
-            transport=SyntheticTransport(forbidden),
+            transport=fake,
             geometry_registry=registry,
         )
-    assert calls == 0
+    assert fake.call_count == 0
 
 
 def test_plain_transport_cannot_enter_offline_runner(
@@ -291,6 +274,32 @@ def test_plain_transport_cannot_enter_offline_runner(
         )
 
 
+def test_network_handler_cannot_be_wrapped_as_synthetic_transport(
+    source_root: Path,
+    profile: APIProfile,
+    tokenizer: ChatTokenizer,
+    registry: list[dict[str, object]],
+) -> None:
+    calls = 0
+
+    def network_like(_request: urllib.request.Request, _timeout: float) -> bytes:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("network handler was called")
+
+    wrapped = SyntheticTransport(cast(ChatTokenizer, network_like), profile)
+    with pytest.raises(TypeError, match="fixed tokenizer and profile"):
+        run_offline_screen(
+            source_root,
+            profile=profile,
+            endpoint=_endpoint(),
+            tokenizer=tokenizer,
+            transport=wrapped,
+            geometry_registry=registry,
+        )
+    assert calls == 0
+
+
 @pytest.mark.parametrize("failure", ("wrong-model", "non-stop", "missing-usage"))
 def test_synthetic_sse_failure_stops_without_later_calls(
     source_root: Path,
@@ -299,29 +308,18 @@ def test_synthetic_sse_failure_stops_without_later_calls(
     registry: list[dict[str, object]],
     failure: str,
 ) -> None:
-    calls = 0
-    fake = make_synthetic_transport(tokenizer, profile)
-
-    def broken(request: urllib.request.Request, timeout: float) -> bytes:
-        nonlocal calls
-        calls += 1
-        raw = fake(request, timeout)
-        if failure == "wrong-model":
-            return raw.replace(profile.model.encode(), b"Unregistered/Model")
-        if failure == "non-stop":
-            return raw.replace(b'"finish_reason": "stop"', b'"finish_reason": "length"')
-        return b"\n".join(line for line in raw.split(b"\n") if b'"usage"' not in line)
+    fake = make_synthetic_transport(tokenizer, profile, fault=failure)
 
     result = run_offline_screen(
         source_root,
         profile=profile,
         endpoint=_endpoint(),
         tokenizer=tokenizer,
-        transport=SyntheticTransport(broken),
+        transport=fake,
         geometry_registry=registry,
     )
     assert result["status"] == "stopped-on-worker-failure"
-    assert result["worker_attempt_count"] == calls == 1
+    assert result["worker_attempt_count"] == fake.call_count == 1
     attempts = cast(list[dict[str, object]], result["attempts"])
     assert attempts[0]["status"] == "failed"
     assert attempts[0]["response_provenance"] == "synthetic_sse"
