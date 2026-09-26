@@ -228,7 +228,7 @@ def _task_block(
         "schema_version": 1,
         "scope": "r17-kep-conditioned-mechanism-diagnostic",
         "status": "completed-diagnostic"
-        if not worker.failed and len(cases) == len(CASE_ORDER)
+        if failure_type is None and not worker.failed and len(cases) == len(CASE_ORDER)
         else "stopped-on-task-failure",
         "registered_case_order": list(CASE_ORDER),
         "cases": cases,
