@@ -6,7 +6,7 @@
     "scripts/audit_r18_iceberg_geometry.py": "348a38ccd39d14701f408a574aa4b5e5bccf241d77536058f47b45f3653821e5",
     "scripts/r15_exact_profile_canary.py": "88367a775dc28b9ae9bc7ef85b15134ba4d9514a0d37d47915c93951901e8333",
     "scripts/r15_pep_paid_runner.py": "06fdff7be01b880202835d2111f95d0779d792224d93073d840e473e0a9d62c1",
-    "scripts/r19_iceberg_reader_offline.py": "21fe535b0fbaa86e351b45c93b8f2a4a92be0b4bd410cec380f101f84c3de164",
+    "scripts/r19_iceberg_reader_offline.py": "5baaaed8bb6cc124aefa5a096fb8cd2fcf5276b080abecd555f2ee09d8ebd2e3",
     "src/rsicontext/analysis/iceberg_fixed_reader_r19.py": "d53571fb84a3bda7895fee75bfd3dca2174a416d26907a9407d7e9dc11b9ee6f",
     "src/rsicontext/analysis/otel_siflow_pilot.py": "28cc12d1bfcf2b541d4b6618af45ab6b357ad816bf88aa723f5b5e9c65785cfc",
     "src/rsicontext/experiment/api.py": "53039df4ddaa59dca5c47990d51d3fff939e80e7aec1abaebb09fc2506e015bc",
