@@ -12,7 +12,10 @@ import json
 from rsicontext.analysis.chat_geometry import ChatTokenizer, measure_chat_geometry
 from rsicontext.experiment.api import APIProfile
 
-SYSTEM_PROMPT = "You are the project worker. Follow the requested output format exactly."
+SYSTEM_PROMPT = (
+    "You are the project worker. Follow the requested output format exactly. "
+    "For questions, return only the answer phrase."
+)
 _S1_PREFIX = "Read the complete upstream CREATE SUBSCRIPTION SGML below."
 _S2_PREFIX = "Use ONLY the retained upstream parameter catalog"
 _S2_CATALOG = "Retained catalog:\n"

@@ -33,7 +33,10 @@ _PROFILE = APIProfile(
     temperature=0.0,
     provider_revision=None,
     chat_template_enable_thinking=False,
-    system_prompt="You are the project worker. Follow the requested output format exactly.",
+    system_prompt=(
+        "You are the project worker. Follow the requested output format exactly. "
+        "For questions, return only the answer phrase."
+    ),
 )
 _ENDPOINT = ResolvedAPIEndpoint("https://api.siflow.cn/model-api/chat/completions", "test-key")
 
