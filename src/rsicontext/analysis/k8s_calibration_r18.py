@@ -32,7 +32,6 @@ CASE_ORDER = (
 _README = "keps/sig-node/753-sidecar-containers/README.md"
 _RULE_SPANS = (
     (780, 794, "501730735b2c8397ddd7f19062551a0976d497a749122bcfa411f1f116191f34"),
-    (835, 838, "4704a8c456cfa800a08d64e11cd7f2416ec68dd648b8ce91fe76e61fbda9b3f2"),
 )
 _COARSE = "formula=prefix"
 _REGISTRY_PATH = Path(__file__).resolve().parents[3] / "configs/registry.json"
@@ -89,7 +88,7 @@ def require_r17_observation(task_path: Path) -> dict[str, object]:
 
 
 def projected_rule(source_root: Path) -> tuple[str, list[dict[str, object]]]:
-    """Extract two exact source spans without inserting any case answer."""
+    """Extract the complete ordered-prefix formula without any case answer."""
 
     raw = (source_root / _README).read_bytes()
     if _sha(raw) != SOURCE_FILES[_README]:

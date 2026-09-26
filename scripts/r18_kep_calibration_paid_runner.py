@@ -173,7 +173,7 @@ def _read_launch() -> tuple[dict[str, object], str]:
     if (
         type(task_cap) is not int
         or type(global_cap) is not int
-        or task_cap != 9732
+        or task_cap != 9602
         or global_cap != task_cap + 2 * (canary.EXPECTED_INPUT_TOKENS + 2048)
     ):
         raise ValueError("R18 launch token ceiling differs")

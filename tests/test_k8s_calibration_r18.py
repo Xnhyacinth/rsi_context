@@ -84,10 +84,10 @@ def test_exact_source_projection_changes_only_rule_material(tmp_path: Path) -> N
     rule, spans = projected_rule(SOURCE)
     assert [(item["first_line"], item["last_line"]) for item in spans] == [
         (780, 794),
-        (835, 838),
     ]
     assert "sidecar containers with index < i" in rule
-    assert "containers that start after the sidecar" in rule
+    assert "Max ( Max( each InitContainerUse )" in rule
+    assert "Defining `InitContainerUse` as:" not in rule
     amendment = amendment_text(SOURCE)
     rendered = prompts(amendment, rule)
     assert rendered["explicit-membership"].replace(rule, "formula=prefix") == rendered[
@@ -116,17 +116,17 @@ def test_registration_short_geometry_and_bound_task_budget(tokenizer: ChatTokeni
     assert actual["case_order"] == list(CASE_ORDER)
     assert actual["target_call_cap"] == 4
     assert actual["auxiliary_call_cap"] == 0
-    assert actual["local_input_tokens"] == 1540
-    assert actual["local_input_plus_requested_ceiling"] == 9732
+    assert actual["local_input_tokens"] == 1410
+    assert actual["local_input_plus_requested_ceiling"] == 9602
     requests = cast(list[dict[str, object]], actual["requests"])
     assert [item["prompt_sha256"] for item in requests] == [
         "0f9591b95d56cfaa5b3557dda73ded67fbdc85f7c2cd4a90f5635adf19564e6d",
         "3e72557ecb758ab60e1171a3a2148194644a44177077413e4f21757fcadc2b39",
-        "95bb77354c43af5ecbf1c643d0b68f287ac778abfe51b7e69793979902a639bc",
-        "003f53de016d642840761b4d5eb40ca218474122e29348f716a1ae6eda78f036",
+        "d8115e3126f400243f790f07f6dd8d1d780d744afa35d8c924a29219277db930",
+        "caf2edcdfae5a99d2bd6a067a546b9a51a07248084a2532b2394e0f32cd1f1b4",
     ]
     geometry = [cast(dict[str, object], item["local_template_geometry"]) for item in requests]
-    assert [item["rendered_input_tokens"] for item in geometry] == [300, 306, 464, 470]
+    assert [item["rendered_input_tokens"] for item in geometry] == [300, 306, 399, 405]
     assert all(item["span_status"] == "unique_later_query" for item in geometry)
 
 
@@ -160,7 +160,7 @@ def test_fake_chain_is_synthetic_and_refuses_registration_drift(tokenizer: ChatT
         True,
     ]
     forged = dict(frozen)
-    forged["local_input_tokens"] = 1541
+    forged["local_input_tokens"] = 1411
     with pytest.raises(ValueError, match="registration drifted"):
         offline.run_offline(
             SOURCE,

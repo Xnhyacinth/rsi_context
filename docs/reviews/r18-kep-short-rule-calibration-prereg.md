@@ -17,14 +17,16 @@ and `c3ec0144de17c477e64d2aae97c2c3ec48d3ebb201e6c74c111b09b412ad84ec`.
 The source is clean detached KEP revision
 `13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a`; README SHA-256 is
 `ba9ef6b591cb626023c6e8a0c77cbc3f3cd2ede98d6ab3ff086e41ebef0cdf21`.
-The projected material uses **exact** source lines 780–794 and 835–838, with
-raw-span SHA-256 values
-`501730735b2c8397ddd7f19062551a0976d497a749122bcfa411f1f116191f34`
-and `4704a8c456cfa800a08d64e11cd7f2416ec68dd648b8ce91fe76e61fbda9b3f2`.
+The projected material uses **only exact source lines 780–794**, whose
+raw-span SHA-256 is
+`501730735b2c8397ddd7f19062551a0976d497a749122bcfa411f1f116191f34`.
 The joined model-visible rule SHA-256 is
-`c7bf434d4f0a26e3311fca78fd4075459bf4730bc54cf1941f07e5b80b383493`.
-It gives the ordered-prefix formula and prose. It contains no case-specific
-membership, effective request or plan answer.
+`66f65040f60b5afb62477c87a37f5cfbedab064af421b499e99553220ef15ad9`.
+This span gives both the earlier-sidecar membership rule and the resulting
+Pod effective-request max formula. The later KEP status-aware section is not
+needed here because the constructed request supplies CPU requests and zero
+Pod overhead; omitting it avoids a partial second formula. The projected text
+contains no case-specific membership, effective request or plan answer.
 
 | Order | Material | Probe | Output |
 | --- | --- | --- | --- |
@@ -58,13 +60,13 @@ failure step or estimate a success rate.
 
 The exact registration is
 [`configs/r18_kep_short_calibration_v1.json`](../../configs/r18_kep_short_calibration_v1.json),
-SHA-256 `5b790b59b237024aba742139182d494065ad5b6914f92c1cafb79ac2fbafe84a`.
-Final-chat inputs are 300, 306, 464 and 470 tokens. Each has a unique
+SHA-256 `7da8e437c760390c5ca72e701274ea2543bf08825423e0fc9299254b0aec8a50`.
+Final-chat inputs are 300, 306, 399 and 405 tokens. Each has a unique
 rule-to-amendment span; all are under 500 input tokens. Four target requests
-sum to **1,540 input tokens** and at most **8,192 requested output tokens**,
-for a task planning ceiling of **9,732**. Auxiliary calls are forbidden. A
+sum to **1,410 input tokens** and at most **8,192 requested output tokens**,
+for a task planning ceiling of **9,602**. Auxiliary calls are forbidden. A
 future two-canary guarded block would have at most **six HTTP attempts** and
-**13,952** local input plus requested output tokens. These are prospective
+**13,822** local input plus requested output tokens. These are prospective
 limits, not observed provider use or a price estimate.
 
 The offline command verifies the immutable paid inputs, source byte spans,
@@ -87,7 +89,7 @@ The guarded runner is
 [`scripts/r18_kep_calibration_paid_runner.py`](../../scripts/r18_kep_calibration_paid_runner.py).
 Its launch manifest is
 [`configs/r18_kep_short_paid_launch_v1.json`](../../configs/r18_kep_short_paid_launch_v1.json),
-SHA-256 `0f73a9e14dc57bf901156315a45f4afe4556316b1dccf4866971cd58f8b32494`.
+SHA-256 `1d0e90a86c8234358a6b6b75900832e94a6c3cd7ea94d36f0c096bc4ecbb5929`.
 It binds committed producer, registry and profile bytes, exact tokenizer
 snapshot/runtime, clean detached source revision and README, both immutable
 paid observations, this registration, endpoint and caps before credential
@@ -95,7 +97,8 @@ resolution. Its private fsynced journal records each dispatch before transport
 and response hash and provider usage afterward; missing or out-of-contract
 usage stops without retry. A complete block requires four target responses,
 two exact-profile canaries, model echo, `stop` finishes and exact provider/local
-input parity. The fake full-chain test also checks private file permissions,
+input parity at the 13,822 planning ceiling. The fake full-chain test also
+checks private file permissions,
 synthetic/provider usage separation, failure stops and no overwrite.
 
 **Paid admission awaits independent code and science review.** No R18 Siflow

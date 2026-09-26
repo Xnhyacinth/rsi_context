@@ -129,13 +129,13 @@ def test_full_fake_chain_counts_six_calls_and_keeps_private_synthetic_evidence(
     assert result["qualified_parent"] is False
     assert result["attempted_http_calls"] == 6
     assert result["task_http_calls"] == 4 and result["canary_http_calls"] == 2
-    assert result["local_plus_requested_tokens"] == 13952
+    assert result["local_plus_requested_tokens"] == 13822
     assert result["task_provider_usage_total"] is None
     assert calls == ["canary", "task", "task", "task", "task", "canary"]
     task = json.loads((run_dir / "task.json").read_text())
     assert task["status"] == "completed-calibration"
     assert task["provider_usage_total"] is None
-    assert task["synthetic_usage_total"]["input_tokens"] == 1540
+    assert task["synthetic_usage_total"]["input_tokens"] == 1410
     assert stat.S_IMODE(run_dir.stat().st_mode) == 0o700
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in run_dir.iterdir())
     contents = "".join(path.read_text() for path in run_dir.iterdir())
@@ -181,7 +181,7 @@ def test_forged_launch_refuses_before_credentials_or_transport(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     forged = tmp_path / "forged-launch.json"
-    forged.write_text(runner._LAUNCH_PATH.read_text().replace("13952", "13953"))
+    forged.write_text(runner._LAUNCH_PATH.read_text().replace("13822", "13823"))
     monkeypatch.setattr(runner, "_LAUNCH_PATH", forged)
     monkeypatch.setattr(
         runner,
