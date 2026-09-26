@@ -131,3 +131,25 @@ returned `suppress-row` instead of the private `emit-row`. The result is
 prospective 25K-token Iceberg source experiment is closed for this version.
 No long-source Siflow result, independent qualified parent or researcher
 effective-update-rate measurement is claimed.
+
+## Final integration gate
+
+On clean producer commit `c029ea716ff8402925367225b55ef22aa645a4c5`,
+the full pytest suite with pinned local source snapshots, pinned tokenizer
+runtime, and branch coverage passed **1,616 tests, 27 skipped, zero failed**.
+Branch coverage was **80.48%**, above the configured 80% threshold. The
+[preserved log](/volume/pt-dev/qjiu/rsi_context_external/r19-preflight/full-pytest-branch-final-pinned-clean.log)
+has SHA-256 `341a60f73e22e90cbb3f642425e1036ff090f71951e3978d659b01aefada1b80`.
+The local data fixture used an ignored child link to the existing main
+dataset; no dataset copy or mutation was made. Both Siflow environment
+variables were unset for the test run, so it made no provider request.
+
+Repository Ruff passed, configured strict mypy passed **406 source files**,
+and Bandit over `src scripts` retained the existing **81 LOW, 2 MEDIUM,
+zero HIGH** findings with no R19-path finding. The
+[Bandit report](/volume/pt-dev/qjiu/rsi_context_external/r19-preflight/bandit-final-pinned-clean.json)
+has SHA-256 `06fa7c7117abfa62bcc145cd07aebae51c4d7fc9acf497cfa8a2ff8a4fefaebe`.
+Independent code review and `codex review --base origin/main` found no
+actionable launch defect; focused tests also covered the subsequent
+historical-registry test repairs. The jail host-trust tests remain skipped
+at the documented `/usr/bin` ownership boundary.
