@@ -64,6 +64,48 @@ reread, source-free and identity-only model controls, two reader families,
 provider usage accounting and an explicit rule for mixed S1 replies. No
 Iceberg provider or GPU call was made in R18.
 
+## Integration verification and historical launch behavior
+
+The first full branch-coverage run reached **1582 passed, 16 skipped,
+6 failed, 80.55% coverage**. Its
+[preserved log](/volume/pt-dev/qjiu/rsi_context_external/r18-preflight/full-pytest-integration.log)
+has SHA-256 `eac2714468e5b03d76ca89c6c171dbcebc866652a8f22c858e08b78af5f68445`.
+All six failures were old R16/R17 synthetic full-chain tests expecting their
+immutable launch manifests to run after the R18 registry addition. Both
+historical `_read_launch()` functions actually refused at the first causal
+check: `configs/registry.json` differs from the bound old SHA-256
+`e063e0c4291de8e560d5928ce2c847b003ede8c0b2bd69a85265df0707a1a6a7`.
+No HTTP request was attempted. The historical launches and producer files
+remain unchanged. The tests now run those chains only against their exact
+bound registry, and two new regressions prove current-registry refusal
+before credential resolution or HTTP dispatch.
+
+The clean rerun passed **1584 tests, 22 skipped, 80.54% branch coverage**;
+the [full pytest log](/volume/pt-dev/qjiu/rsi_context_external/r18-preflight/full-pytest-integration-rerun.log)
+has SHA-256 `c972e6573fdf48ea9aac1fa6d6e9babb96af4456cd76be0784180559095540a1`.
+Fifteen skips are the host jail trust gate at non-root-owned `/usr/bin`, one
+is live API smoke without a configured endpoint, and six are the historical
+synthetic chains. The suite used the pinned source/tokenizer roots, a dummy
+API key and an unset `SIFLOW_BASE_URL`; it made no provider call.
+
+Repository `ruff check .` passed. Configured strict mypy passed **398 source
+files**. Bandit over `src scripts` reported the unchanged **81 LOW, 2 MEDIUM,
+0 HIGH** baseline and no R18/Iceberg file; its
+[JSON report](/volume/pt-dev/qjiu/rsi_context_external/r18-preflight/bandit-integration.json)
+SHA-256 is `6a0298c9d76e506442db4b11982945acd025c66255ce231ee09933713739891c`.
+Independent science review cleared Iceberg for offline merge only.
+`codex review --base origin/main` found no actionable defect in the integrated
+branch; its [report](/volume/pt-dev/qjiu/rsi_context_external/r18-preflight/codex-review-integration.log)
+SHA-256 is `593106b96391b2ee04c46c21512d74b8e82dc2fc90c34eb037c7a3721fa49713`.
+A separate `codex review --commit df91475124e68856b4fe7004fe6dd7b7c5a23a7e`
+found no actionable issue in the historical-test fix; its
+[report](/volume/pt-dev/qjiu/rsi_context_external/r18-preflight/codex-review-history-tests.log)
+SHA-256 is `b70ce3ef30e74757f3a73a60ca45f9605a9042500986d1aa291df0970fa9d2b5`.
+An additional, nonrequired `ruff format --check .` found 18 files needing
+formatting, including four R18 KEP files. Three of those are byte-bound by
+the already executed paid v1 launch; they were not rewritten after evidence
+collection. A future formatted revision would need a new launch and hashes.
+
 ## Why these screens precede a benchmark score
 
 [RULER](https://arxiv.org/abs/2404.06654) adds multi-hop tracing and
