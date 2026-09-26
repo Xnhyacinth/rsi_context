@@ -16,6 +16,7 @@ from pathlib import Path
 
 from rsicontext.analysis.chat_geometry import ChatTokenizer, measure_chat_geometry
 from rsicontext.analysis.otel_siflow_pilot import _Worker
+from rsicontext.eval.openai_compatible import Transport
 from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint
 from rsicontext.lifecycle.env import ProjectState
 from rsicontext.lifecycle.k8s_model_fixed_r15 import k8s_model_fixed_policy_text
@@ -404,23 +405,20 @@ def require_paid_gate() -> None:
     )
 
 
-def run_offline_screen(
+def _run_screen_unverified(
     source_root: Path,
     *,
     profile: APIProfile,
     endpoint: ResolvedAPIEndpoint,
     tokenizer: ChatTokenizer,
-    transport: SyntheticTransport,
+    transport: Transport,
     geometry_registry: list[dict[str, object]],
+    synthetic: bool,
 ) -> dict[str, object]:
-    """Exercise three cases only when every request matches frozen geometry."""
+    """Exercise registered cases; caller authenticates the geometry artifact."""
 
     if profile.profile_hash != PROFILE_SHA256:
         raise ValueError("R15 KEP shared profile hash changed")
-    if type(transport) is not SyntheticTransport:
-        raise TypeError("offline screen requires an explicit synthetic transport")
-    if transport.tokenizer is not tokenizer or transport.profile != profile:
-        raise TypeError("offline screen requires its fixed tokenizer and profile")
     if len(geometry_registry) != 12:
         raise ValueError("R15 KEP geometry registry must contain 12 prompt variants")
     registered: dict[str, dict[str, object]] = {}
@@ -544,7 +542,7 @@ def run_offline_screen(
             full_failed = True
         if worker.failed or cap_refusals or full_failed:
             break
-    synthetic_usage_total = {
+    usage_total = {
         "input_tokens": sum(
             int(usage["input_tokens"])
             for item in worker.attempts
@@ -559,14 +557,19 @@ def run_offline_screen(
             item.get("provider_usage") is None for item in worker.attempts
         ),
     }
-    for item in worker.attempts:
-        item["synthetic_usage"] = item.pop("provider_usage", None)
-        item["response_provenance"] = "synthetic_sse"
+    if synthetic:
+        for item in worker.attempts:
+            item["synthetic_usage"] = item.pop("provider_usage", None)
+            item["response_provenance"] = "synthetic_sse"
     return {
         "schema_version": 1,
-        "scope": "kep753_b_longitudinal_fixed_reader_offline_development_only",
+        "scope": (
+            "kep753_b_longitudinal_fixed_reader_offline_development_only"
+            if synthetic
+            else "kep753_b_longitudinal_fixed_reader_paid_development"
+        ),
         "live_ready": False,
-        "usage_provenance": "synthetic_sse_transport_only",
+        "usage_provenance": "synthetic_sse_transport_only" if synthetic else "provider_sse",
         "status": (
             "stopped-on-worker-failure"
             if worker.failed
@@ -575,6 +578,8 @@ def run_offline_screen(
             else "stopped-on-full-task-failure"
             if full_failed
             else "completed-offline-screen"
+            if synthetic
+            else "completed-development-screen"
         ),
         "registered_case_order": CASE_ORDER,
         "trajectory_cap": MAX_TRAJECTORIES,
@@ -589,11 +594,37 @@ def run_offline_screen(
         "source_file_sha256": SOURCE_FILES[_README],
         "base_world_sha256": WORLD_SHA256,
         "source_intervention": intervention,
-        "provider_usage_total": None,
-        "synthetic_usage_total": synthetic_usage_total,
+        "provider_usage_total": None if synthetic else usage_total,
+        "synthetic_usage_total": usage_total if synthetic else None,
         "attempts": worker.attempts,
         "cases": records,
     }
+
+
+def run_offline_screen(
+    source_root: Path,
+    *,
+    profile: APIProfile,
+    endpoint: ResolvedAPIEndpoint,
+    tokenizer: ChatTokenizer,
+    transport: SyntheticTransport,
+    geometry_registry: list[dict[str, object]],
+) -> dict[str, object]:
+    """Keep the R15 entrypoint synthetic-only, including wrapped transports."""
+
+    if type(transport) is not SyntheticTransport:
+        raise TypeError("offline screen requires an explicit synthetic transport")
+    if transport.tokenizer is not tokenizer or transport.profile != profile:
+        raise TypeError("offline screen requires its fixed tokenizer and profile")
+    return _run_screen_unverified(
+        source_root,
+        profile=profile,
+        endpoint=endpoint,
+        tokenizer=tokenizer,
+        transport=transport,
+        geometry_registry=geometry_registry,
+        synthetic=True,
+    )
 
 
 __all__ = [
