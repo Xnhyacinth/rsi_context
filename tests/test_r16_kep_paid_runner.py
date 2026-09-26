@@ -82,8 +82,8 @@ def test_frozen_geometry_has_exact_budget_and_decisive_rule_spans(
     frozen = json.loads(runner._GEOMETRY_PATH.read_text())
     assert actual == frozen
     assert actual["task_call_cap"] == 15
-    assert actual["task_local_worst_case_input_tokens"] == 66579
-    assert actual["task_local_plus_requested_ceiling"] == 97299
+    assert actual["task_local_worst_case_input_tokens"] == 66558
+    assert actual["task_local_plus_requested_ceiling"] == 97278
     assert isinstance(actual["registered_requests"], list)
     assert len(actual["registered_requests"]) == 14
     source_rule = cast(list[dict[str, object]], actual["source_rule_geometry"])
@@ -123,9 +123,9 @@ def test_frozen_geometry_has_exact_budget_and_decisive_rule_spans(
         [9345, 9357],
     ]
     assert [item["final_chat_token_interval"] for item in counterfactual] == [
-        [8897, 8947],
-        [8947, 9012],
-        [9392, 9496],
+        [8897, 8943],
+        [8943, 9003],
+        [9383, 9482],
     ]
 
 
@@ -138,11 +138,17 @@ def test_constructed_rule_flips_only_second_private_legal_plan() -> None:
     source_free = cases["source-free"]
     identity = cases["identity-only"]
     counterfactual = cases["same-identity-conservative-rule"]
+    assert full[0].stages[0].documents[0].title == sessions[0].stages[0].documents[0].title
+    assert full[0].stages[0].documents[0].source_url == (
+        sessions[0].stages[0].documents[0].source_url
+    )
     assert "KEP" not in source_free[0].stages[0].documents[0].text
     assert "KEP" not in source_free[0].stages[1].documents[0].text
     assert "KEP" not in source_free[1].stages[1].documents[0].text
     assert "KEP-753" in identity[0].stages[0].documents[0].text
     assert "formula" not in identity[0].stages[0].documents[0].text
+    assert source_free[0].stages[0].documents[0].text.endswith("[SOURCE WITHHELD]")
+    assert identity[0].stages[0].documents[0].text.endswith("[SOURCE WITHHELD]")
     assert full[0].stages[1].documents == counterfactual[0].stages[1].documents
     assert full[1].stages[1].documents == counterfactual[1].stages[1].documents
     full_s1 = full[0].stages[2].commit_precondition
@@ -160,6 +166,8 @@ def test_constructed_rule_flips_only_second_private_legal_plan() -> None:
     assert isinstance(ledger["spans"], list)
     assert len(ledger["spans"]) == 3
     assert "sidecar containers with index < i" not in changed
+    assert "Constructed benchmark rule" not in changed
+    assert "Under this constructed rule" not in changed
 
 
 def test_synthetic_full_chain_is_private_and_counts_all_calls(
@@ -228,7 +236,7 @@ def test_forged_launch_refuses_before_credential_or_transport(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     forged = tmp_path / "forged-launch.json"
-    forged.write_text(runner._LAUNCH_PATH.read_text().replace("97299", "97300"))
+    forged.write_text(runner._LAUNCH_PATH.read_text().replace("97278", "97300"))
     monkeypatch.setattr(runner, "_LAUNCH_PATH", forged)
     monkeypatch.setattr(
         runner,

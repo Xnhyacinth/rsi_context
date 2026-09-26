@@ -8,7 +8,7 @@
     "scripts/r15_pep_paid_runner.py": "06fdff7be01b880202835d2111f95d0779d792224d93073d840e473e0a9d62c1",
     "scripts/r16_kep_paid_runner.py": "9a9a43e556faa7dc65a6803ca231fa54940e389cc0c8130516d7ef025bf6c1d9",
     "src/rsicontext/analysis/chat_geometry.py": "807913096f43069632b6d208f172a6fc42986a1ee815eb6d62757a5eab1b0342",
-    "src/rsicontext/analysis/k8s_fixed_reader_r16.py": "c08b96e9c0c37a4ff297daee632c3e2b9e60ab79bc1b16456fadefde84ea6dd8",
+    "src/rsicontext/analysis/k8s_fixed_reader_r16.py": "64b15ec9aa6f38ef0b6ffa15042dd715c0313fd5eac98c7042325dfc2df5bfa1",
     "src/rsicontext/analysis/otel_siflow_pilot.py": "28cc12d1bfcf2b541d4b6618af45ab6b357ad816bf88aa723f5b5e9c65785cfc",
     "src/rsicontext/eval/openai_compatible.py": "a211146589023418e43a92aff5be7bf6426511132e3567a1b2dd24df0b7c8816",
     "src/rsicontext/experiment/api.py": "53039df4ddaa59dca5c47990d51d3fff939e80e7aec1abaebb09fc2506e015bc",
@@ -29,12 +29,12 @@
   "canary_registration_sha256": "cd535eecd54f99d4822d631efad942f1e874f15ac535b98bc32d2582293e4953",
   "canary_requested_output_tokens": 2048,
   "endpoint_sha256": "b49d7116deaf5df5ed7102ea5d67a9b4ab6a7d5fb0808bb9ef540e0e400234d7",
-  "geometry_sha256": "4778daeaf6a611dba379dd08e95d99bb1f425db1dd14e6e624b43316f682a910",
+  "geometry_sha256": "efd130e94c2765af9c563600b7af83f17818028281173c51a2587762764ec628",
   "global_call_cap": 17,
-  "global_local_plus_requested_ceiling": 101519,
+  "global_local_plus_requested_ceiling": 101498,
   "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
   "schema_version": 1,
   "scope": "r16-kep-paid-development",
   "task_call_cap": 15,
-  "task_local_plus_requested_ceiling": 97299
+  "task_local_plus_requested_ceiling": 97278
 }

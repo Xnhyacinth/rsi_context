@@ -20,11 +20,13 @@ material variations are in the survey source. The model is invoked once per
 survey, once for the first plan, and once for the amended plan.
 
 1. **Authentic full source:** complete pinned README, legal S2 plan `admit`.
-2. **Deidentified source-free:** generic marker and answer-free withheld text;
+2. **Deidentified source-free:** generic marker and answer-free `[SOURCE WITHHELD]`;
    neither the model-visible source nor either later brief names KEP. Legal S2
    plan remains `admit`.
-3. **Identity-only:** KEP-753 title and pinned source URL are visible, while
-   the rule text is withheld. Legal S2 plan remains `admit`.
+3. **Identity-only:** KEP-753 title and pinned source URL are visible, followed
+   by the **same exact `[SOURCE WITHHELD]` text** as the source-free arm; only
+   identity metadata differs in the model-visible survey. Legal S2 plan
+   remains `admit`.
 4. **Two explicit rules neutralized:** authentic README except ordered-prefix
    blocks 780–794 and 835–848 are removed. The conservative upper-bound at
    774–778 remains; this arm is diagnostic. Legal S2 plan remains `admit`.
@@ -36,7 +38,8 @@ survey, once for the first plan, and once for the amended plan.
    same request text. Under this rule S1 is 1100m and still legal `hold`; S2
    changes from authentic 800m `admit` to 1100m **`hold`**. Only the private
    S2 legal-plan oracle changes. Its evaluator-side source URI is explicitly
-   `benchmark:constructed/...`, not the authentic GitHub URL.
+   `benchmark:constructed/...`, not the authentic GitHub URL. The replacement
+   source prose does not announce its constructed status to the model.
 
 The source-free, identity-only and edited arms have evaluator-side
 `benchmark:constructed/...` URIs. These metadata fields are not forwarded by
@@ -53,8 +56,8 @@ The pinned Qwen final-chat template places authentic README blocks 774–778,
 and identity-only arms have no corresponding rule span. The neutralized arm
 keeps the first block at **[8897, 8954)** and has replacement intervals
 **[8954, 8965)** and **[9345, 9357)**. The constructed counterfactual's three
-replacement intervals are **[8897, 8947)**, **[8947, 9012)** and
-**[9392, 9496)**. Every span has original/replacement SHA-256 and line/byte
+replacement intervals are **[8897, 8943)**, **[8943, 9003)** and
+**[9383, 9482)**. Every span has original/replacement SHA-256 and line/byte
 offsets in the geometry. These are local final-chat positions, with provider
 parity checked by exact usage during a future live block.
 
@@ -71,11 +74,11 @@ an independent long-context parent or prove causal dependency.
 
 The 14 exact requests cover five survey variants, three first-plan variants,
 and six amendment variants. Taking each case/stage's largest allowed prompt
-gives **66,579 local input tokens** across five cases. At most **15 task HTTP
+gives **66,558 local input tokens** across five cases. At most **15 task HTTP
 calls** request 15 × 2,048 = 30,720 output tokens: the task
-local-input-plus-requested-output ceiling is **97,299**. Two 62-input
+local-input-plus-requested-output ceiling is **97,278**. Two 62-input
 exact-profile canaries add 4,220, yielding **17 global HTTP attempts** and
-a **101,519** planning ceiling; auxiliary calls are forbidden. These are
+a **101,498** planning ceiling; auxiliary calls are forbidden. These are
 prospective admission limits, not observed provider usage or a price estimate.
 
 The strict pre-canary must pass before any task call. The authentic full-source

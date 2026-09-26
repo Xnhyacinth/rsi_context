@@ -43,12 +43,13 @@ MAX_TRAJECTORIES = 5
 MAX_WORKER_ATTEMPTS = 15
 _ORIGINAL_MARKER = "[[doc:kep753-resource-source]]\n"
 _MARKER = "[[doc:reference-source]]\n"
-_WITHHELD = _MARKER + "[SOURCE WITHHELD: no reference or identity supplied]"
+_WITHHOLDING_TEXT = "[SOURCE WITHHELD]"
+_WITHHELD = _MARKER + _WITHHOLDING_TEXT
 _IDENTITY_ONLY = (
     _MARKER + "Title: Sidecar Containers\nIdentity: KEP-753\n"
     "URL: https://github.com/kubernetes/enhancements/tree/"
     "13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a/keps/sig-node/753-sidecar-containers\n"
-    "[RULE TEXT WITHHELD]"
+    + _WITHHOLDING_TEXT
 )
 _README = "keps/sig-node/753-sidecar-containers/README.md"
 # Complete LF-terminated line blocks: first formula and its explanation, then
@@ -63,17 +64,16 @@ _COUNTERFACTUAL_SPANS = (
     (835, 848),
 )
 _COUNTERFACTUAL_REPLACEMENTS = (
-    "Constructed benchmark rule: every native sidecar counts throughout the init "
-    "stage, regardless of order.\n\n"
+    "Every native sidecar counts throughout the init stage, regardless of "
+    "order.\n\n"
     "`Max ( Max(nonSidecarInitContainers) + Sum(all Sidecar Containers), "
     "Sum(all Sidecar Containers) + Sum(Containers) )`\n",
-    "Under this constructed rule, every regular init includes every sidecar "
-    "regardless of its index.\n\n```\n"
+    "Every regular init includes every sidecar regardless of its index.\n\n```\n"
     "InitContainerUse(i) = Sum(all Sidecar Containers) + InitContainer(i)\n"
     "```\n\nThe effective request is `Max(Max(each InitContainerUse), "
     "Sum(all Sidecar Containers) + Sum(Containers))`.\n",
-    "Under this constructed rule, sidecar usage is added to every regular init "
-    "container irrespective of order. Defining `InitContainerUse` as:\n\n```\n"
+    "Sidecar usage is added to every regular init container irrespective of "
+    "order. Defining `InitContainerUse` as:\n\n```\n"
     "InitContainerUse(i) = Sum(all Sidecar Containers) + "
     "Max(Spec.InitContainers[i].Resources, Status.InitContainerStatuses[i].ResourcesAllocated)\n"
     "```\n\nThe effective request is:\n\n```\n"
@@ -181,7 +181,13 @@ def _source_variant(
     changed = replace(
         original,
         doc_id="reference-source",
-        title="Reference material" if case == "source-free" else "Constructed rule material",
+        title=(
+            original.title
+            if case == "full-source"
+            else "Reference material"
+            if case == "source-free"
+            else "Constructed rule material"
+        ),
         source_url=(
             original.source_url
             if case == "full-source"
@@ -479,11 +485,11 @@ def _synthetic_sse(
         raise ValueError("synthetic request messages differ from profile")
     prompt = messages[1]["content"]
     if _MARKER in prompt:
-        if "[SOURCE WITHHELD" in prompt or "[RULE TEXT WITHHELD]" in prompt:
+        if _WITHHOLDING_TEXT in prompt:
             answer = "formula=unknown"
         elif (
             "[Ordered-prefix calculation withheld" in prompt
-            or "Constructed benchmark rule:" in prompt
+            or "Sum(all Sidecar Containers)" in prompt
         ):
             answer = "formula=conservative"
         else:

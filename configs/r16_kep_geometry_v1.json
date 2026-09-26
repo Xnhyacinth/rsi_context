@@ -8,23 +8,23 @@
       "case": "full-source",
       "source_material_sha256": "ec78aad9814c0d350babfb3fb47a9c1fb464579041ebcea81a1f5caad631572f",
       "world_sha256": [
-        "48f5ceac5dced2bf85aa40a43c15c06702361dbf758e7a6906d4d32e162f4c7e",
+        "de4ca42049f9616534900f52ba3d047665663fac42ccbbb71cf64a604a0bd991",
         "0cda50e16bea9ca5d6ffc49d44680e991ebfc82ebb9bdea04d6978558850a9e7"
       ]
     },
     {
       "case": "source-free",
-      "source_material_sha256": "2bd2ab44c35026488dc22f20f731f668856e45a6b299bf87158831fa1fa2634a",
+      "source_material_sha256": "1e61adb1939dc4af3c2147fa740f9e85c31acfe8062929e7acda46925562ad2e",
       "world_sha256": [
-        "8cd0074021fbbe26cb4e6dc692e41df80fb401e8fdd39fc18ffe6c03bb553f7a",
+        "c3b8f59f333a54b7b765eda826569c7c735fd026f671a030f8f3bf5d6710cf94",
         "0cda50e16bea9ca5d6ffc49d44680e991ebfc82ebb9bdea04d6978558850a9e7"
       ]
     },
     {
       "case": "identity-only",
-      "source_material_sha256": "691fa2a804b6a6486204fd49eb6541a44e57194468041575e4a5c6fd0ca7152b",
+      "source_material_sha256": "3ec1c3ef5c48f1b8fd397489ed20f9c9a9c67e19028559b021314ec99e7877f4",
       "world_sha256": [
-        "60398f76631acfdb47aa915675d07b2fe5e0c52aec7b1dc8906ae90f3f2a8857",
+        "ee065c9ff208d3023e808ef413f4c54e13b2b0b412d547a845471ea2d1ea9887",
         "0cda50e16bea9ca5d6ffc49d44680e991ebfc82ebb9bdea04d6978558850a9e7"
       ]
     },
@@ -38,15 +38,15 @@
     },
     {
       "case": "same-identity-conservative-rule",
-      "source_material_sha256": "4508161c144f28b25ccd143ba5a5a99bd56c1eaf2242e38e3417258cd8b41092",
+      "source_material_sha256": "cf04ea20be341ce102220e49a1001a2786d4aa5fbbc6d9f07e7b34298b2f40de",
       "world_sha256": [
-        "4f84ce714871ec5c2467a43dfa77bd81f7e48f5ddb65c15c899cf4469631a24f",
+        "4000c1b625b18c5607b19391c574bcf760bbea7695ff6a8f312a84e5a94eb0a8",
         "330a942c5ead24f058bf73eb9c25dd30f8b2b18ba945ce5cb8acebcbac358134"
       ]
     }
   ],
   "counterfactual_intervention": {
-    "constructed_raw_sha256": "da4122f58860cb8c65100eda55ecd682bf92115c3dc3f53610dacfe296f58ef6",
+    "constructed_raw_sha256": "3909773c70b6a657578f5ded4314ad665b75392a73c0af7dbcdb28782ca385b7",
     "kind": "constructed-all-sidecar-rule; not authentic upstream",
     "original_raw_sha256": "ba9ef6b591cb626023c6e8a0c77cbc3f3cd2ede98d6ab3ff086e41ebef0cdf21",
     "spans": [
@@ -54,7 +54,7 @@
         "end_byte": 37549,
         "end_line": 778,
         "original_sha256": "4bafaa30b35f1a6ab2b1e2dc9c7b39aa213248e762a95eb3971841a0f9e67218",
-        "replacement_sha256": "bf3b5bcd65f7c959511605dd3dc00280de4257b49a3a9d5616a6e0cc1be78d53",
+        "replacement_sha256": "c9e142b57a434c95936cd10f0c9ece0b92e012114ee49260292d8f3eb94e8720",
         "start_byte": 37325,
         "start_line": 774
       },
@@ -62,7 +62,7 @@
         "end_byte": 37989,
         "end_line": 794,
         "original_sha256": "501730735b2c8397ddd7f19062551a0976d497a749122bcfa411f1f116191f34",
-        "replacement_sha256": "54706407c040f52b93bb502d708232a3ba85cdf0e30a1d04a8568dd8a721c4d4",
+        "replacement_sha256": "d5fdb96c2c6aa2954a3cec71e86981e5ef8005652932476783f02306179a172c",
         "start_byte": 37550,
         "start_line": 780
       },
@@ -70,7 +70,7 @@
         "end_byte": 40268,
         "end_line": 848,
         "original_sha256": "8cf06b1272661b01402a79e3c74eff995c018074f2f237e3b76bfc7ca38fdf42",
-        "replacement_sha256": "c58a982fc3f20cd780d09c5e85799fcd1871fffb0e56a03b34eecccbdd7f70d6",
+        "replacement_sha256": "a399f7aa811459ea461ab0c099adb141cf56decd2241d4c9e72d62602df0e6e7",
         "start_byte": 39626,
         "start_line": 835
       }
@@ -517,56 +517,29 @@
     },
     {
       "cases": [
-        "source-free"
-      ],
-      "local_template_geometry": {
-        "evidence_span_tokens": [
-          108,
-          127
-        ],
-        "evidence_to_query_tokens": null,
-        "query_span_tokens": null,
-        "rendered_input_tokens": 136,
-        "rendered_utf8_bytes": 704,
-        "span_status": "unavailable",
-        "user_span_tokens": [
-          30,
-          127
-        ],
-        "user_trailing_whitespace_trimmed_chars": 0
-      },
-      "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
-      "prompt_sha256": "030423ed8d3fd0820f89f053de320cd3a90ad5aa6b17f1d113f6402cc02046e8",
-      "provider_template_parity": "unverified",
-      "request_sha256": "c921cbff81794ae21596ef7c105d7a7daec1ed7452f5ad2ddcac4c49b15105f0",
-      "source_material_sha256": "2bd2ab44c35026488dc22f20f731f668856e45a6b299bf87158831fa1fa2634a",
-      "stage": "source-survey"
-    },
-    {
-      "cases": [
         "same-identity-conservative-rule"
       ],
       "local_template_geometry": {
         "evidence_span_tokens": [
           108,
-          21154
+          21140
         ],
         "evidence_to_query_tokens": null,
         "query_span_tokens": null,
-        "rendered_input_tokens": 21163,
-        "rendered_utf8_bytes": 91176,
+        "rendered_input_tokens": 21149,
+        "rendered_utf8_bytes": 91090,
         "span_status": "unavailable",
         "user_span_tokens": [
           30,
-          21154
+          21140
         ],
         "user_trailing_whitespace_trimmed_chars": 1
       },
       "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
-      "prompt_sha256": "384cdfc7ea9f34bb7c16622d61664b097ceaacea3ecf50379342bdeeddc6a381",
+      "prompt_sha256": "134bea054cacdd3b0bbf9f476fdc25378e47dbe4572dac2e76fb7815b465e4fc",
       "provider_template_parity": "unverified",
-      "request_sha256": "fbcc23b8e9d5cfa5820c942df53d8e3965834eb6d07a7628858bd78a291b1717",
-      "source_material_sha256": "4508161c144f28b25ccd143ba5a5a99bd56c1eaf2242e38e3417258cd8b41092",
+      "request_sha256": "76bdf892aa2eff1b85389e10e85c916819b521da3f53b7c15e5552adf04aec3b",
+      "source_material_sha256": "cf04ea20be341ce102220e49a1001a2786d4aa5fbbc6d9f07e7b34298b2f40de",
       "stage": "source-survey"
     },
     {
@@ -598,33 +571,6 @@
     },
     {
       "cases": [
-        "identity-only"
-      ],
-      "local_template_geometry": {
-        "evidence_span_tokens": [
-          108,
-          200
-        ],
-        "evidence_to_query_tokens": null,
-        "query_span_tokens": null,
-        "rendered_input_tokens": 209,
-        "rendered_utf8_bytes": 847,
-        "span_status": "unavailable",
-        "user_span_tokens": [
-          30,
-          200
-        ],
-        "user_trailing_whitespace_trimmed_chars": 0
-      },
-      "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
-      "prompt_sha256": "a52e81a603abefede8600e95531fd012afde77b7691db23d45abcbfd1a3fe75c",
-      "provider_template_parity": "unverified",
-      "request_sha256": "97be48008521142560bb6485b5eb786166f0666568c293b446ad0645fea79b4e",
-      "source_material_sha256": "691fa2a804b6a6486204fd49eb6541a44e57194468041575e4a5c6fd0ca7152b",
-      "stage": "source-survey"
-    },
-    {
-      "cases": [
         "both-order-rules-neutralized"
       ],
       "local_template_geometry": {
@@ -648,6 +594,60 @@
       "provider_template_parity": "unverified",
       "request_sha256": "9bccaeb89dd98df01368635d067b19ed230a3a9bca91b2edfa59cd7074b23b1b",
       "source_material_sha256": "f8f609095c6594c590d2a4e65a497fb852b2922fae0e77f231a0d0cf80f57fca",
+      "stage": "source-survey"
+    },
+    {
+      "cases": [
+        "source-free"
+      ],
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          108,
+          121
+        ],
+        "evidence_to_query_tokens": null,
+        "query_span_tokens": null,
+        "rendered_input_tokens": 130,
+        "rendered_utf8_bytes": 669,
+        "span_status": "unavailable",
+        "user_span_tokens": [
+          30,
+          121
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+      "prompt_sha256": "c530227677cc011ec5fa4a352a984201e7b109ae09ed838b9b5786c56ee8b011",
+      "provider_template_parity": "unverified",
+      "request_sha256": "f5ea664b27179646eaee5b87a8100e0d8832c6b102467bc45bb17366f5329c37",
+      "source_material_sha256": "1e61adb1939dc4af3c2147fa740f9e85c31acfe8062929e7acda46925562ad2e",
+      "stage": "source-survey"
+    },
+    {
+      "cases": [
+        "identity-only"
+      ],
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          108,
+          199
+        ],
+        "evidence_to_query_tokens": null,
+        "query_span_tokens": null,
+        "rendered_input_tokens": 208,
+        "rendered_utf8_bytes": 844,
+        "span_status": "unavailable",
+        "user_span_tokens": [
+          30,
+          199
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+      "prompt_sha256": "e2e23f3a318b26f5cdb4c063fa7036afc7f91f3f3c2517bb19f75e574cb48c7d",
+      "provider_template_parity": "unverified",
+      "request_sha256": "f77725f2d2b4759de02e9a54fc9b370b07ddbecc1a28f9564719d2860d555a42",
+      "source_material_sha256": "3ec1c3ef5c48f1b8fd397489ed20f9c9a9c67e19028559b021314ec99e7877f4",
       "stage": "source-survey"
     }
   ],
@@ -752,8 +752,8 @@
       ],
       "case": "source-free",
       "later_question_relation": "separate model call; no within-chat source-to-question distance",
-      "survey_input_tokens": 136,
-      "survey_prompt_sha256": "030423ed8d3fd0820f89f053de320cd3a90ad5aa6b17f1d113f6402cc02046e8"
+      "survey_input_tokens": 130,
+      "survey_prompt_sha256": "c530227677cc011ec5fa4a352a984201e7b109ae09ed838b9b5786c56ee8b011"
     },
     {
       "blocks": [
@@ -784,8 +784,8 @@
       ],
       "case": "identity-only",
       "later_question_relation": "separate model call; no within-chat source-to-question distance",
-      "survey_input_tokens": 209,
-      "survey_prompt_sha256": "a52e81a603abefede8600e95531fd012afde77b7691db23d45abcbfd1a3fe75c"
+      "survey_input_tokens": 208,
+      "survey_prompt_sha256": "e2e23f3a318b26f5cdb4c063fa7036afc7f91f3f3c2517bb19f75e574cb48c7d"
     },
     {
       "blocks": [
@@ -833,46 +833,46 @@
         {
           "final_chat_token_interval": [
             8897,
-            8947
+            8943
           ],
           "line_end": 778,
           "line_start": 774,
           "original_sha256": "4bafaa30b35f1a6ab2b1e2dc9c7b39aa213248e762a95eb3971841a0f9e67218",
           "status": "constructed-conservative-replacement",
-          "visible_span_sha256": "bf3b5bcd65f7c959511605dd3dc00280de4257b49a3a9d5616a6e0cc1be78d53"
+          "visible_span_sha256": "c9e142b57a434c95936cd10f0c9ece0b92e012114ee49260292d8f3eb94e8720"
         },
         {
           "final_chat_token_interval": [
-            8947,
-            9012
+            8943,
+            9003
           ],
           "line_end": 794,
           "line_start": 780,
           "original_sha256": "501730735b2c8397ddd7f19062551a0976d497a749122bcfa411f1f116191f34",
           "status": "constructed-conservative-replacement",
-          "visible_span_sha256": "54706407c040f52b93bb502d708232a3ba85cdf0e30a1d04a8568dd8a721c4d4"
+          "visible_span_sha256": "d5fdb96c2c6aa2954a3cec71e86981e5ef8005652932476783f02306179a172c"
         },
         {
           "final_chat_token_interval": [
-            9392,
-            9496
+            9383,
+            9482
           ],
           "line_end": 848,
           "line_start": 835,
           "original_sha256": "8cf06b1272661b01402a79e3c74eff995c018074f2f237e3b76bfc7ca38fdf42",
           "status": "constructed-conservative-replacement",
-          "visible_span_sha256": "c58a982fc3f20cd780d09c5e85799fcd1871fffb0e56a03b34eecccbdd7f70d6"
+          "visible_span_sha256": "a399f7aa811459ea461ab0c099adb141cf56decd2241d4c9e72d62602df0e6e7"
         }
       ],
       "case": "same-identity-conservative-rule",
       "later_question_relation": "separate model call; no within-chat source-to-question distance",
-      "survey_input_tokens": 21163,
-      "survey_prompt_sha256": "384cdfc7ea9f34bb7c16622d61664b097ceaacea3ecf50379342bdeeddc6a381"
+      "survey_input_tokens": 21149,
+      "survey_prompt_sha256": "134bea054cacdd3b0bbf9f476fdc25378e47dbe4572dac2e76fb7815b465e4fc"
     }
   ],
   "task_call_cap": 15,
-  "task_local_plus_requested_ceiling": 97299,
-  "task_local_worst_case_input_tokens": 66579,
+  "task_local_plus_requested_ceiling": 97278,
+  "task_local_worst_case_input_tokens": 66558,
   "task_requested_output_ceiling": 30720,
   "tokenizer_manifest_sha256": "8ff74a229e5d1771200efaaa7e411028fd6ab68a080d93138d76476e9e494290",
   "tokenizer_runtime": {
