@@ -53,6 +53,11 @@ PROMPT_SHA256 = "82db1be2cb4e36e5b467da2878aa5fe12472b368c183dad5fe96832fd898d29
 REQUEST_SHA256 = "ae27605ddced560f68df36a2dca547813ae58104be3bf164b7ab54ae8bff7314"
 EXPECTED_INPUT_TOKENS = 62
 EXPECTED_ANSWER = "amber"
+# The fixed live Qwen canary reported two completion tokens for the one-token
+# visible answer. The extra provider-accounted token is not visible; its
+# identity is unknown and must not be inferred from this counter difference.
+EXPECTED_VISIBLE_OUTPUT_TOKENS = 1
+EXPECTED_PROVIDER_OUTPUT_TOKENS = 2
 MAX_CALLS = 1
 _PRODUCER_FILES = tuple(
     Path(name)
@@ -137,6 +142,8 @@ def registration() -> dict[str, object]:
         "request_sha256": REQUEST_SHA256,
         "expected_input_tokens": EXPECTED_INPUT_TOKENS,
         "expected_answer_sha256": _sha(EXPECTED_ANSWER.encode()),
+        "expected_visible_output_tokens": EXPECTED_VISIBLE_OUTPUT_TOKENS,
+        "expected_provider_output_tokens": EXPECTED_PROVIDER_OUTPUT_TOKENS,
         "endpoint_sha256": _sha(ENDPOINT.encode()),
         "max_output_tokens": 2048,
         "max_calls": MAX_CALLS,
@@ -226,11 +233,13 @@ def _fake_transport(profile: APIProfile, tokenizer: ChatTokenizer) -> Transport:
         body = json.loads(request.data)
         if not isinstance(body, dict) or _sha(_canonical(body)) != REQUEST_SHA256:
             raise CanaryRefusal("fake-request-drift")
-        output_tokens = len(
+        visible_tokens = len(
             tokenizer(EXPECTED_ANSWER, add_special_tokens=False, return_offsets_mapping=True)[
                 "input_ids"
             ]
         )
+        if visible_tokens != EXPECTED_VISIBLE_OUTPUT_TOKENS:
+            raise CanaryRefusal("fake-visible-output-geometry-drift")
         identity = {"id": "offline-r15-profile-canary", "model": profile.model}
         content = {
             **identity,
@@ -241,7 +250,7 @@ def _fake_transport(profile: APIProfile, tokenizer: ChatTokenizer) -> Transport:
             "choices": [],
             "usage": {
                 "prompt_tokens": EXPECTED_INPUT_TOKENS,
-                "completion_tokens": output_tokens,
+                "completion_tokens": EXPECTED_PROVIDER_OUTPUT_TOKENS,
             },
         }
         return (
@@ -332,14 +341,21 @@ def run_canary(
         failure_type = type(exc).__name__
     attempt = _safe_attempt(worker.attempts[0] if worker.attempts else None, synthetic=synthetic)
     answer_observed = failure_type is None
+    local_visible_output_tokens: int | None = None
     try:
-        local_output_tokens = len(
+        local_visible_output_tokens = len(
             tokenizer(answer, add_special_tokens=False, return_offsets_mapping=True)["input_ids"]
         )
     except Exception as exc:
         failure_type = type(exc).__name__
-        local_output_tokens = -1
     usage = attempt.get("usage")
+    provider_output_tokens = usage.get("output_tokens") if isinstance(usage, dict) else None
+    visible_count = local_visible_output_tokens if answer_observed else None
+    provider_minus_visible = (
+        provider_output_tokens - visible_count
+        if isinstance(provider_output_tokens, int) and visible_count is not None
+        else None
+    )
     passed = (
         failure_type is None
         and answer == EXPECTED_ANSWER
@@ -350,14 +366,18 @@ def run_canary(
         and attempt.get("finish_stop") is True
         and isinstance(usage, dict)
         and usage.get("input_tokens") == EXPECTED_INPUT_TOKENS
-        and usage.get("output_tokens") == local_output_tokens
+        and local_visible_output_tokens == EXPECTED_VISIBLE_OUTPUT_TOKENS
+        and provider_output_tokens == EXPECTED_PROVIDER_OUTPUT_TOKENS
+        and provider_output_tokens <= profile.max_output_tokens
     )
     if failure_type is None and not passed:
         if answer != EXPECTED_ANSWER:
             failure_type = "AnswerMismatch"
         elif attempt.get("response_id_valid") is not True:
             failure_type = "ResponseIdentityInvalid"
-        elif isinstance(usage, dict) and usage.get("output_tokens") != local_output_tokens:
+        elif local_visible_output_tokens != EXPECTED_VISIBLE_OUTPUT_TOKENS:
+            failure_type = "VisibleOutputGeometryMismatch"
+        elif provider_output_tokens != EXPECTED_PROVIDER_OUTPUT_TOKENS:
             failure_type = "OutputUsageMismatch"
         elif isinstance(usage, dict) and usage.get("input_tokens") != EXPECTED_INPUT_TOKENS:
             failure_type = "InputUsageMismatch"
@@ -368,6 +388,13 @@ def run_canary(
         "failure_type": failure_type,
         "answer_exact": answer == EXPECTED_ANSWER if answer_observed else False,
         "answer_sha256": _sha(answer.encode()) if answer_observed else None,
+        "local_visible_output_tokens": visible_count,
+        "provider_minus_visible_output_tokens": provider_minus_visible,
+        "provider_output_delta_interpretation": (
+            "unobservable extra-token accounting; identity unknown"
+        )
+        if provider_minus_visible is not None
+        else None,
         "call_count": len(worker.attempts),
         "attempt": attempt,
         "provider_usage_total": None if synthetic else attempt.get("usage"),

@@ -71,6 +71,8 @@ def test_exact_registration_and_final_chat_geometry(tokenizer: ChatTokenizer) ->
     assert geometry["request_sha256"] == canary.REQUEST_SHA256
     assert geometry["prompt_sha256"] == canary.PROMPT_SHA256
     assert canary.registration()["max_output_tokens"] == 2048
+    assert canary.registration()["expected_visible_output_tokens"] == 1
+    assert canary.registration()["expected_provider_output_tokens"] == 2
 
 
 def test_offline_dry_run_writes_synthetic_usage_without_env_secret(
@@ -84,7 +86,9 @@ def test_offline_dry_run_writes_synthetic_usage_without_env_secret(
     assert artifact["status"] == "passed"
     assert artifact["live_model_called"] is False
     assert artifact["provider_usage_total"] is None
-    assert artifact["synthetic_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
+    assert artifact["synthetic_usage_total"] == {"input_tokens": 62, "output_tokens": 2}
+    assert artifact["local_visible_output_tokens"] == 1
+    assert artifact["provider_minus_visible_output_tokens"] == 1
     assert artifact["attempt"]["model_echo_exact"] is True
     assert artifact["attempt"]["finish_stop"] is True
     assert artifact["attempt"]["request_sha256"] == canary.REQUEST_SHA256
@@ -190,7 +194,9 @@ def test_direct_fake_transport_uses_only_a_dummy_key(tokenizer: ChatTokenizer) -
     assert result["status"] == "passed"
     assert observed == ["Bearer offline-synthetic-key"]
     assert result["provider_usage_total"] is None
-    assert result["synthetic_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
+    assert result["synthetic_usage_total"] == {"input_tokens": 62, "output_tokens": 2}
+    assert result["local_visible_output_tokens"] == 1
+    assert result["provider_minus_visible_output_tokens"] == 1
 
 
 def test_live_attempt_ledger_is_flushed_before_fake_billed_dispatch(
@@ -215,7 +221,10 @@ def test_live_attempt_ledger_is_flushed_before_fake_billed_dispatch(
     artifact = json.loads(output.read_text())
     assert artifact["status"] == "passed"
     assert artifact["live_model_called"] is True
-    assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
+    assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 2}
+    assert artifact["local_visible_output_tokens"] == 1
+    assert artifact["provider_minus_visible_output_tokens"] == 1
+    assert "identity unknown" in artifact["provider_output_delta_interpretation"]
     assert artifact["attempt"]["usage_provenance"] == "provider-reported"
     assert output.stat().st_mode & 0o777 == 0o600
 
@@ -237,7 +246,7 @@ def test_postprocessing_failure_retains_billed_attempt_and_usage(
     assert artifact["status"] == "refused"
     assert artifact["live_model_called"] is True
     assert artifact["call_count"] == 1
-    assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
+    assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 2}
     assert artifact["attempt"]["status"] == "response-received"
     assert "secret-never-persist-r15" not in output.read_text()
 
@@ -272,6 +281,9 @@ def test_attempt_ledger_write_failure_blocks_fake_network_dispatch(
         "non-stop",
         "wrong-input-usage",
         "wrong-output-usage",
+        "wrong-output-usage-low",
+        "over-output-cap",
+        "missing-usage",
         "transport-secret",
         "malformed-response-id",
     ),
@@ -294,7 +306,16 @@ def test_execute_failure_is_named_and_sanitized(
             return raw.replace(b'"prompt_tokens": 62', b'"prompt_tokens": 61')
         if failure == "malformed-response-id":
             return raw.replace(b"offline-r15-profile-canary", b"\\ud800")
-        return raw.replace(b'"completion_tokens": 1', b'"completion_tokens": 2')
+        if failure == "wrong-output-usage-low":
+            return raw.replace(b'"completion_tokens": 2', b'"completion_tokens": 1')
+        if failure == "over-output-cap":
+            return raw.replace(b'"completion_tokens": 2', b'"completion_tokens": 2049')
+        if failure == "missing-usage":
+            return raw.replace(
+                b'"usage": {"prompt_tokens": 62, "completion_tokens": 2}',
+                b'"usage": null',
+            )
+        return raw.replace(b'"completion_tokens": 2', b'"completion_tokens": 3')
 
     monkeypatch.setattr(canary, "_urlopen_transport", broken)
     output = tmp_path / f"{failure}.json"
@@ -313,13 +334,18 @@ def test_execute_failure_is_named_and_sanitized(
         "RuntimeError",
         "_AbortAfterFailure",
     }
-    if failure == "wrong-output-usage":
+    if failure in {"wrong-output-usage", "wrong-output-usage-low"}:
         assert artifact["failure_type"] == "OutputUsageMismatch"
         assert artifact["answer_exact"] is True
+    if failure == "over-output-cap":
+        assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 2049}
+    if failure == "missing-usage":
+        assert artifact["provider_usage_total"] is None
+        assert artifact["provider_minus_visible_output_tokens"] is None
     if failure == "malformed-response-id":
         assert artifact["failure_type"] == "ResponseIdentityInvalid"
         assert artifact["attempt"]["response_id_sha256"] is not None
         assert artifact["attempt"]["response_id_valid"] is False
-        assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
+        assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 2}
     assert "secret-never-persist-r15" not in output.read_text()
     assert "Bearer" not in output.read_text()
