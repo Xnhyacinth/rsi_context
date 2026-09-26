@@ -315,7 +315,7 @@ class Policy:
         {endings[outcome]}
 """,
         auditor=PermissiveTestAuditor(),
-        timeout_seconds=0.1 if outcome == "timeout" else 1,
+        timeout_seconds=1,
     )
 
     if outcome == "success":
