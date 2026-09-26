@@ -124,7 +124,8 @@ def test_synthetic_full_chain_private_complete_and_no_credential_lookup(
     task = json.loads((run_dir / "task.json").read_text())
     assert task["status"] == "completed-diagnostic"
     assert task["worker_attempt_count"] == 4
-    assert task["provider_usage_total"]["input_tokens"] == 1206
+    assert task["provider_usage_total"] is None
+    assert task["synthetic_usage_total"]["input_tokens"] == 1206
     assert stat.S_IMODE(run_dir.stat().st_mode) == 0o700
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in run_dir.iterdir())
     contents = "".join(path.read_text() for path in run_dir.iterdir())

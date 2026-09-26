@@ -176,6 +176,7 @@ def _task_block(
     registration: dict[str, object],
     journal: journal_tools._JournalTransport,
     usage_before: dict[str, int],
+    synthetic: bool,
 ) -> dict[str, object]:
     """Dispatch four registered target calls and preserve every observed result."""
 
@@ -233,7 +234,8 @@ def _task_block(
         "cases": cases,
         "attempts": worker.attempts,
         "worker_attempt_count": len(worker.attempts),
-        "provider_usage_total": usage,
+        "provider_usage_total": None if synthetic else usage,
+        "synthetic_usage_total": usage if synthetic else None,
         "failure_type": failure_type,
         "qualified_parent": False,
     }
@@ -354,6 +356,7 @@ def run_guarded(
                 registration=registration,
                 journal=journal,
                 usage_before=before_usage,
+                synthetic=synthetic,
             )
             journal_tools._write_json(run_dir / "task.json", task)
             observed_task_usage = {
@@ -362,7 +365,10 @@ def run_guarded(
             }
             if (
                 task["worker_attempt_count"] != journal.task_attempts
-                or task["provider_usage_total"] != observed_task_usage
+                or (
+                    task["synthetic_usage_total"] if synthetic else task["provider_usage_total"]
+                )
+                != observed_task_usage
             ):
                 raise RuntimeError("R17 worker attempts or usage differ from journal")
             result["task_provider_usage_total"] = None if synthetic else observed_task_usage

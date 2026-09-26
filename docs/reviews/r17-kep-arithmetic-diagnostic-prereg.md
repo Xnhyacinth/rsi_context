@@ -89,7 +89,7 @@ The guarded runner is
 [`scripts/r17_kep_diagnostic_paid_runner.py`](../../scripts/r17_kep_diagnostic_paid_runner.py).
 Its frozen launch manifest is
 [`configs/r17_kep_diagnostic_paid_launch_v1.json`](../../configs/r17_kep_diagnostic_paid_launch_v1.json),
-SHA-256 `0a7eb9915ff9d70d3f177bed2b46a34b8a6b07026c86cd196070dbfd5bb84e62`.
+SHA-256 `c97602522c86a83aee77a3be661a93bc8cac202c8b50bd9d713ce430136cce23`.
 It binds committed producer/registry/profile bytes, tokenizer snapshot and
 runtime, source revision and README, and the immutable R16 observation before
 credential resolution. Its private, fsynced attempt log records each dispatch
@@ -98,7 +98,8 @@ four task calls, two exact-profile canaries, six total HTTP attempts, zero
 auxiliary calls, exact model/stop/provider-input parity and the 13,618 planning
 ceiling. It stops on protocol or usage failure and never retries or overwrites
 an existing run directory. The synthetic full-chain test uses an injected
-transport and is not model evidence.
+transport; its task and final artifacts keep synthetic token counts separate
+from provider-reported usage. It is not model evidence.
 
 **Paid admission remains pending independent code and science review.** No R17
 Siflow request has been made. After that review, the prospective command is:
