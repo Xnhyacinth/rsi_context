@@ -332,6 +332,7 @@ def test_each_candidate_has_independent_audit_and_rejection_keeps_denominator(
     monkeypatch.setattr(pilot, "DEV_SOURCE", source)
     # This test exercises the static audit path with fake provider responses;
     # the live entry itself remains closed until an isolated executor exists.
+    monkeypatch.setenv("SIFLOW_API_KEY", "test-only")
     monkeypatch.setattr(pilot, "require_isolated_policy_executor", lambda: None)
     monkeypatch.setattr(pilot, "_available_models", lambda: {READER_MODEL, RESEARCHER_MODEL})
 
