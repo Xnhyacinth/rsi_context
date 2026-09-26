@@ -13,7 +13,7 @@ from typing import cast
 import pytest
 
 from rsicontext.analysis.chat_geometry import ChatTokenizer
-from rsicontext.eval.openai_compatible import _urlopen_transport
+from rsicontext.experiment.api import ResolvedAPIEndpoint
 
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "scripts"))
@@ -46,6 +46,17 @@ def _args(mode: str, output: Path, *, registration: str | None = None) -> list[s
     if registration is not None:
         args.extend(("--registration-sha256", registration))
     return args
+
+
+def _allow_test_execute(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SIFLOW_API_KEY", "secret-never-persist-r15")
+    monkeypatch.delenv("SIFLOW_BASE_URL", raising=False)
+    attestation = {
+        "worktree_dirty": False,
+        "repository_root_matches": True,
+        "producer_files_match_head": True,
+    }
+    monkeypatch.setattr(canary, "producer_attestation", lambda *_args, **_kwargs: attestation)
 
 
 def test_exact_registration_and_final_chat_geometry(tokenizer: ChatTokenizer) -> None:
@@ -94,14 +105,27 @@ def test_execute_registration_refusal_writes_artifact_before_dispatch(
     assert "secret-never-persist-r15" not in output.read_text()
 
 
-def test_dry_run_rejects_injected_transport_before_dispatch(tmp_path: Path) -> None:
-    output = tmp_path / "dry-run-injected.json"
-    assert (
-        canary.main(_args("--dry-run", output), transport_override=_urlopen_transport) == 2
-    )
-    artifact = json.loads(output.read_text())
-    assert artifact["failure_code"] == "dry-run-forbids-injected-transport"
-    assert artifact["live_model_called"] is False
+def test_artifact_collision_refuses_without_overwriting_or_resolving_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "collision.json"
+    output.write_text("sentinel")
+    monkeypatch.setattr(canary, "resolve_api_endpoint", lambda *_args, **_kwargs: pytest.fail())
+    with pytest.raises(SystemExit):
+        canary.main(_args("--execute", output, registration=canary.registration_sha256()))
+    assert output.read_text() == "sentinel"
+
+
+def test_unwritable_artifact_location_refuses_before_resolving_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parent = tmp_path / "regular-file"
+    parent.write_text("not a directory")
+    output = parent / "canary.json"
+    monkeypatch.setattr(canary, "resolve_api_endpoint", lambda *_args, **_kwargs: pytest.fail())
+    with pytest.raises(SystemExit):
+        canary.main(_args("--execute", output, registration=canary.registration_sha256()))
+    assert parent.read_text() == "not a directory"
 
 
 def test_live_execute_requires_external_output_path_before_dispatch(
@@ -111,10 +135,9 @@ def test_live_execute_requires_external_output_path_before_dispatch(
     producer_root.mkdir()
     monkeypatch.setattr(canary, "ROOT", producer_root)
     output = producer_root / "canary.json"
-    assert canary.main(_args("--execute", output, registration=canary.registration_sha256())) == 2
-    artifact = json.loads(output.read_text())
-    assert artifact["failure_code"] == "execute-output-must-be-external"
-    assert artifact["live_model_called"] is False
+    with pytest.raises(SystemExit):
+        canary.main(_args("--execute", output, registration=canary.registration_sha256()))
+    assert not output.exists()
 
 
 def test_execute_missing_key_refuses_with_artifact(
@@ -148,58 +171,115 @@ def test_live_execute_refuses_dirty_producer_before_transport(
     assert artifact["code_identity"]["producer_attestation"]["worktree_dirty"] is True
 
 
-def test_fixed_endpoint_needs_only_key_in_execute_test(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("SIFLOW_API_KEY", "secret-never-persist-r15")
-    monkeypatch.delenv("SIFLOW_BASE_URL", raising=False)
-    tokenizer = canary._tokenizer(_TOKENIZER)
-    output = tmp_path / "fixed-endpoint.json"
-    assert (
-        canary.main(
-            _args("--execute", output, registration=canary.registration_sha256()),
-            transport_override=canary._fake_transport(canary._profile(), tokenizer),
-        )
-        == 0
+def test_direct_fake_transport_uses_only_a_dummy_key(tokenizer: ChatTokenizer) -> None:
+    profile = canary._profile()
+    observed: list[str | None] = []
+    fake = canary._fake_transport(profile, tokenizer)
+
+    def transport(request: urllib.request.Request, timeout: float) -> bytes:
+        observed.append(request.get_header("Authorization"))
+        return fake(request, timeout)
+
+    result = canary.run_canary(
+        profile=profile,
+        endpoint=ResolvedAPIEndpoint(canary.ENDPOINT, "offline-synthetic-key"),
+        tokenizer=tokenizer,
+        transport=transport,
+        synthetic=True,
     )
-    assert json.loads(output.read_text())["status"] == "passed"
+    assert result["status"] == "passed"
+    assert observed == ["Bearer offline-synthetic-key"]
+    assert result["provider_usage_total"] is None
+    assert result["synthetic_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
 
 
-def test_guarded_execute_with_injected_fake_stays_synthetic(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_live_attempt_ledger_is_flushed_before_fake_billed_dispatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tokenizer: ChatTokenizer
 ) -> None:
-    monkeypatch.setenv("SIFLOW_API_KEY", "secret-never-persist-r15")
-    monkeypatch.setenv("SIFLOW_BASE_URL", canary.ENDPOINT)
-    tokenizer = canary._tokenizer(_TOKENIZER)
+    _allow_test_execute(monkeypatch)
+    output = tmp_path / "billed.json"
     fake = canary._fake_transport(canary._profile(), tokenizer)
-    output = tmp_path / "guarded-fake.json"
-    assert (
-        canary.main(
-            _args("--execute", output, registration=canary.registration_sha256()),
-            transport_override=fake,
-        )
-        == 0
-    )
+
+    def billed(request: urllib.request.Request, timeout: float) -> bytes:
+        before = json.loads(output.read_text())
+        assert before["status"] == "dispatch-started"
+        assert before["live_model_called"] is True
+        assert before["call_count"] == 1
+        assert before["attempt"]["request_sha256"] == canary.REQUEST_SHA256
+        assert before["provider_usage_total"] is None
+        assert "secret-never-persist-r15" not in output.read_text()
+        return fake(request, timeout)
+
+    monkeypatch.setattr(canary, "_urlopen_transport", billed)
+    assert canary.main(_args("--execute", output, registration=canary.registration_sha256())) == 0
     artifact = json.loads(output.read_text())
     assert artifact["status"] == "passed"
-    assert artifact["mode"] == "execute-test"
-    assert artifact["transport_kind"] == "injected-test"
+    assert artifact["live_model_called"] is True
+    assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
+    assert artifact["attempt"]["usage_provenance"] == "provider-reported"
+    assert output.stat().st_mode & 0o777 == 0o600
+
+
+def test_postprocessing_failure_retains_billed_attempt_and_usage(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tokenizer: ChatTokenizer
+) -> None:
+    _allow_test_execute(monkeypatch)
+    output = tmp_path / "postprocessing.json"
+    fake = canary._fake_transport(canary._profile(), tokenizer)
+    monkeypatch.setattr(canary, "_urlopen_transport", fake)
+
+    def failed_postprocessing(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("Bearer secret-never-persist-r15")
+
+    monkeypatch.setattr(canary, "_safe_attempt", failed_postprocessing)
+    assert canary.main(_args("--execute", output, registration=canary.registration_sha256())) == 2
+    artifact = json.loads(output.read_text())
+    assert artifact["status"] == "refused"
+    assert artifact["live_model_called"] is True
+    assert artifact["call_count"] == 1
+    assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
+    assert artifact["attempt"]["status"] == "response-received"
+    assert "secret-never-persist-r15" not in output.read_text()
+
+
+def test_attempt_ledger_write_failure_blocks_fake_network_dispatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _allow_test_execute(monkeypatch)
+    output = tmp_path / "write-failure.json"
+    original = canary._update_artifact
+
+    def fail_attempt_write(path: Path, result: dict[str, object]) -> None:
+        if result.get("status") == "dispatch-started":
+            raise OSError("simulated disk failure")
+        original(path, result)
+
+    def forbidden_transport(request: urllib.request.Request, timeout: float) -> bytes:
+        pytest.fail("network dispatch must wait for durable attempt ledger")
+
+    monkeypatch.setattr(canary, "_update_artifact", fail_attempt_write)
+    monkeypatch.setattr(canary, "_urlopen_transport", forbidden_transport)
+    assert canary.main(_args("--execute", output, registration=canary.registration_sha256())) == 2
+    artifact = json.loads(output.read_text())
     assert artifact["live_model_called"] is False
     assert artifact["provider_usage_total"] is None
-    assert artifact["synthetic_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
-    assert "secret-never-persist-r15" not in output.read_text()
 
 
 @pytest.mark.parametrize(
     "failure",
-    ("wrong-model", "non-stop", "wrong-input-usage", "wrong-output-usage", "transport-secret"),
+    (
+        "wrong-model",
+        "non-stop",
+        "wrong-input-usage",
+        "wrong-output-usage",
+        "transport-secret",
+        "malformed-response-id",
+    ),
 )
 def test_execute_failure_is_named_and_sanitized(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tokenizer: ChatTokenizer, failure: str
 ) -> None:
-    monkeypatch.setenv("SIFLOW_API_KEY", "secret-never-persist-r15")
-    monkeypatch.setenv("SIFLOW_BASE_URL", canary.ENDPOINT)
-    tokenizer = canary._tokenizer(_TOKENIZER)
+    _allow_test_execute(monkeypatch)
     fake = canary._fake_transport(canary._profile(), tokenizer)
 
     def broken(request: urllib.request.Request, timeout: float) -> bytes:
@@ -212,21 +292,22 @@ def test_execute_failure_is_named_and_sanitized(
             return raw.replace(b'"finish_reason": "stop"', b'"finish_reason": "length"')
         if failure == "wrong-input-usage":
             return raw.replace(b'"prompt_tokens": 62', b'"prompt_tokens": 61')
+        if failure == "malformed-response-id":
+            return raw.replace(b"offline-r15-profile-canary", b"\\ud800")
         return raw.replace(b'"completion_tokens": 1', b'"completion_tokens": 2')
 
+    monkeypatch.setattr(canary, "_urlopen_transport", broken)
     output = tmp_path / f"{failure}.json"
-    assert (
-        canary.main(
-            _args("--execute", output, registration=canary.registration_sha256()),
-            transport_override=broken,
-        )
-        == 2
-    )
+    assert canary.main(_args("--execute", output, registration=canary.registration_sha256())) == 2
     artifact = json.loads(output.read_text())
     assert artifact["status"] == "failed"
-    assert artifact["live_model_called"] is False
+    assert artifact["mode"] == "execute"
+    assert artifact["transport_kind"] == "live-siflow"
+    assert artifact["live_model_called"] is True
+    assert artifact["call_count"] == 1
     assert artifact["failure_type"] in {
         "OutputUsageMismatch",
+        "ResponseIdentityInvalid",
         "ReaderProtocolError",
         "ValueError",
         "RuntimeError",
@@ -235,5 +316,10 @@ def test_execute_failure_is_named_and_sanitized(
     if failure == "wrong-output-usage":
         assert artifact["failure_type"] == "OutputUsageMismatch"
         assert artifact["answer_exact"] is True
+    if failure == "malformed-response-id":
+        assert artifact["failure_type"] == "ResponseIdentityInvalid"
+        assert artifact["attempt"]["response_id_sha256"] is not None
+        assert artifact["attempt"]["response_id_valid"] is False
+        assert artifact["provider_usage_total"] == {"input_tokens": 62, "output_tokens": 1}
     assert "secret-never-persist-r15" not in output.read_text()
     assert "Bearer" not in output.read_text()
