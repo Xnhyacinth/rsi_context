@@ -59,6 +59,7 @@ def fake_route(
     calls: list[str],
     *,
     bad_membership: bool = False,
+    bad_final: bool = False,
     missing_usage: bool = False,
 ) -> Transport:
     canary_fake = canary._fake_transport(profile, tokenizer)
@@ -68,7 +69,9 @@ def fake_route(
         "legacy-with-prior": "plan=hold-at-1000m",
         "rule-membership": "invalid" if bad_membership else "a_sidecar_m=0\nb_sidecar_m=300",
         "numeric-with-prior": "effective_cpu_m=1100\nplan=hold-at-1000m",
-        "numeric-without-prior": "effective_cpu_m=800\nplan=admit-at-1000m",
+        "numeric-without-prior": (
+            "invalid" if bad_final else "effective_cpu_m=800\nplan=admit-at-1000m"
+        ),
     }
 
     def route(request: urllib.request.Request, timeout: float) -> bytes:
@@ -184,6 +187,31 @@ def test_missing_provider_usage_stops_without_retry_or_post_canary(
     events = [json.loads(line) for line in (run_dir / "attempts.jsonl").read_text().splitlines()]
     assert any(event["event"] == "response-received" and event["provider_usage"] is None
                for event in events)
+
+
+def test_invalid_fourth_reply_never_dispatches_post_canary_or_validates_block(
+    tokenizer: ChatTokenizer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SIFLOW_BASE_URL", raising=False)
+    calls: list[str] = []
+    run_dir = tmp_path / "bad-final-format"
+    result = runner.run_guarded(
+        source_root=SOURCE,
+        r16_task=TASK,
+        tokenizer_path=TOKENIZER,
+        run_dir=run_dir,
+        transport_override=fake_route(canary._profile(), tokenizer, calls, bad_final=True),
+    )
+    assert result["status"] == "task-worker-or-format-failed"
+    assert result["provider_block_valid"] is False
+    assert calls == ["canary", "task", "task", "task", "task"]
+    assert result["task_http_calls"] == 4
+    assert result["canary_http_calls"] == 1
+    assert not (run_dir / "post_canary.json").exists()
+    task = json.loads((run_dir / "task.json").read_text())
+    assert task["status"] == "stopped-on-task-failure"
+    assert task["failure_type"] == "InvalidReplyFormat"
+    assert task["cases"][-1]["valid_format"] is False
 
 
 def test_forged_launch_refuses_before_credential_or_transport(
