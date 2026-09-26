@@ -12,6 +12,7 @@ The original untracked `logs/` in main is untouched.
 | `work/r19-reader` | Prospective, guarded Iceberg two-session fixed-reader screen, versioned prompts/launch and offline failure tests; no provider execution by the worker. |
 | `work/r19-runtime` | Trusted researcher runtime and B/C opportunity/budget audit; no host mutation, candidate execution or provider call. |
 | `work/r19-gemma` | Independently pin a second reader family's tokenizer metadata through registry dry run and selective acquisition; no model weights or provider call. |
+| `work/r19-short` | Guarded two-call short Iceberg rule-application feasibility gate with its own versioned launch; no provider execution by the worker. |
 | `work/r19-integration` | Reconcile science and code review, admit at most a bounded live reader screen after frozen checks, run project gates, merge/push main and clean worktrees. |
 
 The official Iceberg source checkout has been rechecked clean and detached at
@@ -75,6 +76,16 @@ has SHA-256 `d9d85ad44ea5d98854a1210be9ebb2aa4a961265c6a2be0e8ae999defa3d713e`.
 It lists the known `Qwen/Qwen3.6-27B` and a prospective distinct family,
 `google/gemma-4-31B-it`, with advertised context windows of 262,144 and
 131,072 respectively. This verifies **catalog visibility only**. A Gemma
-comparison still needs registered pinned tokenizer/source assets, exact
+comparison requires registered pinned tokenizer/source assets, exact
 chat-template geometry, a versioned provider profile and an exact-model,
 usage-bearing canary before any model result or cost claim.
+
+The Gemma metadata intake has since joined this integration branch. Its
+registry SHA-256 is
+`7ac3a92dcbf9128c2b39ef16978bb9d08854612a85126b98165f62ecd8a9c1a0`;
+the [source audit](r19-gemma-tokenizer-intake-audit-20260927.md) records six
+immutable metadata files totaling 32,197,909 bytes, no weights, a matching
+tokenizer manifest, and a local-only text `AutoTokenizer` load. The snapshot
+is not a Siflow canary or second-reader result. Reader launch registrations
+must bind this new registry SHA; historical v1 launches remain immutable and
+should refuse the changed registry.
