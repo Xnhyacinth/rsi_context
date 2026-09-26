@@ -22,7 +22,8 @@ import r15_k8s_reader_screen as offline  # noqa: E402
 import r15_pep_paid_runner as journal_tools  # noqa: E402
 
 from rsicontext.analysis.chat_geometry import ChatTokenizer, measure_chat_geometry  # noqa: E402
-from rsicontext.analysis.k8s_fixed_reader_r15 import (  # noqa: E402
+from rsicontext.analysis.k8s_fixed_reader_r16 import (  # noqa: E402
+    _COUNTERFACTUAL_REPLACEMENTS,
     CASE_ORDER,
     MAX_WORKER_ATTEMPTS,
     WORLD_SHA256,
@@ -30,6 +31,7 @@ from rsicontext.analysis.k8s_fixed_reader_r15 import (  # noqa: E402
     case_materials,
     enumerate_allowed_prompt_geometry,
     neutralize_both_order_rules,
+    transplant_conservative_rule,
 )
 from rsicontext.eval.openai_compatible import Transport, _urlopen_transport  # noqa: E402
 from rsicontext.experiment.api import ResolvedAPIEndpoint, resolve_api_endpoint  # noqa: E402
@@ -38,7 +40,9 @@ from rsicontext.experiment.offline_provenance import (  # noqa: E402
     require_clean_producer,
     require_stable_attestation,
 )
-from rsicontext.lifecycle.k8s_model_fixed_r15 import k8s_model_fixed_policy_text  # noqa: E402
+from rsicontext.lifecycle.k8s_model_fixed_r16 import (  # noqa: E402
+    k8s_model_fixed_r16_policy_text,
+)
 from rsicontext.lifecycle.material_k8s_r14 import (  # noqa: E402
     SOURCE_FILES,
     SOURCE_REVISION,
@@ -55,13 +59,13 @@ _BOUND_FILES = (
     "scripts/r15_exact_profile_canary.py",
     "scripts/r15_pep_paid_runner.py",
     "scripts/r15_k8s_reader_screen.py",
-    "src/rsicontext/analysis/k8s_fixed_reader_r15.py",
+    "src/rsicontext/analysis/k8s_fixed_reader_r16.py",
     "src/rsicontext/analysis/chat_geometry.py",
     "src/rsicontext/analysis/otel_siflow_pilot.py",
     "src/rsicontext/eval/openai_compatible.py",
     "src/rsicontext/experiment/api.py",
     "src/rsicontext/experiment/offline_provenance.py",
-    "src/rsicontext/lifecycle/k8s_model_fixed_r15.py",
+    "src/rsicontext/lifecycle/k8s_model_fixed_r16.py",
     "src/rsicontext/lifecycle/material_k8s_r14.py",
     "src/rsicontext/lifecycle/env.py",
     "src/rsicontext/lifecycle/policy.py",
@@ -77,15 +81,15 @@ _BOUND_FILES = (
 _PRODUCER_FILES = tuple(Path(value) for value in (*_BOUND_FILES, _GEOMETRY_REL, _LAUNCH_REL))
 _STAGES = ("source-survey", "resource-request-stage", "resource-order-change")
 _SURVEY_PREFIX = (
-    "Read the supplied KEP proposal before seeing the project request. "
-    "Classify its effective CPU-request calculation for a regular init "
+    "Read the supplied reference before seeing the project request. "
+    "Classify the effective CPU-request calculation for a regular init "
     "container when a native sidecar also runs. Return exactly "
     "formula=prefix if only earlier sidecars are added, "
     "formula=conservative if every sidecar is added regardless of "
     "order, or formula=unknown if the supplied material does not "
     "resolve this. Do not answer a scheduling decision.\n\n"
 )
-_BLOCK_LINES = ((780, 794), (835, 848))
+_BLOCK_LINES = ((774, 778), (780, 794), (835, 848))
 
 
 def _sha(raw: bytes) -> str:
@@ -108,8 +112,8 @@ def _committed_bytes(relative: str) -> bytes:
 def _task_input_cap(registry: list[dict[str, object]]) -> int:
     """Sum the largest registered prompt at each stage for each case."""
 
-    if len(registry) != 12 or len({str(item.get("prompt_sha256")) for item in registry}) != 12:
-        raise ValueError("KEP geometry must register twelve distinct prompts")
+    if len(registry) != 14 or len({str(item.get("prompt_sha256")) for item in registry}) != 14:
+        raise ValueError("R16 KEP geometry must register fourteen distinct prompts")
     total = 0
     for case in CASE_ORDER:
         for stage in _STAGES:
@@ -179,9 +183,10 @@ def _rule_geometry(
     cases: tuple[tuple[str, tuple[LifecycleInstance, LifecycleInstance]], ...],
     registry: list[dict[str, object]],
     intervention: dict[str, object],
+    counterfactual_intervention: dict[str, object],
     original_source: str,
 ) -> list[dict[str, object]]:
-    """Locate the two decisive source blocks in the exact survey chat."""
+    """Locate three registered rule spans in each exact survey chat."""
 
     source_raw = original_source.split("\n", 1)[1].encode()
     source_lines = source_raw.splitlines(keepends=True)
@@ -209,19 +214,21 @@ def _rule_geometry(
         blocks: list[dict[str, object]] = []
         cursor = 0
         for index, original in enumerate(original_blocks):
-            status = (
-                "intact"
-                if name == "full-source"
-                else "removed"
-                if name == "both-order-rules-neutralized"
-                else "source-withheld"
-            )
-            evidence = original.decode() if status == "intact" else None
-            if status == "removed":
+            if name == "full-source" or (name == "both-order-rules-neutralized" and index == 0):
+                status = "intact"
+                evidence = original.decode()
+            elif name == "both-order-rules-neutralized":
+                status = "explicit-rule-removed"
                 evidence = (
                     "[Ordered-prefix calculation withheld for this diagnostic arm.]\n"
                     + "\n" * (original.count(b"\n") - 1)
                 )
+            elif name == "same-identity-conservative-rule":
+                status = "constructed-conservative-replacement"
+                evidence = _COUNTERFACTUAL_REPLACEMENTS[index]
+            else:
+                status = "source-withheld" if name == "source-free" else "identity-only"
+                evidence = None
             interval = None
             if evidence is not None:
                 occurrence = source.find(evidence, cursor)
@@ -263,9 +270,14 @@ def _rule_geometry(
         )
     spans = intervention.get("spans")
     if not isinstance(spans, list) or [item["original_sha256"] for item in spans] != [
-        _sha(block) for block in original_blocks
+        _sha(block) for block in original_blocks[1:]
     ]:
         raise ValueError("KEP source block hashes differ from intervention ledger")
+    counterfactual_spans = counterfactual_intervention.get("spans")
+    if not isinstance(counterfactual_spans, list) or [
+        item["original_sha256"] for item in counterfactual_spans
+    ] != [_sha(block) for block in original_blocks]:
+        raise ValueError("KEP counterfactual block hashes differ from source")
     return output
 
 
@@ -288,8 +300,9 @@ def _build_geometry(source_root: Path, tokenizer: ChatTokenizer) -> dict[str, ob
         for name, pair in cases
     ]
     registry = enumerate_allowed_prompt_geometry(source_root, profile=profile, tokenizer=tokenizer)
-    source_text = sessions[0].stages[0].documents[0].text
+    source_text = cases[0][1][0].stages[0].documents[0].text
     _changed, intervention = neutralize_both_order_rules(source_text)
+    _counterfactual, counterfactual_intervention = transplant_conservative_rule(source_text)
     if profile.system_prompt is None:
         raise ValueError("KEP profile lacks system prompt")
     rule_geometry = _rule_geometry(
@@ -298,6 +311,7 @@ def _build_geometry(source_root: Path, tokenizer: ChatTokenizer) -> dict[str, ob
         cases,
         registry,
         intervention,
+        counterfactual_intervention,
         source_text,
     )
     input_cap = _task_input_cap(registry)
@@ -309,6 +323,7 @@ def _build_geometry(source_root: Path, tokenizer: ChatTokenizer) -> dict[str, ob
         "base_world_sha256": base_world,
         "case_materials": case_records,
         "source_intervention": intervention,
+        "counterfactual_intervention": counterfactual_intervention,
         "source_rule_geometry": rule_geometry,
         "later_prompt_geometry": [
             {
@@ -328,7 +343,7 @@ def _build_geometry(source_root: Path, tokenizer: ChatTokenizer) -> dict[str, ob
             for item in registry
             if item["stage"] != "source-survey"
         ],
-        "policy_sha256": _sha(k8s_model_fixed_policy_text().encode()),
+        "policy_sha256": _sha(k8s_model_fixed_r16_policy_text().encode()),
         "profile_sha256": profile.profile_hash,
         "profile_file_sha256": _sha(canary.PROFILE_PATH.read_bytes()),
         "tokenizer_manifest_sha256": canary.TOKENIZER_MANIFEST_SHA256,

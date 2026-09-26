@@ -13,9 +13,14 @@ from typing import cast
 import pytest
 
 from rsicontext.analysis.chat_geometry import ChatTokenizer
-from rsicontext.analysis.k8s_fixed_reader_r15 import make_synthetic_transport
+from rsicontext.analysis.k8s_fixed_reader_r16 import (
+    case_materials,
+    make_synthetic_transport,
+    transplant_conservative_rule,
+)
 from rsicontext.eval.openai_compatible import Transport
 from rsicontext.experiment.api import APIProfile
+from rsicontext.lifecycle.material_k8s_r14 import build_k8s_resource_order_sessions
 
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "scripts"))
@@ -76,25 +81,83 @@ def test_frozen_geometry_has_exact_budget_and_decisive_rule_spans(
     actual = runner._build_geometry(_SOURCE, tokenizer)
     frozen = json.loads(runner._GEOMETRY_PATH.read_text())
     assert actual == frozen
-    assert actual["task_call_cap"] == 9
-    assert actual["task_local_worst_case_input_tokens"] == 44112
-    assert actual["task_local_plus_requested_ceiling"] == 62544
+    assert actual["task_call_cap"] == 15
+    assert actual["task_local_worst_case_input_tokens"] == 66579
+    assert actual["task_local_plus_requested_ceiling"] == 97299
+    assert isinstance(actual["registered_requests"], list)
+    assert len(actual["registered_requests"]) == 14
     source_rule = cast(list[dict[str, object]], actual["source_rule_geometry"])
     assert [item["case"] for item in source_rule] == [
         "full-source",
         "source-free",
+        "identity-only",
         "both-order-rules-neutralized",
+        "same-identity-conservative-rule",
     ]
     full = cast(list[dict[str, object]], source_rule[0]["blocks"])
     withheld = cast(list[dict[str, object]], source_rule[1]["blocks"])
-    removed = cast(list[dict[str, object]], source_rule[2]["blocks"])
-    assert [item["final_chat_token_interval"] for item in full] == [[8959, 9062], [9442, 9590]]
+    identity = cast(list[dict[str, object]], source_rule[2]["blocks"])
+    removed = cast(list[dict[str, object]], source_rule[3]["blocks"])
+    counterfactual = cast(list[dict[str, object]], source_rule[4]["blocks"])
+    assert [item["final_chat_token_interval"] for item in full] == [
+        [8897, 8954],
+        [8954, 9057],
+        [9437, 9585],
+    ]
     assert all(
         item["status"] == "source-withheld" and item["final_chat_token_interval"] is None
         for item in withheld
     )
-    assert all(item["status"] == "removed" for item in removed)
-    assert [item["final_chat_token_interval"] for item in removed] == [[8959, 8970], [9350, 9362]]
+    assert all(
+        item["status"] == "identity-only" and item["final_chat_token_interval"] is None
+        for item in identity
+    )
+    assert [item["status"] for item in removed] == [
+        "intact",
+        "explicit-rule-removed",
+        "explicit-rule-removed",
+    ]
+    assert [item["final_chat_token_interval"] for item in removed] == [
+        [8897, 8954],
+        [8954, 8965],
+        [9345, 9357],
+    ]
+    assert [item["final_chat_token_interval"] for item in counterfactual] == [
+        [8897, 8947],
+        [8947, 9012],
+        [9392, 9496],
+    ]
+
+
+def test_constructed_rule_flips_only_second_private_legal_plan() -> None:
+    sessions = build_k8s_resource_order_sessions(_SOURCE)
+    cases = dict(case_materials(sessions))
+    full = cases["full-source"]
+    source_free = cases["source-free"]
+    identity = cases["identity-only"]
+    counterfactual = cases["same-identity-conservative-rule"]
+    assert "KEP" not in source_free[0].stages[0].documents[0].text
+    assert "KEP" not in source_free[0].stages[1].documents[0].text
+    assert "KEP" not in source_free[1].stages[1].documents[0].text
+    assert "KEP-753" in identity[0].stages[0].documents[0].text
+    assert "formula" not in identity[0].stages[0].documents[0].text
+    assert full[0].stages[1].documents == counterfactual[0].stages[1].documents
+    assert full[1].stages[1].documents == counterfactual[1].stages[1].documents
+    full_s1 = full[0].stages[2].commit_precondition
+    full_s2 = full[1].stages[2].commit_precondition
+    constructed_s1 = counterfactual[0].stages[2].commit_precondition
+    constructed_s2 = counterfactual[1].stages[2].commit_precondition
+    assert full_s1 is not None and full_s1["legal_plans"] == ["hold-at-1000m"]
+    assert full_s2 is not None and full_s2["legal_plans"] == ["admit-at-1000m"]
+    assert constructed_s1 is not None and constructed_s1["legal_plans"] == ["hold-at-1000m"]
+    assert constructed_s2 is not None and constructed_s2["legal_plans"] == ["hold-at-1000m"]
+    assert counterfactual[0].stages[0].documents[0].source_url.startswith("benchmark:constructed/")
+    changed, ledger = transplant_conservative_rule(full[0].stages[0].documents[0].text)
+    assert changed == counterfactual[0].stages[0].documents[0].text
+    assert ledger["untouched_bytes_exact"] is True
+    assert isinstance(ledger["spans"], list)
+    assert len(ledger["spans"]) == 3
+    assert "sidecar containers with index < i" not in changed
 
 
 def test_synthetic_full_chain_is_private_and_counts_all_calls(
@@ -120,8 +183,8 @@ def test_synthetic_full_chain_is_private_and_counts_all_calls(
     assert result["provider_block_valid"] is False
     assert result["qualified_parent"] is False
     assert result["task_provider_usage_total"] is None
-    assert result["attempted_http_calls"] == len(calls) == 11
-    assert result["task_http_calls"] == 9
+    assert result["attempted_http_calls"] == len(calls) == 17
+    assert result["task_http_calls"] == 15
     assert result["canary_http_calls"] == 2
     task = json.loads((run_dir / "task.json").read_text())
     assert task["status"] == "completed-offline-screen"
@@ -129,6 +192,8 @@ def test_synthetic_full_chain_is_private_and_counts_all_calls(
         [True, True],
         [True, False],
         [True, False],
+        [True, False],
+        [True, True],
     ]
     assert stat.S_IMODE(run_dir.stat().st_mode) == 0o700
     assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in run_dir.iterdir())
@@ -161,7 +226,7 @@ def test_forged_launch_refuses_before_credential_or_transport(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     forged = tmp_path / "forged-launch.json"
-    forged.write_text(runner._LAUNCH_PATH.read_text().replace("62544", "62545"))
+    forged.write_text(runner._LAUNCH_PATH.read_text().replace("97299", "97300"))
     monkeypatch.setattr(runner, "_LAUNCH_PATH", forged)
     monkeypatch.setattr(
         runner,

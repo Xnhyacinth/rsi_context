@@ -1,81 +1,102 @@
-# R16 KEP-753 fixed-reader paid development preregistration
+# R16 KEP-753 five-arm fixed-reader preregistration
 
-Status: **admission code and geometry frozen; no R16 paid request made in this
-worktree**. The R15 KEP `--execute` entrypoint remains closed. The separate
-R16 runner requires a committed launch, clean producer, pinned source and
-tokenizer, strict exact-profile canary, and a private durable journal before
-task dispatch. Results remain development evidence until reviewed and run.
+Status: **offline only, no R16 paid request made**. R15's original offline
+and real evidence is unchanged. The R15 KEP `--execute` command remains closed.
+This new version uses one benchmark-owned generic policy and five constructed
+material arms. A separate guarded runner may be considered after independent
+review of this registration, the clean producer, and the offline fake chain.
 
-## Registered materials and calls
+## Common task and materials
 
-- Source is clean detached
-  `kubernetes-enhancements-kep753@13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a`;
-  the full README SHA-256 is
-  `ba9ef6b591cb626023c6e8a0c77cbc3f3cd2ede98d6ab3ff086e41ebef0cdf21`.
-  Both canonical private world hashes, all three case world hashes, visible
-  source hashes, intervention byte spans, and the policy hash are frozen in
-  [`configs/r16_kep_geometry_v1.json`](../../configs/r16_kep_geometry_v1.json).
-- The shared R15 Qwen profile hash is
-  `b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69`,
-  with `enable_thinking=false`, temperature zero, seed 42, and requested
-  output ceiling 2,048 per call. Provider revision is unavailable; this is a
-  development screen.
-- The fixed sequence is `full-source`, `source-free`, then
-  `both-order-rules-neutralized`. Each case has a source survey, first
-  resource request, and amended order request. The exact 12 allowed request
-  hashes and local Qwen final-chat geometry are frozen. The evaluator checks
-  the complete two-session outcome, and the case/stage preflight refuses
-  other prompts before transport.
-- The first full-source case must pass **both sessions** with valid model echo,
-  stop finish, provider usage, and all three request identities. Otherwise
-  stop before controls and the post-canary. A failed pre-canary also stops
-  before any task call. If full-source passes, run both controls and one
-  post-canary. A control failure is evidence, not an automatic retry.
+The source is clean detached
+`kubernetes-enhancements-kep753@13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a`.
+The authentic README SHA-256 is
+`ba9ef6b591cb626023c6e8a0c77cbc3f3cd2ede98d6ab3ff086e41ebef0cdf21`.
+The five arms share the same first request (S, A, B; legal hold), order
+amendment (A, S, B), review procedure, fixed generic R16 policy, and frozen
+Qwen profile. The policy's model survey says “supplied reference”; it does
+not name KEP. First and amended request text also says “reference”. All
+material variations are in the survey source. The model is invoked once per
+survey, once for the first plan, and once for the amended plan.
 
-## Decisive rule geometry
+1. **Authentic full source:** complete pinned README, legal S2 plan `admit`.
+2. **Deidentified source-free:** generic marker and answer-free withheld text;
+   neither the model-visible source nor either later brief names KEP. Legal S2
+   plan remains `admit`.
+3. **Identity-only:** KEP-753 title and pinned source URL are visible, while
+   the rule text is withheld. Legal S2 plan remains `admit`.
+4. **Two explicit rules neutralized:** authentic README except ordered-prefix
+   blocks 780–794 and 835–848 are removed. The conservative upper-bound at
+   774–778 remains; this arm is diagnostic. Legal S2 plan remains `admit`.
+5. **Same-identity conservative rule:** a **constructed benchmark
+   counterfactual**, never claimed as authentic upstream. Three byte spans
+   774–778, 780–794 and 835–848 are replaced with mutually consistent
+   all-sidecar calculation text. All bytes outside those spans are verified
+   unchanged. The source retains the model-visible KEP title/identity and the
+   same request text. Under this rule S1 is 1100m and still legal `hold`; S2
+   changes from authentic 800m `admit` to 1100m **`hold`**. Only the private
+   S2 legal-plan oracle changes. Its evaluator-side source URI is explicitly
+   `benchmark:constructed/...`, not the authentic GitHub URL.
 
-The pinned README contains two explicit ordered-prefix rule blocks at lines
-780–794 and 835–848. Their original byte-span SHA-256 values are
-`501730735b2c8397ddd7f19062551a0976d497a749122bcfa411f1f116191f34`
-and `8cf06b1272661b01402a79e3c74eff995c018074f2f237e3b76bfc7ca38fdf42`.
-In the full-source survey's exact final chat, these blocks occupy half-open
-token intervals **[8959, 9062)** and **[9442, 9590)** out of 21,257 input
-tokens. The source-free arm contains neither block. In the neutralized arm,
-the original blocks are absent and the two registered replacement spans
-occupy **[8959, 8970)** and **[9350, 9362)**. Outside the registered byte
-spans, the original source is unchanged.
+The source-free, identity-only and edited arms have evaluator-side
+`benchmark:constructed/...` URIs. These metadata fields are not forwarded by
+the fixed policy; its three model requests contain only source/brief text.
+The exact five world hashes, visible source hashes, policy hash, source byte
+edits and 14 registered prompt hashes are in
+[`configs/r16_kep_geometry_v1.json`](../../configs/r16_kep_geometry_v1.json).
 
-The project question appears in later, separate model calls, so a
-source-block-to-question distance inside one final chat is undefined. The
-geometry records the later question token intervals and the distance from the
-**model-retained formula** to each question. That retained text is not the
-original rule evidence. The neutralized source keeps a simpler upper-bound
-formula, and model prior knowledge may also suffice. Consequently this
-three-arm screen is diagnostic; a full-source pass alone does not establish
-long-context dependency.
+## Evidence location and interpretation
 
-## Budget and evidence
+The pinned Qwen final-chat template places authentic README blocks 774–778,
+780–794, and 835–848 at half-open token intervals **[8897, 8954)**,
+**[8954, 9057)** and **[9437, 9585)** in the source survey. The deidentified
+and identity-only arms have no corresponding rule span. The neutralized arm
+keeps the first block at **[8897, 8954)** and has replacement intervals
+**[8954, 8965)** and **[9345, 9357)**. The constructed counterfactual's three
+replacement intervals are **[8897, 8947)**, **[8947, 9012)** and
+**[9392, 9496)**. Every span has original/replacement SHA-256 and line/byte
+offsets in the geometry. These are local final-chat positions, with provider
+parity checked by exact usage during a future live block.
 
-The 12 variants imply a worst-path sum of **44,112 local input tokens** over
-the three cases, using the largest allowed request at every case/stage. At
-most **9 task HTTP calls** request 9 × 2,048 = 18,432 output tokens, making
-the task local-input-plus-requested-output ceiling **62,544**. Two 62-input
-canaries add 4,220, for **11 global HTTP attempts** and a **66,764** global
-planning ceiling. Auxiliary HTTP calls are prohibited. This is an admission
-bound, not a measured provider bill.
+The project question is in a **separate later model call**, so no
+original-source-to-question distance within one chat is defined. Later
+request geometry records the question's exact token interval and its distance
+from the model-retained formula, which is a different kind of evidence. Model
+prior knowledge, surface cues elsewhere in the README, and the fixed answer
+grammar remain possible. The five-arm comparison and private oracle flip are
+stronger controls, but this single constructed task alone does **not** qualify
+an independent long-context parent or prove causal dependency.
+
+## Fixed budget and stop rule
+
+The 14 exact requests cover five survey variants, three first-plan variants,
+and six amendment variants. Taking each case/stage's largest allowed prompt
+gives **66,579 local input tokens** across five cases. At most **15 task HTTP
+calls** request 15 × 2,048 = 30,720 output tokens: the task
+local-input-plus-requested-output ceiling is **97,299**. Two 62-input
+exact-profile canaries add 4,220, yielding **17 global HTTP attempts** and
+a **101,519** planning ceiling; auxiliary calls are forbidden. These are
+prospective admission limits, not observed provider usage or a price estimate.
+
+The strict pre-canary must pass before any task call. The authentic full-source
+case runs first; if either session fails, if any worker request or usage fails,
+or if it exceeds three calls, stop before all controls and the post-canary.
+If full source passes, run the four controls in the registered order and one
+post-canary. Control failures are recorded without retry. A completed block
+requires 15 task attempts, two canaries, exact model echoes, stop finishes,
+local/provider input agreement and no unknown usage.
 
 [`configs/r16_kep_paid_launch_v1.json`](../../configs/r16_kep_paid_launch_v1.json)
-binds the geometry SHA-256, endpoint, profile, canary registration, producer
-file hashes and those caps. The runner reads only committed bytes and checks
-source, world, policy, tokenizer snapshot and pinned runtime before credential
-resolution. It reserves an external 0700 run directory and 0600 evidence
-files before requests. The append-only attempt journal records each dispatch
-before transport and each response hash and provider usage after transport;
-it contains no headers, credential, or full response body. Missing or
-out-of-contract usage stops the block. The task, canaries, and final result
-retain separate usage fields; injected fake usage is labeled synthetic.
+binds the geometry SHA-256, profile, endpoint, canary registration, producer
+bytes and caps. The runner authenticates committed bytes, pinned tokenizer
+snapshot/runtime, clean detached source and world hashes **before credential
+resolution**. It reserves a private external run directory (0700) and
+evidence files (0600), then journals each dispatch before transport and each
+response hash/provider usage afterward. The journal excludes headers, secret
+and response body. Missing or out-of-contract usage ends the block. Fake
+transport usage is labeled synthetic and never counted as real Siflow usage.
 
-The prospective run command, **only after integration review**, is:
+After integration review, the prospective command is:
 
 ```bash
 uv run --frozen --no-sync --with transformers==5.15.0 \
@@ -86,7 +107,6 @@ uv run --frozen --no-sync --with transformers==5.15.0 \
   --run-dir /volume/pt-dev/qjiu/rsi_context_external/r16-paid-runs/kep-development-v1
 ```
 
-The private external parent directory must already exist. Load the Siflow
-credential through the local protected environment loader; never place it in
-the command, tracked files, or an artifact. The runner does not retry a
-failed request automatically, and the run directory cannot be overwritten.
+The external parent directory must exist. Load the Siflow credential through
+the protected local environment loader, never the command or artifacts. The
+runner never retries a request or overwrites an existing run directory.
