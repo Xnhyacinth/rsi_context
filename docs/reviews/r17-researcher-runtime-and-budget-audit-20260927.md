@@ -57,6 +57,17 @@ the actual selected B/C worlds. Missing provider usage must remain unknown,
 never replaced by local estimates. This is separate from R16 KEP's observed
 21,871 input / 28 output tokens across four calls.
 
+The two repository Bandit MEDIUM `B102` reports are older dynamic strategy
+`exec` sites, not evidence that the current live guard passes: the
+`arm_comparison_v2.py` path calls the unconditional
+`require_isolated_policy_executor()` refusal before its `exec`; the
+`trajectory_v3.py` path refuses model-authored `--researcher --offline`
+and calls that same guard in non-offline mode. Its offline scripted mode can
+still execute trusted in-repository strategy text in process. Do not treat
+that mode as an isolation proof or suppress the findings merely to lower the
+Bandit count; any future untrusted strategy input there requires the jailed
+broker boundary too.
+
 The next runtime admission artifact must come from a host or complete
 independently pinned launcher/interpreter/library image whose immutable paths
 pass the unchanged ownership and hash checks, followed by **unskipped** jail,
