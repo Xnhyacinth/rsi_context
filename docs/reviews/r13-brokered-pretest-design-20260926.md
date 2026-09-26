@@ -37,7 +37,10 @@ incapable of issuing provider requests or evaluating candidate success.
    denominator before the first offline draw. Timeout, adapter failure,
    invalid bytes, source
    audit failure, unchanged policy, model-echo mismatch, non-stop completion,
-   unknown usage, and cap refusal remain in that denominator.
+   unknown usage, cap refusal, and candidate-triggered audit exceptions remain
+   in that denominator. Audit exceptions are recorded as `audit-error` with
+   their exception class; snapshot write or result-persistence failures still
+   stop the run rather than masquerading as candidate refusals.
 3. The output parent must be owned and private (0700). The admission output,
    candidate directories, and exact `policy/seed.py` snapshot are private;
    source and result files are 0600. The sole candidate file is read back,

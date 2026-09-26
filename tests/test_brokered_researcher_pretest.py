@@ -214,6 +214,24 @@ def test_policy_boundary_refusal_counts_and_next_draw_continues(tmp_path: Path) 
     assert result["audited_and_exercised"] == {"numerator": 0, "denominator": 2}
 
 
+def test_deep_ast_audit_error_counts_and_next_draw_continues(tmp_path: Path) -> None:
+    deeply_nested = b"x = " + b"1+" * 3000 + b"1\n"
+    result = run_offline_admission(
+        _plan(2),
+        output=tmp_path / "admission",
+        preflight=_host,
+        draw=lambda index: _complete(deeply_nested if index == 0 else _CHANGED),
+    )
+    rows = cast(list[dict[str, object]], result["draws"])
+    assert [row["status"] for row in rows] == [
+        "audit-error",
+        "valid-submitted-awaiting-jailed-exercise",
+    ]
+    assert rows[0]["error_type"] == "RecursionError"
+    assert result["valid_submitted"] == {"numerator": 1, "denominator": 2}
+    assert result["audited_and_exercised"] == {"numerator": 0, "denominator": 2}
+
+
 def test_real_preflight_stage_failure_cleans_temp_and_never_launches(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

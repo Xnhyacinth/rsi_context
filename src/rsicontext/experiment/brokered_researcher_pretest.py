@@ -198,7 +198,15 @@ def _audit_snapshot(root: Path, policy_bytes: bytes, cap: int) -> dict[str, obje
         text = disk_bytes.decode("utf-8")
     except UnicodeError:
         return {"status": "invalid-utf8", "bytes": len(disk_bytes), "policy_sha256": digest}
-    report = PolicyAuditor().audit_tree(root)
+    try:
+        report = PolicyAuditor().audit_tree(root)
+    except Exception as exc:
+        return {
+            "status": "audit-error",
+            "bytes": len(disk_bytes),
+            "policy_sha256": digest,
+            "error_type": type(exc).__name__,
+        }
     if report.files != ("policy/seed.py",) or not report.safe:
         return {
             "status": "audit-rejected",
@@ -211,6 +219,13 @@ def _audit_snapshot(root: Path, policy_bytes: bytes, cap: int) -> dict[str, obje
     except PolicyBoundaryError as exc:
         return {
             "status": "policy-contract-rejected",
+            "bytes": len(disk_bytes),
+            "policy_sha256": digest,
+            "error_type": type(exc).__name__,
+        }
+    except Exception as exc:
+        return {
+            "status": "audit-error",
             "bytes": len(disk_bytes),
             "policy_sha256": digest,
             "error_type": type(exc).__name__,
