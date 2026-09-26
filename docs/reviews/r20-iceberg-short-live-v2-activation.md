@@ -36,3 +36,20 @@ uv run --frozen --no-sync --with transformers==5.15.0 \
   --source-root /volume/pt-dev/qjiu/rsi_context_external/data/apache-iceberg-spec-1.9.2-intake \
   --tokenizer-path /volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b
 ```
+
+At clean producer commit `dbcb9644aa8f68de8198b4a4eb8fb0be9d1c1546`, an
+injected-SSE run passed the committed v2 launch, source, tokenizer, runtime,
+canary, journal, and final attestation checks. The
+[private artifact](/volume/pt-dev/qjiu/rsi_context_external/r20-live-preflight/iceberg-short-live-v2-synthetic-dbcb964/)
+has identity SHA-256
+`a118e849986ff4fbefb96ed9ffa82d3878eb92ec06cc1102e910376586fc7427`
+and final SHA-256
+`de894c5d6cec6b6bfafc136a706e4d1625b920cb9dcd0ed936815463d0a81964`.
+It records four injected target requests, two canaries, zero unknown usage,
+13,196 planned tokens, private 0700/0600 permissions, the v2 result scope,
+and `provider_block_valid=false`. Its `task_feasible=true` verifies wiring
+only. The focused pinned-runtime suite passed 9 tests; scoped Ruff, strict
+mypy, and Bandit passed. The credential-path test skips in the base environment
+without the optional tokenizer runtime and passes with the pinned runtime.
+No model behavior was observed; independent review precedes the single paid
+block.
