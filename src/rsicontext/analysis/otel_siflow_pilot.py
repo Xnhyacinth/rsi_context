@@ -179,10 +179,11 @@ class _Worker:
             self.preflight_failures.append(
                 {
                     "prompt_sha256": _sha(prompt.encode("utf-8")),
-                    "error": f"{type(exc).__name__}: {exc}",
+                    "error_code": "preflight_rejected",
+                    "error_type": type(exc).__name__,
                 }
             )
-            raise
+            raise _AbortAfterFailure("worker preflight rejected") from None
         if not isinstance(geometry, dict) or geometry.get("prompt_sha256") != _sha(
             prompt.encode("utf-8")
         ):
@@ -226,7 +227,13 @@ class _Worker:
                 raise ValueError("reader request hash differs from geometry preflight")
             attempt["request_sha256"] = _sha(request.data)
             attempt["endpoint_sha256"] = _sha(request.full_url.encode("utf-8"))
-            raw = self.transport(request, timeout)
+            try:
+                raw = self.transport(request, timeout)
+            except Exception as exc:
+                # Transport errors may include Authorization headers. Keep only
+                # their class in artifacts and return a safe cause to policies.
+                attempt["transport_error_type"] = type(exc).__name__
+                raise _AbortAfterFailure("worker transport failed") from None
             observed.append((request.data, raw))
             attempt["response_sha256"] = _sha(raw)
             attempt["provider_usage"] = _validated_usage(raw)
@@ -263,8 +270,9 @@ class _Worker:
         except Exception as exc:
             self.failed = True
             attempt["status"] = "failed"
-            attempt["error"] = f"{type(exc).__name__}: {exc}"
-            raise
+            attempt["error_code"] = "worker_request_failed"
+            attempt["error_type"] = type(exc).__name__
+            raise _AbortAfterFailure("worker request failed") from None
         finally:
             attempt["latency_seconds"] = time.perf_counter() - started_at
 

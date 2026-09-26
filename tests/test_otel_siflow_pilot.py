@@ -12,12 +12,15 @@ from typing import Any, cast
 import pytest
 
 from rsicontext.analysis.otel_model_screen import FakeAttributeWorker
-from rsicontext.analysis.otel_siflow_pilot import _case_specs, run_development_pilot
+from rsicontext.analysis.otel_siflow_pilot import _case_specs, _Worker, run_development_pilot
 from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint
 from rsicontext.lifecycle.material_otel_source_contrast import (
     build_otel_source_contrast_sessions,
 )
-from rsicontext.lifecycle.spec import LifecycleInstance
+from rsicontext.lifecycle.policy import PolicyHook
+from rsicontext.lifecycle.runner import StageView
+from rsicontext.lifecycle.spec import DescriptionAxes, LifecycleInstance
+from rsicontext.lifecycle.tools import ToolBudget
 
 _PROFILE = APIProfile(
     id="siflow-qwen3.6-27b-r12-otel-dev-2048",
@@ -237,6 +240,102 @@ def test_malformed_response_counts_attempt_without_invented_usage() -> None:
         "output_tokens": 0,
         "unknown_usage_attempts": 1,
     }
+
+
+def test_transport_exception_cannot_leak_credential_into_result_or_policy_transcript() -> None:
+    def transport(request: urllib.request.Request, timeout: float) -> bytes:
+        authorization = request.get_header("Authorization")
+        assert authorization == "Bearer test-key"
+        raise RuntimeError(f"upstream error included {authorization}")
+
+    worker = _Worker(_PROFILE, _ENDPOINT, _preflight, transport)
+    hook = PolicyHook(
+        {},
+        "def on_turn(turn):\n"
+        "    reply = turn.ask_model('probe')\n"
+        "    return {'pack_text': 'failed' if not reply.ok else 'ok'}\n",
+        tool_budget=ToolBudget(max_calls=2),
+        responder=worker,
+    )
+    view = StageView(
+        "secret-regression",
+        "survey",
+        "Use the worker.",
+        (),
+        DescriptionAxes(1, 1, 0, "strong", 0),
+        1,
+    )
+    assert hook.on_stage(view).pack_text == "failed"
+    assert worker.failed is True
+    assert len(worker.attempts) == 1
+    attempt = worker.attempts[0]
+    assert attempt["status"] == "failed"
+    assert attempt["provider_usage"] is None
+    assert attempt["transport_error_type"] == "RuntimeError"
+    record = {"attempts": worker.attempts, "transcript": hook.model_transcript}
+    assert "test-key" not in json.dumps(record)
+    assert "Authorization" not in json.dumps(record)
+
+
+def test_preflight_exception_cannot_leak_credential_into_result_or_policy_transcript() -> None:
+    def preflight(prompt: str) -> dict[str, object]:
+        raise RuntimeError("preflight saw Authorization: Bearer test-key")
+
+    def transport(request: urllib.request.Request, timeout: float) -> bytes:
+        pytest.fail("preflight failure must not reach transport")
+
+    worker = _Worker(_PROFILE, _ENDPOINT, preflight, transport)
+    hook = PolicyHook(
+        {},
+        "def on_turn(turn):\n"
+        "    reply = turn.ask_model('probe')\n"
+        "    return {'pack_text': 'failed' if not reply.ok else 'ok'}\n",
+        tool_budget=ToolBudget(max_calls=2),
+        responder=worker,
+    )
+    view = StageView(
+        "secret-regression",
+        "survey",
+        "Use the worker.",
+        (),
+        DescriptionAxes(1, 1, 0, "strong", 0),
+        1,
+    )
+    assert hook.on_stage(view).pack_text == "failed"
+    assert worker.failed is True
+    assert worker.attempts == []
+    assert worker.preflight_failures[0]["error_code"] == "preflight_rejected"
+    assert worker.preflight_failures[0]["error_type"] == "RuntimeError"
+    record = {"preflight_failures": worker.preflight_failures, "transcript": hook.model_transcript}
+    assert "test-key" not in json.dumps(record)
+    assert "Authorization" not in json.dumps(record)
+
+
+def test_reader_exception_cannot_leak_credential_into_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def failed_reader(
+        profile: APIProfile,
+        endpoint: ResolvedAPIEndpoint,
+        *,
+        transport: Any,
+    ) -> Any:
+        raise RuntimeError("reader saw Authorization: Bearer test-key")
+
+    monkeypatch.setattr("rsicontext.analysis.otel_siflow_pilot.build_profile_reader", failed_reader)
+    worker = _Worker(
+        _PROFILE,
+        _ENDPOINT,
+        _preflight,
+        lambda request, timeout: pytest.fail("reader construction must fail first"),
+    )
+    with pytest.raises(RuntimeError, match="worker request failed"):
+        worker("probe")
+    assert worker.failed is True
+    assert len(worker.attempts) == 1
+    assert worker.attempts[0]["error_type"] == "RuntimeError"
+    assert "test-key" not in json.dumps(worker.attempts)
+    assert "Authorization" not in json.dumps(worker.attempts)
 
 
 def test_preflight_failure_and_hash_mismatch_never_reach_network() -> None:
