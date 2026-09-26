@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from rsicontext.analysis.chat_geometry import measure_chat_geometry
 from rsicontext.analysis.postgresql_chat_geometry import measure_pg_worker_prompt
 from rsicontext.experiment.api import load_api_profiles
 
@@ -42,6 +43,33 @@ class CharacterTokenizer:
             "input_ids": [ord(character) for character in text],
             "offset_mapping": [(index, index + 1) for index in range(len(text))],
         }
+
+
+class TrimmingTokenizer(CharacterTokenizer):
+    def apply_chat_template(
+        self,
+        messages: list[dict[str, str]],
+        *,
+        tokenize: bool,
+        add_generation_prompt: bool,
+        **kwargs: Any,
+    ) -> str | list[int]:
+        trimmed = [dict(item) for item in messages]
+        trimmed[-1]["content"] = trimmed[-1]["content"].rstrip()
+        return super().apply_chat_template(
+            trimmed, tokenize=tokenize, add_generation_prompt=add_generation_prompt, **kwargs
+        )
+
+
+def test_template_trailing_newline_trim_is_recorded() -> None:
+    result = measure_chat_geometry(
+        TrimmingTokenizer(),
+        [{"role": "system", "content": "s"}, {"role": "user", "content": "evidence\n"}],
+        enable_thinking=False,
+        evidence="evidence\n",
+    )
+    assert result["user_trailing_whitespace_trimmed_chars"] == 1
+    assert result["evidence_span_tokens"] is not None
 
 
 def test_survey_span_and_exact_frozen_payload() -> None:

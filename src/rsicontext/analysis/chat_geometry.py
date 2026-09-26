@@ -96,13 +96,19 @@ def measure_chat_geometry(
     offsets = encoded["offset_mapping"]
     if list(encoded_ids) != ids or len(offsets) != len(ids):
         raise ValueError("rendered text and template token IDs disagree")
-    user_start = _unique_at(rendered, user)
+    rendered_user = user
+    user_start = _unique_at(rendered, rendered_user)
+    if user_start is None and user.rstrip() != user:
+        # Some chat templates trim only trailing user-message whitespace.
+        rendered_user = user.rstrip()
+        user_start = _unique_at(rendered, rendered_user)
     if user_start is None:
         raise ValueError("user prompt is missing or repeated in rendered chat")
     result: dict[str, object] = {
         "rendered_input_tokens": len(ids),
         "rendered_utf8_bytes": len(rendered.encode("utf-8")),
-        "user_span_tokens": _interval(offsets, user_start, user_start + len(user)),
+        "user_span_tokens": _interval(offsets, user_start, user_start + len(rendered_user)),
+        "user_trailing_whitespace_trimmed_chars": len(user) - len(rendered_user),
         "evidence_span_tokens": None,
         "query_span_tokens": None,
         "evidence_to_query_tokens": None,
@@ -111,13 +117,23 @@ def measure_chat_geometry(
     evidence_start = _unique_at(user, evidence) if evidence is not None else None
     query_start = _unique_at(user, query) if query is not None else None
     evidence_interval = (
-        _interval(offsets, user_start + evidence_start, user_start + evidence_start + len(evidence))
-        if evidence_start is not None and evidence is not None
+        _interval(
+            offsets,
+            user_start + evidence_start,
+            user_start + min(evidence_start + len(evidence), len(rendered_user)),
+        )
+        if evidence_start is not None
+        and evidence is not None
+        and evidence_start < len(rendered_user)
         else None
     )
     query_interval = (
-        _interval(offsets, user_start + query_start, user_start + query_start + len(query))
-        if query_start is not None and query is not None
+        _interval(
+            offsets,
+            user_start + query_start,
+            user_start + min(query_start + len(query), len(rendered_user)),
+        )
+        if query_start is not None and query is not None and query_start < len(rendered_user)
         else None
     )
     result["evidence_span_tokens"] = evidence_interval
