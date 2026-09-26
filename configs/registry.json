@@ -236,6 +236,24 @@
       "notes": "Pinned PEP 1, 621, and 639 as historical source documents for a proposed B development parent. PEP 621/639 point to maintained PyPA specifications; do not grade current packaging compliance from these historical files. Confirm per-file notices and exact bytes after acquisition; no world has qualified."
     },
     {
+      "id": "apache-kafka-site-kip848-intake",
+      "name": "Apache Kafka 4.0 consumer protocol documentation intake",
+      "kind": "dataset",
+      "integration": "adapter",
+      "source_type": "git",
+      "url": "https://github.com/apache/kafka-site.git",
+      "revision": "379dba2230101f7ca1b73658808d67e6e48bf909",
+      "license": "Apache-2.0; verify selected source notices after acquisition",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "git-revision",
+        "value": "379dba2230101f7ca1b73658808d67e6e48bf909",
+        "verified": true
+      },
+      "notes": "Pinned official Kafka-site KIP-848 source intake only; no task qualification or source-byte audit yet."
+    },
+    {
       "id": "postgresql-rel-16-0",
       "name": "PostgreSQL 16.0 logical replication source",
       "kind": "dataset",
