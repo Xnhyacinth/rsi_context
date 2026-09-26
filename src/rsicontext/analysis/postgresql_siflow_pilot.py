@@ -33,7 +33,8 @@ def _sha(raw: bytes) -> str:
 
 
 def _canonical(value: object) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    # OpenAICompatibleReader.complete uses json.dumps' default ASCII escaping.
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
 
 
 def _finish_reason(raw: bytes) -> str:

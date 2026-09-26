@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 
@@ -58,7 +59,7 @@ def _preflight(prompt: str) -> dict[str, object]:
     return {
         "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
         "request_sha256": hashlib.sha256(
-            json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+            json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
         ).hexdigest(),
         "local_template_geometry": {"rendered_input_tokens": 10},
         "stage": "source-survey"
@@ -195,3 +196,38 @@ def test_all_eight_fake_provider_trajectories_respect_global_cap() -> None:
     cases = cast(list[dict[str, Any]], result["cases"])
     assert len(cases) == 8
     assert [case["session_passed"] for case in cases[:2]] == [[True, True], [True, True]]
+
+
+def test_non_ascii_source_request_hash_matches_reader_serialization() -> None:
+    first, second = _pair("16")
+    survey = first.stages[0]
+    source = survey.documents[0]
+    changed_source = replace(
+        source, text=source.text.replace("<refentry", "<!-- café -->\n<refentry", 1)
+    )
+    first = replace(
+        first,
+        stages=(
+            replace(survey, documents=(changed_source, survey.documents[1])),
+            *first.stages[1:],
+        ),
+    )
+    fake = FakeCatalogWorker()
+
+    def transport(request: urllib.request.Request, timeout: float) -> bytes:
+        if not isinstance(request.data, bytes):
+            raise ValueError("missing request body")
+        body = json.loads(request.data)
+        return _stream(fake(body["messages"][1]["content"]))
+
+    result = run_development_pilot(
+        (first, second),
+        _pair("17"),
+        profile=_PROFILE,
+        endpoint=_ENDPOINT,
+        preflight=_preflight,
+        transport=transport,
+    )
+    assert result["status"] == "completed-development-screen"
+    assert "café" in fake.prompts[0]
+    assert result["worker_attempt_count"] == 11
