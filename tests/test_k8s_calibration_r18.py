@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -14,6 +15,7 @@ from rsicontext.analysis.chat_geometry import ChatTokenizer
 from rsicontext.analysis.k8s_calibration_r18 import (
     CASE_ORDER,
     R17_TASK_SHA256,
+    REGISTRY_SHA256,
     build_registration,
     interpret_reply,
     projected_rule,
@@ -53,6 +55,16 @@ TOKENIZER = Path(
         "/volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b",
     )
 )
+
+
+def _historical_registry_matches() -> bool:
+    current = hashlib.sha256((ROOT / "configs/registry.json").read_bytes()).hexdigest()
+    return current == REGISTRY_SHA256
+
+
+def _require_historical_registry() -> None:
+    if not _historical_registry_matches():
+        pytest.skip("R18 calibration requires its original registry-bound material")
 
 
 @pytest.fixture(scope="module")
@@ -108,6 +120,7 @@ def test_exact_source_projection_changes_only_rule_material(tmp_path: Path) -> N
 
 
 def test_registration_short_geometry_and_bound_task_budget(tokenizer: ChatTokenizer) -> None:
+    _require_historical_registry()
     actual = build_registration(
         SOURCE, R16_TASK, R17_TASK, profile=canary._profile(), tokenizer=tokenizer
     )
@@ -131,6 +144,7 @@ def test_registration_short_geometry_and_bound_task_budget(tokenizer: ChatTokeni
 
 
 def test_fake_chain_is_synthetic_and_refuses_registration_drift(tokenizer: ChatTokenizer) -> None:
+    _require_historical_registry()
     frozen = json.loads(offline.REGISTRATION.read_text())
     result = offline.run_offline(
         SOURCE,
@@ -169,6 +183,15 @@ def test_fake_chain_is_synthetic_and_refuses_registration_drift(tokenizer: ChatT
             profile=canary._profile(),
             tokenizer=tokenizer,
             registration=forged,
+        )
+
+
+def test_historical_registry_drift_refuses_offline_registration(tokenizer: ChatTokenizer) -> None:
+    if _historical_registry_matches():
+        pytest.skip("historical registry still matches")
+    with pytest.raises(ValueError, match="source registry differs from pinned"):
+        build_registration(
+            SOURCE, R16_TASK, R17_TASK, profile=canary._profile(), tokenizer=tokenizer
         )
 
 
