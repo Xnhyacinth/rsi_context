@@ -21,16 +21,18 @@ of one decision remains the same card.
 | Lineage | Distinct decision candidate | Current evidence | Intake action |
 | --- | --- | --- | --- |
 | PostgreSQL 16/17 | `failover` native capability | R11 source-conditioned opposite plans observed | retain as development card; independently adjudicate new panel bytes |
-| PostgreSQL 16/17 | `connect=false` parameter conflicts | rule text present in both pinned SGML files | construct matched project request and legal action; check whether versions actually contrast |
-| PostgreSQL 16/17 | binary initial synchronization prerequisites | rule text present in both source files | adjudicate send/receive constraint and end-to-end action |
-| PostgreSQL 16/17 | `origin=none` with initial copy | provenance guidance present in both source files | adjudicate whether a unique safe action exists |
+| PostgreSQL 16/17 | `connect=false` parameter conflicts | R13 constructed development card; both revisions require `stage-disconnected` | model-invoked source-free control and independent adjudication before panel admission |
+| PostgreSQL 16/17 | binary initial synchronization prerequisites | R13 constructed development card; both revisions require text copy | model-invoked source-free control and independent adjudication before panel admission |
+| PostgreSQL 16/17 | `origin=none` with initial copy | R13 rejected the binary-action proposal: provenance and acceptance criteria are missing | specify a real project/data decision before reconsidering |
 | OTel 1.24/1.43 | SQL query-text attribute | R12 opposite complete actions observed | retain as development card; address other source cues |
-| OTel 1.24/1.43 | DBMS system-name key | candidate rename in source lineage | verify applicable scope and matched legal action |
-| OTel 1.24/1.43 | operation-name key | candidate rename in source lineage | verify conditional requirements and matched legal action |
-| OTel 1.24/1.43 | database namespace/name key | candidate rename with scope caveat | verify same underlying semantic question across revisions |
+| OTel 1.24/1.43 | DBMS system-name key | R13 constructed development card; Required key flips from `db.system` to `db.system.name` | independently confirm old connection-level and new span-definition scope mapping; run model controls |
+| OTel 1.24/1.43 | operation-name key | R13 deferred: Required conditions differ | adjudicate a matched project request and oracle |
+| OTel 1.24/1.43 | database namespace/name key | R13 deferred: semantic scope differs | establish the same underlying target before any oracle |
 
 Only the first PostgreSQL and first OTel cards have a measured source-swap
-reader witness. The remaining six are **unverified proposals**. The R12
+reader witness. R13 added three **offline development cards**, rejected one
+proposal, and deferred two; none of the new cards has a model reader result.
+The R12
 frozen policy asks specifically for the SQL query-text field in its first
 session; other OTel cards require a newly frozen, question-general policy
 and new offline causality tests. If four distinct cards per lineage cannot
