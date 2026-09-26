@@ -1,6 +1,6 @@
 # R13 distinct-card and jailed-broker execution ledger
 
-Status: in progress; no R13 API or GPU call authorized by this ledger.
+Status: in progress; no R13 API or GPU call has been made.
 All four R13 worktrees started clean at
 `main@add0a6387d374d78eeb840f552189e88cc693cb6` with `uv.lock` SHA256
 `5b24847780908a3481e8b6757480531c165ff87517bc1d48acf250baa6cc9352`
@@ -16,7 +16,7 @@ work and stays untouched.
 | --- | --- | --- |
 | PG task-card worker | detached clean PG16/17 CREATE SUBSCRIPTION source and existing R11 pair | independently source-adjudicate connect/binary/origin candidates; implement one matched distinct card only if legal action is unambiguous, or publish a source-span-hashed rejection ledger |
 | OTel task-card worker | detached clean OTel 1.24/1.43 database convention source and existing R12 pair | adjudicate DBMS/operation/namespace candidates; implement one matched distinct card only if same semantic question and opposite legal keys are supported, or reject with source-span hashes |
-| Broker worker | unchanged jail, typed broker, old R3 refusal and R12 boundary audit | add a separate offline prospective admission/execution path that keeps model-authored code out of the evaluator; fail on this host before researcher API, preserve old guard, report `live_ready=false` |
+| Broker worker | unchanged jail, typed broker, old R3 refusal and R12 boundary audit | add a separate offline prospective admission path that keeps model-authored code out of the evaluator; fail on this host before researcher API, preserve old guard, report `live_ready=false` |
 | Integration | all branches and pinned artifacts | reconcile evidence, review code and science claims, run proportionate checks and full required gates, merge/push `main`, then remove R13 worktrees/branches |
 
 No card is counted merely because a field exists in a document. Its

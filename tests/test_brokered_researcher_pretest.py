@@ -196,9 +196,7 @@ def test_policy_boundary_refusal_counts_and_next_draw_continues(tmp_path: Path) 
     # The AST auditor accepts this harmless string, but scan_policy's
     # conservative text scanner rejects it with PolicyBoundaryError.
     rejected = (
-        b"def on_turn(turn):\n"
-        b"    note = 'os.'\n"
-        b"    return {'pack_text': note, 'actions': ()}\n"
+        b"def on_turn(turn):\n    note = 'os.'\n    return {'pack_text': note, 'actions': ()}\n"
     )
     result = run_offline_admission(
         _plan(2),

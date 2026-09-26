@@ -66,6 +66,11 @@ inside the same OTel parent lineage, not an additional independent parent.
 Qualified independent-parent count remains zero. Gate 2 and researcher
 admission remain closed.
 
+The older Required row sits under connection-level attributes, while the newer
+row sits in the span definition. An independent semantic adjudicator must
+confirm that these scopes support the same requested client-span decision
+before the pair is admitted to the experimental panel.
+
 Before using this card in a paid panel, freeze a question-general reader
 policy, exact model/profile/template and token geometry, source-free
 model-invoked arm, target-rule intervention that controls residual source

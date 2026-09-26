@@ -295,11 +295,7 @@ def run_offline_admission(
     if output.exists() or output.is_symlink():
         raise FileExistsError(f"admission output exists: {output}")
     parent = output.parent.lstat()
-    if (
-        not stat.S_ISDIR(parent.st_mode)
-        or parent.st_uid != os.geteuid()
-        or parent.st_mode & 0o077
-    ):
+    if not stat.S_ISDIR(parent.st_mode) or parent.st_uid != os.geteuid() or parent.st_mode & 0o077:
         raise PermissionError("admission output parent must be owned and private (0700)")
     host = preflight()
     if not isinstance(host, dict):
