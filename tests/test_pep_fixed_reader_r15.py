@@ -26,6 +26,7 @@ from rsicontext.analysis.pep_fixed_reader_r15 import (
     run_pep_screen,
 )
 from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint, load_api_profiles
+from rsicontext.lifecycle.material_pep_r14 import SOURCE_FILES, SOURCE_REVISION
 
 _ROOT = Path(__file__).resolve().parent.parent
 _PROFILE = load_api_profiles(_ROOT / "configs/r15_siflow_fixed_reader_profile_v1.json").get(
@@ -262,15 +263,51 @@ def test_cumulative_local_input_ceiling_refuses_before_transport() -> None:
     assert "cumulative local input ceiling" in failures[0]["error"]
 
 
-def test_public_screen_rejects_forged_source_identity_before_transport(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "forged_field,expected_error",
+    (
+        ("source", "source identity differs from frozen artifact"),
+        ("tokenizer", "tokenizer differs from frozen artifact"),
+        ("producer", "producer bytes or runtime differ from frozen artifact"),
+    ),
+)
+def test_public_screen_rejects_forged_identity_before_transport(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    forged_field: str,
+    expected_error: str,
 ) -> None:
     cases = _cases()
     report = _report(cases)
-    report["source_identity"] = {"revision": "forged"}
+    source_root = Path(os.environ["RSICONTEXT_PEP_SOURCE_ROOT"])
+    tokenizer_path = Path("/volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b")
+    tokenizer_manifest = "8ff74a229e5d1771200efaaa7e411028fd6ab68a080d93138d76476e9e494290"
+    report["source_identity"] = {
+        "revision": SOURCE_REVISION,
+        "selected_file_sha256": {relative: digest for relative, digest in SOURCE_FILES.values()},
+    }
+    report["tokenizer"] = {"manifest_sha256": tokenizer_manifest}
     report["profile_file_sha256"] = hashlib.sha256(
         (_ROOT / "configs/r15_siflow_fixed_reader_profile_v1.json").read_bytes()
     ).hexdigest()
+    current_producer = {
+        "worktree_dirty": False,
+        "repository_root_matches": True,
+        "producer_files_match_head": True,
+        "producer_file_sha256": {"producer": "pinned"},
+        "python_version": "3.12",
+        "package_versions": {"transformers": "5.15.0"},
+    }
+    report["producer_attestation"] = current_producer.copy()
+    if forged_field == "source":
+        report["source_identity"] = {"revision": "forged"}
+    elif forged_field == "tokenizer":
+        report["tokenizer"] = {"manifest_sha256": "forged"}
+    else:
+        report["producer_attestation"] = {
+            **current_producer,
+            "producer_file_sha256": {"producer": "forged"},
+        }
     geometry_path = tmp_path / "forged-geometry.json"
     geometry_bytes = json.dumps(report).encode()
     geometry_path.write_bytes(geometry_bytes)
@@ -279,10 +316,8 @@ def test_public_screen_rejects_forged_source_identity_before_transport(
         "scope": "r15-pep-reader",
         "geometry_artifact_sha256": hashlib.sha256(geometry_bytes).hexdigest(),
         "profile_sha256": _PROFILE.profile_hash,
-        "tokenizer_manifest_sha256": (
-            "8ff74a229e5d1771200efaaa7e411028fd6ab68a080d93138d76476e9e494290"
-        ),
-        "source_revision": "6822259db9c95f02da739b3e2830a4aa1ae35134",
+        "tokenizer_manifest_sha256": tokenizer_manifest,
+        "source_revision": SOURCE_REVISION,
         "total_provider_token_ceiling": (
             cast(int, report["local_worst_case_total_input_tokens"])
             + cast(int, report["profile_max_total_output_tokens"])
@@ -300,16 +335,19 @@ def test_public_screen_rejects_forged_source_identity_before_transport(
         return original_run(command, **kwargs)
 
     monkeypatch.setattr(subprocess, "run", tracked_registration)
+    monkeypatch.setattr(
+        pep_screen_module, "producer_attestation", lambda *_args, **_kwargs: current_producer
+    )
     calls: list[str] = []
-    with pytest.raises(ValueError, match="source identity differs from frozen artifact"):
+    with pytest.raises(ValueError, match=expected_error):
         run_pep_screen(
             cases,
             profile=_PROFILE,
             endpoint=_ENDPOINT,
             geometry_report=report,
             geometry_path=geometry_path,
-            source_root=Path(os.environ["RSICONTEXT_PEP_SOURCE_ROOT"]),
-            tokenizer_path=Path("/volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b"),
+            source_root=source_root,
+            tokenizer_path=tokenizer_path,
             transport=_fake_transport(report, calls),
         )
     assert calls == []
