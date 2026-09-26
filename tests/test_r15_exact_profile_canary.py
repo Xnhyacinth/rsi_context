@@ -75,6 +75,7 @@ def test_exact_registration_and_final_chat_geometry(tokenizer: ChatTokenizer) ->
     assert canary.registration()["expected_provider_output_tokens"] == 2
 
 
+@pytest.mark.usefixtures("tokenizer")
 def test_offline_dry_run_writes_synthetic_usage_without_env_secret(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

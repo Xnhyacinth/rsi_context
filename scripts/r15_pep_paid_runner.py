@@ -39,6 +39,14 @@ def _sha(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def _sync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def _committed_bytes(relative: str) -> bytes:
     return subprocess.run(  # nosec B603, B607
         ["git", "-C", str(ROOT), "show", f"HEAD:{relative}"],
@@ -126,6 +134,7 @@ def _private_dir(path: Path) -> None:
     if path.exists() or path.is_symlink():
         raise FileExistsError(f"refusing to overwrite run directory: {path}")
     path.mkdir(mode=0o700, parents=False, exist_ok=False)
+    _sync_directory(parent)
     if path.stat().st_mode & 0o077:
         raise PermissionError("run directory must be private")
 
@@ -160,6 +169,7 @@ def _reserve_journal(path: Path) -> None:
     descriptor = os.open(path, flags, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
         os.fsync(stream.fileno())
+    _sync_directory(path.parent)
 
 
 class _JournalTransport:
@@ -404,6 +414,7 @@ def run_guarded(
                 "auxiliary_call_cap": 0,
             },
         )
+        _sync_directory(run_dir)
         base = transport_override if transport_override is not None else _urlopen_transport
         journal = _JournalTransport(
             base=base,
