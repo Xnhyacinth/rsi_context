@@ -16,6 +16,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from rsicontext.analysis.chat_geometry import ChatTokenizer  # noqa: E402
 from rsicontext.analysis.pep_fixed_reader_r15 import (  # noqa: E402
+    _PRODUCER_FILES,
+    _TOKENIZER_FILES,
     build_geometry_report,
     build_pep_cases,
 )
@@ -30,35 +32,6 @@ from rsicontext.registry.tokenizer import verify_tokenizer_snapshot  # noqa: E40
 
 _PROFILE_PATH = ROOT / "configs/r15_siflow_fixed_reader_profile_v1.json"
 _PROFILE_ID = "siflow-qwen3.6-27b-r15-bc-dev-2048"
-_TOKENIZER_FILES = (
-    ("tokenizer.json", "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"),
-    ("tokenizer_config.json", "dbfb3c20ce3d5b8370faeecd548e771c1dcc8e4fdcf636797fc24b0d0733fb02"),
-)
-_PRODUCER_FILES = tuple(
-    Path(name)
-    for name in (
-        "configs/r15_siflow_fixed_reader_profile_v1.json",
-        "configs/r7_pep_source_manifest_v1.json",
-        "configs/registry.json",
-        "docs/reviews/r15-pep-reader-prereg-20260926.md",
-        "scripts/r15_pep_reader_screen.py",
-        "src/rsicontext/analysis/chat_geometry.py",
-        "src/rsicontext/analysis/otel_siflow_pilot.py",
-        "src/rsicontext/analysis/pep_fixed_reader_r15.py",
-        "src/rsicontext/eval/openai_compatible.py",
-        "src/rsicontext/experiment/api.py",
-        "src/rsicontext/experiment/offline_provenance.py",
-        "src/rsicontext/lifecycle/env.py",
-        "src/rsicontext/lifecycle/material_pep_r14.py",
-        "src/rsicontext/lifecycle/pep_model_fixed_r15.py",
-        "src/rsicontext/lifecycle/policy.py",
-        "src/rsicontext/lifecycle/runner.py",
-        "src/rsicontext/lifecycle/session_sequence.py",
-        "src/rsicontext/lifecycle/spec.py",
-        "src/rsicontext/lifecycle/tools.py",
-        "uv.lock",
-    )
-)
 
 
 def _sha(raw: bytes) -> str:

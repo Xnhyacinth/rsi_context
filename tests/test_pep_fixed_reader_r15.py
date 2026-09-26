@@ -15,10 +15,12 @@ from typing import Any, cast
 
 import pytest
 
+import rsicontext.analysis.pep_fixed_reader_r15 as pep_screen_module
 from rsicontext.analysis.pep_fixed_reader_r15 import (
     CASE_ORDER,
     MAX_WORKER_ATTEMPTS,
     PepCase,
+    _run_pep_screen_unverified,
     build_geometry_report,
     build_pep_cases,
     run_pep_screen,
@@ -161,7 +163,7 @@ def test_all_six_arms_invoke_fake_provider_and_account_usage() -> None:
     cases = _cases()
     report = _report(cases)
     calls: list[str] = []
-    result = run_pep_screen(
+    result = _run_pep_screen_unverified(
         cases,
         profile=_PROFILE,
         endpoint=_ENDPOINT,
@@ -187,7 +189,7 @@ def test_provider_usage_mismatch_stops_after_one_billed_attempt() -> None:
     cases = _cases()
     report = _report(cases)
     calls: list[str] = []
-    result = run_pep_screen(
+    result = _run_pep_screen_unverified(
         cases,
         profile=_PROFILE,
         endpoint=_ENDPOINT,
@@ -205,7 +207,7 @@ def test_unregistered_request_refuses_before_transport() -> None:
     report = _report(cases)
     report["registered_requests"] = {}
     calls: list[str] = []
-    result = run_pep_screen(
+    result = _run_pep_screen_unverified(
         cases,
         profile=_PROFILE,
         endpoint=_ENDPOINT,
@@ -227,7 +229,7 @@ def test_cross_case_registered_request_refuses_before_transport() -> None:
     for branch in case_reports[0]["branches"]:
         branch["calls"][0]["prompt_sha256"] = other_prompt
     calls: list[str] = []
-    result = run_pep_screen(
+    result = _run_pep_screen_unverified(
         cases,
         profile=_PROFILE,
         endpoint=_ENDPOINT,
@@ -239,6 +241,78 @@ def test_cross_case_registered_request_refuses_before_transport() -> None:
     assert result["worker_attempt_count"] == 0
     failures = cast(list[dict[str, str]], result["preflight_failures"])
     assert "different case or stage" in failures[0]["error"]
+
+
+def test_cumulative_local_input_ceiling_refuses_before_transport() -> None:
+    cases = _cases()
+    report = _report(cases)
+    report["local_worst_case_total_input_tokens"] = 1
+    calls: list[str] = []
+    result = _run_pep_screen_unverified(
+        cases,
+        profile=_PROFILE,
+        endpoint=_ENDPOINT,
+        geometry_report=report,
+        transport=_fake_transport(report, calls),
+    )
+    assert result["status"] == "stopped-on-worker-failure"
+    assert calls == []
+    assert result["worker_attempt_count"] == 0
+    failures = cast(list[dict[str, str]], result["preflight_failures"])
+    assert "cumulative local input ceiling" in failures[0]["error"]
+
+
+def test_public_screen_rejects_forged_source_identity_before_transport(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    cases = _cases()
+    report = _report(cases)
+    report["source_identity"] = {"revision": "forged"}
+    report["profile_file_sha256"] = hashlib.sha256(
+        (_ROOT / "configs/r15_siflow_fixed_reader_profile_v1.json").read_bytes()
+    ).hexdigest()
+    geometry_path = tmp_path / "forged-geometry.json"
+    geometry_bytes = json.dumps(report).encode()
+    geometry_path.write_bytes(geometry_bytes)
+    registration = {
+        "schema_version": 1,
+        "scope": "r15-pep-reader",
+        "geometry_artifact_sha256": hashlib.sha256(geometry_bytes).hexdigest(),
+        "profile_sha256": _PROFILE.profile_hash,
+        "tokenizer_manifest_sha256": (
+            "8ff74a229e5d1771200efaaa7e411028fd6ab68a080d93138d76476e9e494290"
+        ),
+        "source_revision": "6822259db9c95f02da739b3e2830a4aa1ae35134",
+        "total_provider_token_ceiling": (
+            cast(int, report["local_worst_case_total_input_tokens"])
+            + cast(int, report["profile_max_total_output_tokens"])
+        ),
+    }
+    registration_bytes = json.dumps(registration).encode()
+    manifest_path = tmp_path / "registration.json"
+    manifest_path.write_bytes(registration_bytes)
+    monkeypatch.setattr(pep_screen_module, "_REGISTRATION_PATH", manifest_path)
+    original_run = subprocess.run
+
+    def tracked_registration(command: list[str], **kwargs: Any) -> Any:
+        if command[-2:] == ["show", "HEAD:configs/r15_pep_fixed_reader_registration_v1.json"]:
+            return subprocess.CompletedProcess(command, 0, stdout=registration_bytes)
+        return original_run(command, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", tracked_registration)
+    calls: list[str] = []
+    with pytest.raises(ValueError, match="source identity differs from frozen artifact"):
+        run_pep_screen(
+            cases,
+            profile=_PROFILE,
+            endpoint=_ENDPOINT,
+            geometry_report=report,
+            geometry_path=geometry_path,
+            source_root=Path(os.environ["RSICONTEXT_PEP_SOURCE_ROOT"]),
+            tokenizer_path=Path("/volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b"),
+            transport=_fake_transport(report, calls),
+        )
+    assert calls == []
 
 
 def test_cli_execute_refuses_without_credentials_or_network() -> None:

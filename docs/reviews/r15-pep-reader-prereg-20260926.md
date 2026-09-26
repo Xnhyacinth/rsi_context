@@ -8,6 +8,19 @@ sealed task, a current PyPA compliance test, or a researcher policy run.
 network access until the parent freezes a geometry artifact, budget, canaries,
 and launch gate. No provider results are reported here.
 
+The public `run_pep_screen` function also refuses transport until the fixed
+path `configs/r15_pep_fixed_reader_registration_v1.json` is committed. That
+registration is deliberately absent during this intake. After code and
+geometry settle, the parent must review the dry-run artifact and commit a
+registration containing its exact SHA-256, profile hash, tokenizer manifest
+hash, source revision, and total provider-token ceiling. At dispatch, the
+screen verifies the registration bytes against its Git HEAD blob, the
+artifact bytes, all six current world/material hashes, the clean detached
+source and selected file hashes, the pinned tokenizer files and runtime,
+the shared profile file, and selected producer bytes against a clean
+worktree. It compares selected producer file hashes rather than requiring
+the dry-run's Git revision to equal the later registration commit.
+
 ## Identity and boundary
 
 The source repository must be clean and detached at
@@ -71,6 +84,11 @@ stops further paid calls. Valid usage from a rejected response remains
 counted; missing usage remains unknown. Stop after either complete-source
 case fails. Pre/post canaries and their tokens must be recorded separately
 from task attempts before this can be launched.
+The pre-dispatch budget also rejects a request that would make cumulative
+local input exceed the reviewed six-case worst-case bound. Exact provider
+input must equal that local count per call; response output is capped by the
+profile and the registered total ceiling is the sum of the local input and
+12 × 2,048 output-token bounds.
 
 The task result schema records each source/world/policy/profile/request
 hash, local evidence and query intervals, both-session completion, final

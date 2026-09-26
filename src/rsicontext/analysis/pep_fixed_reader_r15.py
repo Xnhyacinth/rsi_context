@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess  # nosec B404
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -17,14 +18,25 @@ from typing import Literal
 from rsicontext.analysis.chat_geometry import ChatTokenizer, measure_chat_geometry
 from rsicontext.analysis.otel_siflow_pilot import _Worker
 from rsicontext.eval.openai_compatible import Transport
-from rsicontext.experiment.api import APIProfile, ResolvedAPIEndpoint
+from rsicontext.experiment.api import (
+    APIProfile,
+    ResolvedAPIEndpoint,
+    load_api_profiles,
+)
+from rsicontext.experiment.offline_provenance import producer_attestation, require_clean_producer
 from rsicontext.lifecycle.env import ProjectState
-from rsicontext.lifecycle.material_pep_r14 import SourceVariant, build_pep_license_sessions
+from rsicontext.lifecycle.material_pep_r14 import (
+    SOURCE_FILES,
+    SOURCE_REVISION,
+    SourceVariant,
+    build_pep_license_sessions,
+)
 from rsicontext.lifecycle.pep_model_fixed_r15 import pep_model_fixed_r15_text
 from rsicontext.lifecycle.policy import PolicyHook
 from rsicontext.lifecycle.session_sequence import run_session_sequence
 from rsicontext.lifecycle.spec import LifecycleInstance, canonical_instance_json
 from rsicontext.lifecycle.tools import DocumentRegistry, ToolBudget
+from rsicontext.registry.tokenizer import verify_tokenizer_snapshot
 
 Arm = Literal["full", "identity-only", "source-free"]
 MAX_TRAJECTORIES = 6
@@ -53,6 +65,38 @@ _S2_QUERY = (
     "plan=license-table or plan=license-string."
 )
 _FORM_REPLIES = ("form=license-table", "form=license-string", "form=unknown")
+_ROOT = Path(__file__).resolve().parents[3]
+_PROFILE_PATH = _ROOT / "configs/r15_siflow_fixed_reader_profile_v1.json"
+_REGISTRATION_PATH = _ROOT / "configs/r15_pep_fixed_reader_registration_v1.json"
+_TOKENIZER_FILES = (
+    ("tokenizer.json", "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42"),
+    ("tokenizer_config.json", "dbfb3c20ce3d5b8370faeecd548e771c1dcc8e4fdcf636797fc24b0d0733fb02"),
+)
+_PRODUCER_FILES = tuple(
+    Path(name)
+    for name in (
+        "configs/r15_siflow_fixed_reader_profile_v1.json",
+        "configs/r7_pep_source_manifest_v1.json",
+        "configs/registry.json",
+        "docs/reviews/r15-pep-reader-prereg-20260926.md",
+        "scripts/r15_pep_reader_screen.py",
+        "src/rsicontext/analysis/chat_geometry.py",
+        "src/rsicontext/analysis/otel_siflow_pilot.py",
+        "src/rsicontext/analysis/pep_fixed_reader_r15.py",
+        "src/rsicontext/eval/openai_compatible.py",
+        "src/rsicontext/experiment/api.py",
+        "src/rsicontext/experiment/offline_provenance.py",
+        "src/rsicontext/lifecycle/env.py",
+        "src/rsicontext/lifecycle/material_pep_r14.py",
+        "src/rsicontext/lifecycle/pep_model_fixed_r15.py",
+        "src/rsicontext/lifecycle/policy.py",
+        "src/rsicontext/lifecycle/runner.py",
+        "src/rsicontext/lifecycle/session_sequence.py",
+        "src/rsicontext/lifecycle/spec.py",
+        "src/rsicontext/lifecycle/tools.py",
+        "uv.lock",
+    )
+)
 
 
 def _sha(raw: bytes) -> str:
@@ -347,7 +391,7 @@ def build_geometry_report(
     }
 
 
-def run_pep_screen(
+def _run_pep_screen_unverified(
     cases: tuple[PepCase, ...],
     *,
     profile: APIProfile,
@@ -373,6 +417,15 @@ def run_pep_screen(
     registered = geometry_report.get("registered_requests")
     if not isinstance(registered, Mapping):
         raise ValueError("PEP geometry report lacks registered requests")
+    input_ceiling = geometry_report.get("local_worst_case_total_input_tokens")
+    output_ceiling = geometry_report.get("profile_max_total_output_tokens")
+    if (
+        not isinstance(input_ceiling, int)
+        or isinstance(input_ceiling, bool)
+        or input_ceiling <= 0
+        or output_ceiling != MAX_WORKER_ATTEMPTS * profile.max_output_tokens
+    ):
+        raise ValueError("PEP geometry report lacks a valid cumulative token ceiling")
     case_index = 0
     case_start = 0
 
@@ -411,6 +464,24 @@ def run_pep_screen(
         stage = ("source-survey", "archive-request")[attempt_in_case]
         if digest not in allowed or expected.get("stage") != stage:
             raise ValueError("PEP request is registered under a different case or stage")
+        previous_input = 0
+        for attempt in worker.attempts:
+            prior = attempt.get("preflight_geometry")
+            prior_local = (
+                prior.get("local_template_geometry") if isinstance(prior, Mapping) else None
+            )
+            prior_count = (
+                prior_local.get("rendered_input_tokens")
+                if isinstance(prior_local, Mapping)
+                else None
+            )
+            if not isinstance(prior_count, int):
+                raise ValueError("PEP prior attempt lacks registered local token count")
+            previous_input += prior_count
+        local = expected.get("local_template_geometry")
+        current_input = local.get("rendered_input_tokens") if isinstance(local, Mapping) else None
+        if not isinstance(current_input, int) or previous_input + current_input > input_ceiling:
+            raise ValueError("PEP cumulative local input ceiling would be exceeded")
         return expected
 
     worker = _Worker(profile, endpoint, preflight, transport)
@@ -454,6 +525,162 @@ def run_pep_screen(
         "preflight_failures": worker.preflight_failures,
         "cases": outcomes,
     }
+
+
+def _git(root: Path, *args: str) -> str:
+    return subprocess.run(  # nosec B603, B607
+        ["git", "-C", str(root), *args],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    ).stdout.strip()
+
+
+def _validate_registration(
+    cases: tuple[PepCase, ...],
+    profile: APIProfile,
+    geometry_report: Mapping[str, object],
+    *,
+    geometry_path: Path | None,
+    source_root: Path | None,
+    tokenizer_path: Path | None,
+) -> None:
+    """Authenticate frozen material and current runtime before any transport."""
+
+    if geometry_path is None or source_root is None or tokenizer_path is None:
+        raise ValueError("PEP screen requires a frozen geometry file and source/tokenizer paths")
+    if not _REGISTRATION_PATH.is_file():
+        raise ValueError("PEP screen has no committed geometry registration")
+    registration_bytes = _REGISTRATION_PATH.read_bytes()
+    tracked = subprocess.run(  # nosec B603, B607
+        ["git", "-C", str(_ROOT), "show", "HEAD:configs/r15_pep_fixed_reader_registration_v1.json"],
+        check=True,
+        capture_output=True,
+        timeout=10,
+    ).stdout
+    if tracked != registration_bytes:
+        raise ValueError("PEP geometry registration differs from committed HEAD")
+    registration = json.loads(registration_bytes)
+    if not isinstance(registration, dict) or set(registration) != {
+        "schema_version",
+        "scope",
+        "geometry_artifact_sha256",
+        "profile_sha256",
+        "tokenizer_manifest_sha256",
+        "source_revision",
+        "total_provider_token_ceiling",
+    }:
+        raise ValueError("PEP geometry registration schema is invalid")
+    if registration.get("schema_version") != 1 or registration.get("scope") != "r15-pep-reader":
+        raise ValueError("PEP geometry registration scope is invalid")
+    geometry_bytes = geometry_path.read_bytes()
+    if _sha(geometry_bytes) != registration.get("geometry_artifact_sha256"):
+        raise ValueError("PEP geometry artifact differs from committed registration")
+    parsed = json.loads(geometry_bytes)
+    if not isinstance(parsed, dict) or _canonical(parsed) != _canonical(geometry_report):
+        raise ValueError("PEP caller geometry differs from frozen artifact")
+    if registration.get("profile_sha256") != profile.profile_hash:
+        raise ValueError("PEP profile differs from committed registration")
+    frozen_profile = load_api_profiles(_PROFILE_PATH).get(PROFILE_ID)
+    if profile != frozen_profile:
+        raise ValueError("PEP caller profile differs from registered profile file")
+    if geometry_report.get("profile_file_sha256") != _sha(_PROFILE_PATH.read_bytes()):
+        raise ValueError("PEP profile file differs from geometry artifact")
+    if _git(source_root, "rev-parse", "HEAD") != SOURCE_REVISION:
+        raise ValueError("PEP source Git revision differs from pin")
+    if _git(source_root, "status", "--porcelain"):
+        raise ValueError("PEP source checkout is dirty")
+    detached = subprocess.run(  # nosec B603, B607
+        ["git", "-C", str(source_root), "symbolic-ref", "-q", "HEAD"],
+        check=False,
+        capture_output=True,
+        timeout=10,
+    )
+    if detached.returncode != 1:
+        raise ValueError("PEP source checkout is not detached")
+    selected: dict[str, str] = {}
+    for relative, expected in SOURCE_FILES.values():
+        observed = _sha((source_root / relative).read_bytes())
+        if observed != expected:
+            raise ValueError(f"PEP source bytes differ from pin: {relative}")
+        selected[relative] = observed
+    if geometry_report.get("source_identity") != {
+        "revision": SOURCE_REVISION,
+        "selected_file_sha256": selected,
+    } or registration.get("source_revision") != SOURCE_REVISION:
+        raise ValueError("PEP source identity differs from frozen artifact")
+    tokenizer_manifest = verify_tokenizer_snapshot(tokenizer_path, _TOKENIZER_FILES)
+    tokenizer_info = geometry_report.get("tokenizer")
+    if (
+        not isinstance(tokenizer_info, dict)
+        or tokenizer_info.get("manifest_sha256") != tokenizer_manifest
+        or registration.get("tokenizer_manifest_sha256") != tokenizer_manifest
+    ):
+        raise ValueError("PEP tokenizer differs from frozen artifact")
+    current = producer_attestation(
+        _ROOT, _PRODUCER_FILES, package_names=("transformers", "tokenizers", "jinja2")
+    )
+    require_clean_producer(current)
+    frozen_producer = geometry_report.get("producer_attestation")
+    if (
+        not isinstance(frozen_producer, dict)
+        or frozen_producer.get("producer_file_sha256") != current["producer_file_sha256"]
+        or frozen_producer.get("python_version") != current["python_version"]
+        or frozen_producer.get("package_versions") != current["package_versions"]
+    ):
+        raise ValueError("PEP producer bytes or runtime differ from frozen artifact")
+    case_records = geometry_report.get("cases")
+    if not isinstance(case_records, list) or len(case_records) != len(cases):
+        raise ValueError("PEP geometry artifact has incomplete case registration")
+    for case, record in zip(cases, case_records, strict=True):
+        if (
+            not isinstance(record, dict)
+            or record.get("case") != case.name
+            or record.get("world_sha256") != case.world_sha256
+            or record.get("source_visible_sha256") != _sha(case.source.encode())
+            or record.get("source_url_sha256") != _sha(case.source_url.encode())
+            or record.get("request_sha256") != _sha(case.request.encode())
+        ):
+            raise ValueError("PEP current case material differs from frozen geometry")
+    input_cap = geometry_report.get("local_worst_case_total_input_tokens")
+    output_cap = geometry_report.get("profile_max_total_output_tokens")
+    if (
+        not isinstance(input_cap, int)
+        or not isinstance(output_cap, int)
+        or input_cap + output_cap != registration.get("total_provider_token_ceiling")
+    ):
+        raise ValueError("PEP cumulative provider-token ceiling differs from registration")
+
+
+def run_pep_screen(
+    cases: tuple[PepCase, ...],
+    *,
+    profile: APIProfile,
+    endpoint: ResolvedAPIEndpoint,
+    geometry_report: Mapping[str, object],
+    transport: Transport,
+    geometry_path: Path | None = None,
+    source_root: Path | None = None,
+    tokenizer_path: Path | None = None,
+) -> dict[str, object]:
+    """Dispatch only after a committed frozen registration validates locally."""
+
+    _validate_registration(
+        cases,
+        profile,
+        geometry_report,
+        geometry_path=geometry_path,
+        source_root=source_root,
+        tokenizer_path=tokenizer_path,
+    )
+    return _run_pep_screen_unverified(
+        cases,
+        profile=profile,
+        endpoint=endpoint,
+        geometry_report=geometry_report,
+        transport=transport,
+    )
 
 
 __all__ = [
