@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "scope": "r15-pep-reader",
+  "geometry_artifact_sha256": "c08af37ceeb90ac8722d6dd6a71b02ec9d0bbbaaf0fdad0d8aac9bf080510704",
+  "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+  "tokenizer_manifest_sha256": "8ff74a229e5d1771200efaaa7e411028fd6ab68a080d93138d76476e9e494290",
+  "source_revision": "6822259db9c95f02da739b3e2830a4aa1ae35134",
+  "total_provider_token_ceiling": 42747
+}
