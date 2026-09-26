@@ -24,7 +24,19 @@ checkouts are detached and clean at
 `89aae438b3b3b0a8dd33003c9d70592baf7dbd0d` (1.43). Source file hashes,
 task worlds and visible controls must still be rechecked by each builder.
 
-## KEP prospective budget and experiment gate
+## KEP preliminary budget and revised experiment gate
+
+**Revision before any paid call:** independent scientific review found that
+the R15 `source-free` arm still exposes `KEP-753` through its document marker,
+while the benchmark-owned survey prompt names KEP and defines the candidate
+formula labels. The two-block neutralization leaves additional upper-bound
+and ordering cues. The three-arm figures below describe the existing offline
+artifact only; they are **not an admitted R16 paid budget**. A new generic
+fixed policy and at least four arms (full, genuinely deidentified source-free,
+identity-only, rule-neutralized) are being built. Their task worlds, prompt
+geometry, case/call counts and caps must be measured and frozen anew. Even a
+four-arm run may remain diagnostic until residual equivalent rules and a
+same-identity counterfactual legal-plan flip are audited.
 
 The R15 clean integrated KEP geometry artifact has SHA256
 `a3930ea4be4b0821c4d9e76a68bfbf8808986b5b0625591982d2ead1cb5c3b8b`.
@@ -34,19 +46,20 @@ and both-explicit-rule-neutralized cases. Local worst-path input by case is
 outputs at 2,048 tokens add **18,432**, so the task planning envelope is
 **62,544 local-input-plus-requested-output tokens**. At most two matching
 62-input/2,048-requested-output canaries would add **4,220**, giving an
-initial global planning envelope **66,764 tokens and 11 HTTP attempts**;
-auxiliary call cap is zero. These are prospective bounds, not provider usage
-or price. The final registered live geometry must be rebuilt after any
+initial three-arm global planning envelope **66,764 tokens and 11 HTTP
+attempts**; auxiliary call cap is zero. These are historical offline planning
+figures, not the revised four-arm budget, provider usage or price. The final registered live geometry must be rebuilt after any
 selected producer-file change, and the launch manifest must bind its exact
 SHA256, task/world/source identities, profile, endpoint and code bytes.
 
 Before live dispatch, require a clean producer and pinned tokenizer runtime,
 the exact-profile canary's model echo/`stop`/provider usage and final-chat
-input parity, a private fsynced attempt journal, the 9-task/2-canary cap and
+input parity, a private fsynced attempt journal, the newly registered
+case/call/token caps and
 fail-closed case/stage request registration. The **full-source complete
 two-session case runs first**. If it fails or has unknown usage/protocol
-drift, stop before both controls and do not dispatch a post-canary. If it
-passes, execute both model-invoked controls under the same fixed policy and
+drift, stop before all controls and do not dispatch a post-canary. If it
+passes, execute the model-invoked controls under the same fixed policy and
 private oracle. A passing full-source case alone cannot qualify a parent:
 source-free and rule-neutralized results must exclude model prior knowledge,
 default-plan and residual-source-cue explanations. The current intervention
