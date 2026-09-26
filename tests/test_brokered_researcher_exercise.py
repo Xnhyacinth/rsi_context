@@ -90,9 +90,7 @@ class _TrustedFakeWorker:
 
     def _serve(self) -> None:
         try:
-            with os.fdopen(self.read_fd, "rb") as reader, os.fdopen(
-                self.write_fd, "wb"
-            ) as writer:
+            with os.fdopen(self.read_fd, "rb") as reader, os.fdopen(self.write_fd, "wb") as writer:
                 start = read_frame(reader)
                 self.observed.append(start)
                 seq = 1
@@ -468,9 +466,7 @@ def test_responder_failure_details_do_not_reach_candidate(
 
     monkeypatch.setattr(exercise, "stage_audited_snapshot", fake_stage)
     monkeypatch.setattr(exercise, "launch_policy_jail", fake_launch)
-    result = exercise.exercise_candidate_sequence(
-        **_inputs(tmp_path), target_responder=responder
-    )
+    result = exercise.exercise_candidate_sequence(**_inputs(tmp_path), target_responder=responder)
     assert result.status == ("usage-unverified" if mode == "exception" else "completed")
     assert result.target_provider_tokens_in == (None if mode == "exception" else 10)
     assert len(result.target_calls) == 2

@@ -129,8 +129,7 @@ class _Witness:
             self.state["carry"] = {"source_plan": self.state.get("source_plan")}
         if stage.stage_id == "archive-request":
             self.state["request_seen"] = (
-                len(stage.documents) == 1
-                and "preferred, nondeprecated" in stage.documents[0].text
+                len(stage.documents) == 1 and "preferred, nondeprecated" in stage.documents[0].text
             )
         if stage.stage_id == "decide-license-format":
             carry = self.state.get("carry")

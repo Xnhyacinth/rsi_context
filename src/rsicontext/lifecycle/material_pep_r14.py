@@ -65,8 +65,8 @@ def build_pep_license_sessions(
             "the license declaration form specified by the source supplied in "
             "the previous session. It records the preferred, nondeprecated "
             "[project].license representation for the simple MIT expression. "
-            "Choose plan=license-table for license = {text = \"MIT\"} or "
-            "plan=license-string for license = \"MIT\". The mock fixture "
+            'Choose plan=license-table for license = {text = "MIT"} or '
+            'plan=license-string for license = "MIT". The mock fixture '
             "uses only the supplied historical source; this is not a test of "
             "current PyPA compliance or a claim that other forms are invalid "
             "in every packaging tool. Request license-review, inspect its "
