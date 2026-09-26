@@ -67,6 +67,10 @@ it is not the single-reader one-call track.
 The authoritative raw pilot is
 `artifacts/rsi-core-v1/r11-pg-siflow-pilot-20260926.json`, SHA256
 `ca8cf77fa46fb4f3832ed1b9a5e79c8b7de549a1966499f53a2f6985147118db`.
+Its clean producer revision is
+`a1b37c5994611c49226e10296ec11bc48d4d6912`; later review fixes cover
+failure accounting and non-ASCII serialization without changing the observed
+ASCII requests or their recorded responses.
 It preserves each request hash, material hash, prompt/source/query offsets,
 provider response hash/model/id/finish/usage, the policy transcript, bounded
 call indexes, and clean/stable producer identity. Authentication headers and
@@ -124,3 +128,36 @@ and move the researcher valid-update-rate pretest to a trusted immutable host
 where the policy jail ancestor checks pass. Current `/usr` ownership causes
 the jail to fail closed, so this R11 fixed-reader screen is **not** a
 researcher pretest or an A2 launch authorization.
+
+## Verification and review
+
+The final broad run used pinned PEP, PostgreSQL 16/17, and OTel 1.24/1.43
+source roots plus the shared PopQA corpus. The corpus hash before the run was
+`ca74dec945e9c837be4d7739da2194fbb09b6f8d5affa9823d979936c63fc89f`;
+the temporary worktree data link was removed afterward. With a test-only
+dummy Siflow key and no live endpoint, **1,398 tests passed, 16 skipped** in
+568.50 seconds with **80.64% branch coverage**, above the configured 80%
+floor. The 15 jail-related skips are the expected fail-closed result of
+untrusted `/usr/bin` ancestors, and the one live researcher smoke lacked an
+endpoint. Raw test log SHA256:
+`ab81b91d14c16de3b48fd20051481118c285700fab560758d7502d9a5e23e7a4`.
+An earlier broad run omitted the PEP root and dummy key; it had one fixture
+failure and extra source skips, so it is superseded by this corrected run.
+
+Repository-wide Ruff passed; strict mypy reported zero issues in 347 files.
+Bandit reported **81 LOW, two pre-existing B102 MEDIUM, zero HIGH**, with
+no new finding in R11 files. The MEDIUM findings remain in
+`scripts/arm_comparison_v2.py:119` and `scripts/trajectory_v3.py:375`;
+their legacy live paths remain fail-closed. Final Bandit JSON SHA256:
+`84a83035e63b553c3b1598c56eb0856e7f7be92ca45838ed22154563530e28ed`.
+
+The first `codex review --base origin/main` reproduced two P2 issues:
+preflight exceptions did not stop subsequent calls, and validated usage was
+lost when a response was rejected. Both were fixed with regression tests.
+A second branch review reproduced a P2 non-ASCII request-hash mismatch
+between the preflight and actual reader serialization. The final fix uses
+the reader's ASCII-escaped JSON and passed **11 focused tests**, including
+the non-ASCII regression with both pinned PostgreSQL sources, at 82% branch
+coverage for the pilot module. `codex review --commit HEAD` found no further
+actionable issue; its own focused test shell omitted the source roots and
+skipped five source-backed tests, which were independently run with the pins.
