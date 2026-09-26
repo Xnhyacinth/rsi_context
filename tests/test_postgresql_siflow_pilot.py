@@ -109,7 +109,11 @@ def test_provider_prompt_mismatch_stops_after_one_counted_attempt() -> None:
     assert calls == 1
     assert result["status"] == "stopped-on-worker-failure"
     assert result["worker_attempt_count"] == 1
-    assert cast(dict[str, Any], result["provider_usage_total"])["unknown_usage_attempts"] == 1
+    assert cast(dict[str, Any], result["provider_usage_total"]) == {
+        "input_tokens": 11,
+        "output_tokens": 2,
+        "unknown_usage_attempts": 0,
+    }
 
 
 def test_non_stop_finish_reason_is_counted_and_stops() -> None:
@@ -131,6 +135,11 @@ def test_non_stop_finish_reason_is_counted_and_stops() -> None:
     assert calls == 1
     assert result["worker_attempt_count"] == 1
     assert result["status"] == "stopped-on-worker-failure"
+    assert cast(dict[str, Any], result["provider_usage_total"]) == {
+        "input_tokens": 10,
+        "output_tokens": 2,
+        "unknown_usage_attempts": 0,
+    }
 
 
 def test_preflight_failure_stops_before_network() -> None:

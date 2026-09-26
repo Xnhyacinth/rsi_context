@@ -148,6 +148,12 @@ class _Worker:
         try:
             reader = build_profile_reader(self.profile, self.endpoint, transport=capture)
             output = reader.complete(prompt)
+            attempt["provider_usage"] = {
+                "input_tokens": output.input_tokens,
+                "output_tokens": output.output_tokens,
+            }
+            attempt["response_id"] = output.response_id
+            attempt["response_model"] = output.response_model
             if len(observed) != 1 or attempt.get("finish_reason") != "stop":
                 raise ValueError("worker response did not stop normally")
             local = geometry.get("local_template_geometry")
@@ -162,12 +168,6 @@ class _Worker:
                 status="ok",
                 reply_sha256=_sha(output.answer.encode("utf-8")),
                 reply=output.answer,
-                response_id=output.response_id,
-                response_model=output.response_model,
-                provider_usage={
-                    "input_tokens": output.input_tokens,
-                    "output_tokens": output.output_tokens,
-                },
             )
             return output.answer
         except Exception as exc:
