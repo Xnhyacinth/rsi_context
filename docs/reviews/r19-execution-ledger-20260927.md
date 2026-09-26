@@ -1,6 +1,6 @@
 # R19 Iceberg fixed-reader and researcher boundary execution ledger
 
-Status: **in progress; no R19 provider or GPU call admitted**. All R19
+Status: **short paid screen complete; long paid screen not admitted; no GPU call**. All R19
 branches started from clean `main@9e551f4594c59689eb80dd5a86a192c8d4ef475d`
 with `uv.lock` SHA-256
 `5b24847780908a3481e8b6757480531c165ff87517bc1d48acf250baa6cc9352`.
@@ -20,7 +20,7 @@ The official Iceberg source checkout has been rechecked clean and detached at
 SHA-256 remain respectively
 `e68cd90f7e243f33996717f877077e40773a8ffb57978232458b9e5bf2b9c5cb`
 and `2c0e4b3b8c7a873194c6517058f9a62c59fa00a37d1e24bf80a538e1c885b9b2`.
-The repository registry SHA-256 remains
+The registry at the initial source check was
 `16807ab8ae22734f2a90cc64df843587a9b290bdf8b4dba79f154efabc81c934`;
 the [R18 source/geometry ledger](r18-iceberg-row-scan-candidate.md) is input
 evidence, not a qualified parent or a live launch.
@@ -119,3 +119,15 @@ source-free and identity-only arms both chose `suppress-row` despite an
 all-unknown source rule and passed their authentic private action gate. This
 demonstrates a **possible default-plan shortcut in the test harness**, not a
 model result; real controls must rule it out before source-dependence claims.
+
+## Paid short-input decision
+
+The [preregistered short result](r19-iceberg-short-feasibility-result-20260927.md)
+completed one provider-valid block on 2026-09-27 UTC: two target and two
+canary calls, 766 provider input / 14 output tokens, zero unknown usage.
+The `data` arm returned the correct `suppress-row`; the `file` arm also
+returned `suppress-row` instead of the private `emit-row`. The result is
+`provider_block_valid=true` and `task_feasible=false`. Therefore the
+prospective 25K-token Iceberg source experiment is closed for this version.
+No long-source Siflow result, independent qualified parent or researcher
+effective-update-rate measurement is claimed.
