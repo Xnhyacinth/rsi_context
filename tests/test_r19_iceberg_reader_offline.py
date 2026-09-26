@@ -150,3 +150,27 @@ def test_wrong_coherent_s1_is_scored_without_censoring_controls(tmp_path: Path) 
     assert first["s2_plan_correct"] is False
     assert first["observed_s1_carry"] == {"rule": RULE_BUNDLES[1]}
     assert len(task["attempts"]) == 8
+
+
+@pytest.mark.parametrize("fault", ["wrong-model-first", "non-stop-first"])
+def test_protocol_fault_stops_before_s2(tmp_path: Path, fault: str) -> None:
+    result, run_dir = _run(tmp_path, fault)
+    assert result["status"] == "task-failed"
+    assert result["task_http_calls"] == 1
+    assert result["canary_http_calls"] == 1
+    task = json.loads((run_dir / "task.json").read_text())
+    assert task["executed_arms"] == ["authentic-pack"]
+    assert len(task["attempts"]) == 1
+
+
+def test_uncommitted_launch_is_refused_before_dispatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_launch = tmp_path / "forged-launch.json"
+    fake_launch.write_bytes((reader.ROOT / reader._LAUNCH_REL).read_bytes())
+    monkeypatch.setattr(reader, "_LAUNCH_REL", str(fake_launch))
+    result, run_dir = _run(tmp_path)
+    assert result["status"] == "refused-or-interrupted"
+    assert result["failure_type"] == "ValueError"
+    assert not (run_dir / "pre_canary.json").exists()
+    assert _journal(run_dir / "attempts.jsonl") == []

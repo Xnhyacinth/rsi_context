@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-import subprocess
+import subprocess  # nosec B404 - fixed git argv only, no shell
 import sys
 import urllib.request
 from dataclasses import dataclass
