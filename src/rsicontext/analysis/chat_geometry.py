@@ -110,16 +110,22 @@ def measure_chat_geometry(
     }
     evidence_start = _unique_at(user, evidence) if evidence is not None else None
     query_start = _unique_at(user, query) if query is not None else None
+    evidence_interval = (
+        _interval(offsets, user_start + evidence_start, user_start + evidence_start + len(evidence))
+        if evidence_start is not None and evidence is not None
+        else None
+    )
+    query_interval = (
+        _interval(offsets, user_start + query_start, user_start + query_start + len(query))
+        if query_start is not None and query is not None
+        else None
+    )
+    result["evidence_span_tokens"] = evidence_interval
+    result["query_span_tokens"] = query_interval
     if evidence_start is None or query_start is None or evidence is None or query is None:
         return result
     if query_start < evidence_start + len(evidence):
         return result
-    evidence_interval = _interval(
-        offsets, user_start + evidence_start, user_start + evidence_start + len(evidence)
-    )
-    query_interval = _interval(
-        offsets, user_start + query_start, user_start + query_start + len(query)
-    )
     if evidence_interval is None or query_interval is None:
         return result
     if evidence_interval[1] > query_interval[0]:
