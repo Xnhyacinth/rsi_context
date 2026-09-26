@@ -278,9 +278,14 @@ def run_canary(
     except Exception as exc:
         failure_type = type(exc).__name__
     attempt = _safe_attempt(worker.attempts[0] if worker.attempts else None, synthetic=synthetic)
-    local_output_tokens = len(
-        tokenizer(answer, add_special_tokens=False, return_offsets_mapping=True)["input_ids"]
-    )
+    answer_observed = failure_type is None
+    try:
+        local_output_tokens = len(
+            tokenizer(answer, add_special_tokens=False, return_offsets_mapping=True)["input_ids"]
+        )
+    except Exception as exc:
+        failure_type = type(exc).__name__
+        local_output_tokens = -1
     usage = attempt.get("usage")
     passed = (
         failure_type is None
@@ -293,11 +298,20 @@ def run_canary(
         and usage.get("input_tokens") == EXPECTED_INPUT_TOKENS
         and usage.get("output_tokens") == local_output_tokens
     )
+    if failure_type is None and not passed:
+        if answer != EXPECTED_ANSWER:
+            failure_type = "AnswerMismatch"
+        elif isinstance(usage, dict) and usage.get("output_tokens") != local_output_tokens:
+            failure_type = "OutputUsageMismatch"
+        elif isinstance(usage, dict) and usage.get("input_tokens") != EXPECTED_INPUT_TOKENS:
+            failure_type = "InputUsageMismatch"
+        else:
+            failure_type = "CanaryInvariantMismatch"
     return {
         "status": "passed" if passed else "failed",
-        "failure_type": failure_type if failure_type else "AnswerMismatch" if not passed else None,
-        "answer_exact": answer == EXPECTED_ANSWER if failure_type is None else False,
-        "answer_sha256": _sha(answer.encode()) if failure_type is None else None,
+        "failure_type": failure_type,
+        "answer_exact": answer == EXPECTED_ANSWER if answer_observed else False,
+        "answer_sha256": _sha(answer.encode()) if answer_observed else None,
         "call_count": len(worker.attempts),
         "attempt": attempt,
         "provider_usage_total": None if synthetic else attempt.get("usage"),
@@ -339,6 +353,10 @@ def main(argv: list[str] | None = None, *, transport_override: Transport | None 
             raise CanaryRefusal("registration-mismatch")
         if args.dry_run and args.registration_sha256 is not None:
             raise CanaryRefusal("dry-run-does-not-take-registration")
+        if args.dry_run and injected:
+            raise CanaryRefusal("dry-run-forbids-injected-transport")
+        if args.execute and not injected and args.output.resolve().is_relative_to(ROOT.resolve()):
+            raise CanaryRefusal("execute-output-must-be-external")
         before = producer_attestation(
             ROOT, _PRODUCER_FILES, package_names=("transformers", "tokenizers", "jinja2")
         )
