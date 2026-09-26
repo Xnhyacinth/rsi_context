@@ -7,7 +7,10 @@ this host. The legacy `require_isolated_policy_executor` guard remains intact.
 `exercise_candidate_sequence` accepts an existing private candidate snapshot,
 its declared SHA256, frozen evaluator-owned `research-v5` sessions and project
 states, a fresh bounded tool budget, a pinned Python executable, and an
-offline target responder. It recomputes a hash over the complete task objects,
+offline target responder. The evaluator must also supply a task-specific
+`decision_rules` callback; omission or a non-callable value is rejected before
+staging. This prevents the sequence runner's legacy award/calibration default
+from assigning unrelated B/C decisions. It recomputes a hash over the complete task objects,
 including evaluator-only fields, and records an initial-environment hash over
 records, receipts, revisions, and whether sessions share the same project.
 It stages one independently audited jail per session **before launching any
@@ -58,5 +61,5 @@ uv run --frozen --no-sync bandit -q src/rsicontext/experiment/brokered_researche
 ```
 
 These focused tests plus the existing broker-sequence and R13 admission tests
-passed **34/34**; touched-file Ruff, strict mypy, and Bandit reported no issues.
+passed **36/36**; touched-file Ruff, strict mypy, and Bandit reported no issues.
 The repository-wide merge gate remains the integration owner's responsibility.

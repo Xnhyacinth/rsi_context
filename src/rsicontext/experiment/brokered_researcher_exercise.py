@@ -198,7 +198,7 @@ def exercise_candidate_sequence(
     envs: list[ProjectState],
     budget: ToolBudget,
     target_responder: Callable[[str], MeteredModelReply],
-    decision_rules: Callable[[SequenceRecord, list[LifecycleInstance]], None] | None = None,
+    decision_rules: Callable[[SequenceRecord, list[LifecycleInstance]], None],
     max_turns_per_stage: int = 2,
     timeout_seconds: float = 5,
 ) -> ExerciseResult:
@@ -230,6 +230,8 @@ def exercise_candidate_sequence(
         raise ValueError("timeout_seconds must be finite and positive")
     if not callable(target_responder):
         raise TypeError("target_responder must be callable")
+    if not callable(decision_rules):
+        raise TypeError("evaluator-owned decision_rules must be callable")
 
     task_sha = _task_sha256(sessions)
     initial_environment_sha = _environment_sha256(envs)

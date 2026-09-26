@@ -8,6 +8,8 @@ import shutil
 import sys
 import tempfile
 import threading
+from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import Literal, TypedDict, cast
 
@@ -16,6 +18,7 @@ import pytest
 from rsicontext.experiment import brokered_researcher_exercise as exercise
 from rsicontext.lifecycle.brokered_policy import MeteredModelReply
 from rsicontext.lifecycle.env import ProjectState
+from rsicontext.lifecycle.session_sequence import SequenceRecord
 from rsicontext.lifecycle.spec import DescriptionAxes, LifecycleInstance, StageSpec
 from rsicontext.lifecycle.tools import ToolBudget
 from rsicontext.security.policy_jail import JailSetupError, StagedPolicyJail
@@ -35,6 +38,7 @@ class _Inputs(TypedDict):
     sessions: list[LifecycleInstance]
     envs: list[ProjectState]
     budget: ToolBudget
+    decision_rules: Callable[[SequenceRecord, list[LifecycleInstance]], None]
 
 
 def _sessions() -> list[LifecycleInstance]:
@@ -52,6 +56,12 @@ def _sessions() -> list[LifecycleInstance]:
     ]
 
 
+def _decisions(record: SequenceRecord, _sessions: list[LifecycleInstance]) -> None:
+    record.decisions.update(
+        {f"decision-{index}": session.passed for index, session in enumerate(record.sessions)}
+    )
+
+
 def _inputs(tmp_path: Path) -> _Inputs:
     return {
         "candidate_root": tmp_path / "candidate",
@@ -62,6 +72,7 @@ def _inputs(tmp_path: Path) -> _Inputs:
         "sessions": _sessions(),
         "envs": [ProjectState(), ProjectState()],
         "budget": ToolBudget(max_calls=8, max_tokens=512),
+        "decision_rules": _decisions,
     }
 
 
@@ -285,6 +296,70 @@ def test_fresh_budget_required_before_staging(
             **args, target_responder=lambda _: MeteredModelReply(ok=True)
         )
     assert not staged
+
+
+def test_missing_decision_rules_refuses_before_staging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staged = False
+
+    def forbidden_stage(*_args: object, **_kwargs: object) -> None:
+        nonlocal staged
+        staged = True
+
+    monkeypatch.setattr(exercise, "stage_audited_snapshot", forbidden_stage)
+    args = _inputs(tmp_path)
+    with pytest.raises(TypeError, match="decision_rules"):
+        exercise.exercise_candidate_sequence(  # type: ignore[call-arg]
+            candidate_root=args["candidate_root"],
+            expected_policy_sha256=args["expected_policy_sha256"],
+            jail_parent=args["jail_parent"],
+            python_executable=args["python_executable"],
+            expected_python_sha256=args["expected_python_sha256"],
+            sessions=args["sessions"],
+            envs=args["envs"],
+            budget=args["budget"],
+            target_responder=lambda _: MeteredModelReply(ok=True),
+        )
+    assert not staged
+
+
+def test_failed_b_c_tasks_use_explicit_decisions_not_legacy_defaults(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    staged = 0
+
+    def fake_stage(*_args: object, **_kwargs: object) -> StagedPolicyJail:
+        nonlocal staged
+        staged += 1
+        return StagedPolicyJail(tmp_path / f"jail-{staged}", _POLICY_SHA, f"{staged:064x}")
+
+    def fake_launch(
+        _artifact: StagedPolicyJail, *, read_fd: int, write_fd: int
+    ) -> _TrustedFakeWorker:
+        return _TrustedFakeWorker(read_fd, write_fd, ask=False)
+
+    monkeypatch.setattr(exercise, "stage_audited_snapshot", fake_stage)
+    monkeypatch.setattr(exercise, "launch_policy_jail", fake_launch)
+    args = _inputs(tmp_path)
+    args["sessions"] = [
+        replace(
+            session,
+            stages=(
+                replace(session.stages[0], expected_state_delta={"missing": {"status": "final"}}),
+            ),
+        )
+        for session in args["sessions"]
+    ]
+    result = exercise.exercise_candidate_sequence(
+        **args, target_responder=lambda _: MeteredModelReply(ok=True)
+    )
+    assert result.status == "completed"
+    assert result.sequence is not None
+    assert [session.passed for session in result.sequence.sessions] == [False, False]
+    assert result.sequence.decisions == {"decision-0": False, "decision-1": False}
+    assert "s2_calibration" not in result.sequence.decisions
+    assert result.target_calls == ()
 
 
 def test_initial_environment_hash_distinguishes_shared_and_distinct_projects() -> None:
