@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "scope": "r15-pep-paid-development",
+  "geometry_sha256": "c491cfb800aa3a2bdef794ca2cf4dd01780df1c9663085aaa14f7672cb720f63",
+  "canary_registration_sha256": "09e7be58ad1b379d0ca41c403d5bd9dad6bc4203aef885e2d22303af3f3eaecf",
+  "canary_script_sha256": "f055acd2961f2432e526a15dd2f0451780ee421e3c0055cd4a730272c0eeb837",
+  "runner_script_sha256": "480b78ee1be40372098ffb6c87c3e2601031819b4ac3395a85b2e67cf5febf24",
+  "endpoint_sha256": "b49d7116deaf5df5ed7102ea5d67a9b4ab6a7d5fb0808bb9ef540e0e400234d7",
+  "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+  "task_call_cap": 12,
+  "task_local_plus_requested_ceiling": 42747,
+  "canary_call_cap": 2,
+  "canary_local_input_tokens": 62,
+  "canary_requested_output_tokens": 2048,
+  "global_call_cap": 14,
+  "global_local_plus_requested_ceiling": 46967,
+  "auxiliary_call_cap": 0
+}
