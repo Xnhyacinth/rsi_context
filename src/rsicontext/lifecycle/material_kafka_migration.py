@@ -39,6 +39,7 @@ _LATER = "migration_plan"
 _REVIEW = "review-complete"
 _PLAN_REVIEW = "plan-reviewed"
 _DATE = "2026-09-27"
+_WITHHELD = "[SOURCE WITHHELD]"
 _CONSTRUCTED_RULE = (
     "Consumer groups can be upgraded without downtime by rolling out the consumer with "
     "the `group.protocol=consumer` configuration. When the first consumer using the new "
@@ -119,11 +120,11 @@ def build_kafka_migration_sessions(
             "utf-8"
         )
     elif case == "source-free":
-        source_text = "[SOURCE WITHHELD]"
+        source_text = _WITHHELD
     elif case == "identity-only":
         source_text = (
             "Apache Kafka 4.0 Consumer Rebalance Protocol; KIP-848.\n"
-            f"Path: {SOURCE_RELATIVE}\nURL: {AUTHENTIC_URL}\n[RULE TEXT WITHHELD]"
+            f"Path: {SOURCE_RELATIVE}\nURL: {AUTHENTIC_URL}\n{_WITHHELD}"
         )
     source = DocumentRef(
         doc_id="reference-source",

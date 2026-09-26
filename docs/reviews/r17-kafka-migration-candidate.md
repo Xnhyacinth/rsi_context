@@ -2,11 +2,12 @@
 
 **Status: offline construction witness only; no qualified parent, model run, or
 long-context result.** The builder is
-`src/rsicontext/lifecycle/material_kafka_migration.py`. It reads the clean,
-detached Apache-owned `apache/kafka-site` checkout registered as
-`apache-kafka-site-kip848-intake` at
-`379dba2230101f7ca1b73658808d67e6e48bf909`; it refuses a changed
-protocol file or top-level license. The complete authentic source is
+`src/rsicontext/lifecycle/material_kafka_migration.py`. At intake, the
+Apache-owned `apache/kafka-site` checkout registered as
+`apache-kafka-site-kip848-intake` was separately observed clean and detached
+at `379dba2230101f7ca1b73658808d67e6e48bf909`. The builder verifies
+the selected protocol and top-level license bytes; it does not run Git or
+verify checkout HEAD. The complete authentic source is
 `content/en/40/operations/consumer-rebalance-protocol.md`, 5,375 bytes,
 SHA-256 `82259d8ac257fc5e575f3b44afe270c88db1bb1b85f98410f56c3710d67fc9af`.
 The [pinned source](https://github.com/apache/kafka-site/blob/379dba2230101f7ca1b73658808d67e6e48bf909/content/en/40/operations/consumer-rebalance-protocol.md)
@@ -71,7 +72,9 @@ registered paragraph. The deidentified source-free control contains a
 withholding marker and no Kafka, KIP-848, Classic, or configuration identity
 in its visible stage fields. The identity-only control retains Kafka 4.0,
 KIP-848, path, and URL but no substantive compatibility rule. Both controls
-use the authentic private oracle and the identical later request. Domain
+use the exact `[SOURCE WITHHELD]` suffix and identical document metadata;
+only the identity lines differ. They use the authentic private oracle and
+the identical later request. Domain
 terms such as “consumer group” and “assignor” remain in the request, so a
 model might still infer the project from world knowledge; that shortcut
 must be measured, not assumed absent.
@@ -80,7 +83,7 @@ must be measured, not assumed absent.
 | --- | --- | --- | --- |
 | Authentic full source | `2ef9ae136cd1e67db057f45124667615b884a3cb9a177effd519468593e41820` | `30056c03bb65aa0c54d9769c30aa435988f5f7309308990ab853d9b57dd3f2a8` | drain |
 | Deidentified source-free | `3f7fa775b3d20d118a8419dc0512f929ad9de6bcc76afba2f84ea9bedbaac8f3` | `30056c03bb65aa0c54d9769c30aa435988f5f7309308990ab853d9b57dd3f2a8` | drain |
-| Identity-only | `f8d92772d2fa1c665381e510c521349d8f8df3c8ab097b4fe806a8922d842517` | `30056c03bb65aa0c54d9769c30aa435988f5f7309308990ab853d9b57dd3f2a8` | drain |
+| Identity-only | `8c477a4633c21568313aa22de0ff55ed59d898160027fa1e92061c793c21edd0` | `30056c03bb65aa0c54d9769c30aa435988f5f7309308990ab853d9b57dd3f2a8` | drain |
 | Constructed online rule | `a7c02f0e94fa92e8ac1c705d5dd8f4e9319333a44738771088ae17defb371534` | `508aa818faaffcb34e4e6e231a0f4564d01a632a252569b81f43d76ecb282b3d` | rolling |
 
 These hashes are SHA-256 of `canonical_instance_json` and include private

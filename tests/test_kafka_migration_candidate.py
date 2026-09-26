@@ -101,8 +101,20 @@ def test_pair_changes_only_source_text_and_private_legal_choice(source_root: Pat
 def test_controls_withhold_rule_and_source_free_identity(source_root: Path) -> None:
     withheld = _pair(source_root, "source-free")
     identity = _pair(source_root, "identity-only")
-    text_free = withheld[0].stages[0].documents[0].text
-    text_identity = identity[0].stages[0].documents[0].text
+    free_doc = withheld[0].stages[0].documents[0]
+    identity_doc = identity[0].stages[0].documents[0]
+    assert (free_doc.doc_id, free_doc.title, free_doc.source_url, free_doc.retrieved_date) == (
+        identity_doc.doc_id,
+        identity_doc.title,
+        identity_doc.source_url,
+        identity_doc.retrieved_date,
+    )
+    text_free = free_doc.text
+    text_identity = identity_doc.text
+    marker = "[[doc:reference-source]]\n"
+    assert text_free == marker + "[SOURCE WITHHELD]"
+    assert text_identity.endswith("\n[SOURCE WITHHELD]")
+    assert text_identity.count("[SOURCE WITHHELD]") == text_free.count("[SOURCE WITHHELD]") == 1
     assert "Kafka" not in text_free and "KIP" not in text_free
     assert "Classic" not in text_free and "metadata" not in text_free
     visible_parts = [stage.prompt_text for session in withheld for stage in session.stages]
