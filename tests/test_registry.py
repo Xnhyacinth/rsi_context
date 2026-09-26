@@ -18,6 +18,7 @@ def test_project_registry_has_required_entries_and_modes() -> None:
 
     assert set(entries) == {
         "qwen3.6-27b",
+        "gemma-4-31b-it-tokenizer-intake",
         "llama-3.3-70b-instruct",
         "longbench-v2-data",
         "ruler-v1",
@@ -46,6 +47,14 @@ def test_project_registry_has_required_entries_and_modes() -> None:
         "kvpress",
     }
     assert entries["qwen3.6-27b"].integration == "direct"
+    gemma = entries["gemma-4-31b-it-tokenizer-intake"]
+    assert gemma.kind == "model"
+    assert gemma.integration == "adapter"
+    assert gemma.source_type == "huggingface"
+    assert gemma.revision == "842da3794eaa0b77d5f08bae87a17459d91ff475"
+    assert gemma.checksum.value == gemma.revision
+    assert gemma.checksum.verified
+    assert gemma.access == "public"
     assert entries["gepa"].integration == "adapter"
     assert entries["mce"].integration == "adapter"
     assert entries["recuris"].revision == "a0479b27a2d08b7fbf2607acf1841a06b121ee91"
