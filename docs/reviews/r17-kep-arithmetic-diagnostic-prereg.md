@@ -38,15 +38,18 @@ used: SHA-256
 
 The private rule-membership values under the authentic ordered-prefix rule are
 0m added to A and 300m added to B. The private effective request is 800m.
-If membership is wrong, the failure is in applying or retaining the rule after
-the order change; correct membership with a wrong effective request narrows it
-to aggregation arithmetic. These private values remain evaluator-only.
+Wrong membership suggests difficulty applying or retaining the rule after the
+order change. Correct membership with a wrong effective request suggests an
+aggregation difficulty. Because these are separate model calls, their combined
+pattern does not prove one causal failure point. These private values remain
+evaluator-only.
 For numeric replies, the evaluator records exact format, arithmetic correctness,
 whether the plan follows the *reported* number's 1000m threshold, and whether
 the plan is legal. None of these evaluator values appear in the prompts.
-If an incorrect reported number drives an internally consistent plan, the
-failure is arithmetic. If the number is 800m but the plan is `hold`, the
-failure is threshold mapping or decision execution. If the numeric calls differ
+An incorrect reported number with an internally consistent plan suggests a
+calculation or rule-application failure in that call. If the number is 800m
+but the plan is `hold`, the same-call evidence points to threshold mapping or
+decision execution. If the numeric calls differ
 by prior cue, anchoring is a plausible mechanism; one pair does not estimate an
 anchoring rate. A passing replay does not erase R16's failure. The R16 survey's
 `formula=prefix` is a coarse classification and may reflect prior knowledge or

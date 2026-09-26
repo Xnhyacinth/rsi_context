@@ -167,13 +167,13 @@ def interpret_reply(case: str, reply: str) -> dict[str, object]:
         }
     if case == CASE_ORDER[1]:
         membership = _MEMBERSHIP.fullmatch(answer)
+        a_sidecar = int(membership.group(1)) if membership else None
+        b_sidecar = int(membership.group(2)) if membership else None
         return {
             "valid_format": membership is not None,
-            "a_sidecar_m": int(membership.group(1)) if membership else None,
-            "b_sidecar_m": int(membership.group(2)) if membership else None,
-            "rule_membership_correct": bool(
-                membership and membership.group(1) == "0" and membership.group(2) == "300"
-            ),
+            "a_sidecar_m": a_sidecar,
+            "b_sidecar_m": b_sidecar,
+            "rule_membership_correct": a_sidecar == 0 and b_sidecar == 300,
             "effective_cpu_m": None,
             "plan": None,
             "arithmetic_correct": None,

@@ -149,6 +149,10 @@ def test_diagnostic_interpretation_separates_arithmetic_threshold_and_plan() -> 
     assert interpret_reply(
         "rule-membership", "a_sidecar_m=0\nb_sidecar_m=300"
     )["rule_membership_correct"] is True
+    padded = interpret_reply("rule-membership", "a_sidecar_m=00\nb_sidecar_m=0300")
+    assert padded["valid_format"] is True
+    assert padded["a_sidecar_m"] == 0 and padded["b_sidecar_m"] == 300
+    assert padded["rule_membership_correct"] is True
     assert interpret_reply(
         "rule-membership", "a_sidecar_m=300\nb_sidecar_m=300"
     )["rule_membership_correct"] is False
