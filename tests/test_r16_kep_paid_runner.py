@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import stat
@@ -41,6 +42,18 @@ _TOKENIZER = Path(
     )
 )
 _SECRET = "do-not-persist-r16-kep-secret"
+
+
+def _historical_registry_matches() -> bool:
+    launch = json.loads(runner._LAUNCH_PATH.read_text())
+    current = hashlib.sha256((_ROOT / "configs/registry.json").read_bytes()).hexdigest()
+    expected = launch["bound_file_sha256"]["configs/registry.json"]
+    return isinstance(expected, str) and expected == current
+
+
+def _require_historical_registry() -> None:
+    if not _historical_registry_matches():
+        pytest.skip("R16 synthetic chain requires its original registry-bound launch")
 
 
 @pytest.fixture(scope="module")
@@ -173,6 +186,7 @@ def test_constructed_rule_flips_only_second_private_legal_plan() -> None:
 def test_synthetic_full_chain_is_private_and_counts_all_calls(
     tokenizer: ChatTokenizer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    _require_historical_registry()
     monkeypatch.setenv("SIFLOW_API_KEY", _SECRET)
     monkeypatch.delenv("SIFLOW_BASE_URL", raising=False)
     monkeypatch.setattr(
@@ -215,6 +229,7 @@ def test_synthetic_full_chain_is_private_and_counts_all_calls(
 def test_failed_full_source_stops_before_controls_and_post_canary(
     tokenizer: ChatTokenizer, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    _require_historical_registry()
     monkeypatch.delenv("SIFLOW_BASE_URL", raising=False)
     calls: list[str] = []
     run_dir = tmp_path / "failed-full"
@@ -259,3 +274,36 @@ def test_forged_launch_refuses_before_credential_or_transport(
     assert result["failure_type"] == "ValueError"
     assert calls == []
     assert (tmp_path / "forged-run/final.json").exists()
+
+
+def test_current_registry_drift_refuses_before_credentials_or_http(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    if _historical_registry_matches():
+        pytest.skip("current registry still matches the historical R16 launch")
+    with pytest.raises(ValueError, match=r"configs/registry\.json"):
+        runner._read_launch()
+    monkeypatch.setattr(
+        runner,
+        "resolve_api_endpoint",
+        lambda *_args, **_kwargs: pytest.fail("registry drift looked up credentials"),
+    )
+    calls: list[str] = []
+
+    def fake(_request: urllib.request.Request, _timeout: float) -> bytes:
+        calls.append("called")
+        return b""
+
+    run_dir = tmp_path / "registry-drift"
+    result = runner.run_guarded(
+        source_root=_SOURCE,
+        tokenizer_path=_TOKENIZER,
+        run_dir=run_dir,
+        transport_override=fake,
+    )
+    assert result["status"] == "refused-or-interrupted"
+    assert result["failure_type"] == "ValueError"
+    assert result.get("attempted_http_calls", 0) == 0
+    assert calls == []
+    assert not (run_dir / "pre_canary.json").exists()
+    assert (run_dir / "final.json").exists()
