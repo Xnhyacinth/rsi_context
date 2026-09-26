@@ -93,17 +93,25 @@ ignored immutable output path; publish only a development summary.
 ## Decision rules and next queue
 
 The two authentic full cases must both complete with opposite plans before
-the other paid diagnostics have scientific value. Withheld and swapped cases
-test source dependence; the deletion case asks whether the table row matters
-beyond version-era cues; empty carry is interpretable only under the explicit
-no-reread arm. The initial review receipt tests procedural provenance, not
-source understanding. This eight-case inspected sample cannot estimate the
+the other paid diagnostics have scientific value. The withheld cases check
+the frozen policy's no-source guard: it refuses before calling the model, so
+they are **not** a model source-free baseline. Source swaps test whether the
+model-authored action follows the substituted document. The deletion case
+records the model's behavior after one table row is removed; the 1.43 source
+still has 18 other `db.query.text` mentions and explicit parameterized-query
+guidance at pinned `docs/db/database-spans.md:221-226`, so a correct answer
+there can remain source-supported and cannot
+establish that the table row was unused. Empty carry with no reread tests the
+policy's reset branch, not a model memory capability. The initial review
+receipt tests procedural provenance, not source understanding. This
+eight-case inspected sample cannot estimate the
 registered ≥16-item difficulty floor, any `≥0.90` saturation kill, `≥20%`
 top-two policy disagreement, position robustness, or parent-level effect.
 
 If the stop-early test survives, next freeze a separate ≥16-item development
-panel with two reader families, full/source-free/decisive-removal and
-equal-length irrelevant controls, early/middle/late placements, complete
+panel with two reader families, a model-invoked source-free arm, target-row
+transplant or other-cue neutralization, equal-length irrelevant controls,
+early/middle/late placements, complete
 project outcomes, named failures, and provider usage. These are development
 items; any inspected task cannot later serve as an unseen gate. A qualified
 parent count changes only after that evidence and the R9 identity/causality
