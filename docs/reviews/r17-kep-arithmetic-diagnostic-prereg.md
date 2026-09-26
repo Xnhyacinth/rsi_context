@@ -85,10 +85,34 @@ uv run --frozen --no-sync --with transformers==5.15.0 \
   --tokenizer-path /volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b
 ```
 
-The R17 branch contains **no live transport or credential resolution**. Paid
-admission is therefore **not yet granted**. A separate reviewed runner must
-bind committed producer bytes and this registration before credentials, journal
-each dispatch and provider usage, enforce the four-task/two-canary cap and
-exact model/stop/input parity, and stop on a contract failure. The R16 paid
-artifact directory must remain immutable. Even if that runner completes, report
-the R17 result as a conditioned mechanism diagnostic, not a qualified parent.
+The guarded runner is
+[`scripts/r17_kep_diagnostic_paid_runner.py`](../../scripts/r17_kep_diagnostic_paid_runner.py).
+Its frozen launch manifest is
+[`configs/r17_kep_diagnostic_paid_launch_v1.json`](../../configs/r17_kep_diagnostic_paid_launch_v1.json),
+SHA-256 `353e138ee3392bfbda0376d9f623a453820ebb85f52a664dcf5312f44686b020`.
+It binds committed producer/registry/profile bytes, tokenizer snapshot and
+runtime, source revision and README, and the immutable R16 observation before
+credential resolution. Its private, fsynced attempt log records each dispatch
+before transport and the response hash and usage afterward. The runner enforces
+four task calls, two exact-profile canaries, six total HTTP attempts, zero
+auxiliary calls, exact model/stop/provider-input parity and the 13,618 planning
+ceiling. It stops on protocol or usage failure and never retries or overwrites
+an existing run directory. The synthetic full-chain test uses an injected
+transport and is not model evidence.
+
+**Paid admission remains pending independent code and science review.** No R17
+Siflow request has been made. After that review, the prospective command is:
+
+```bash
+uv run --frozen --no-sync --with transformers==5.15.0 \
+  --with tokenizers==0.22.2 --with jinja2==3.1.6 \
+  python scripts/r17_kep_diagnostic_paid_runner.py --execute \
+  --source-root /volume/pt-dev/qjiu/rsi_context_external/data/kubernetes-enhancements-kep753 \
+  --r16-task /volume/pt-dev/qjiu/rsi_context_external/r16-paid-runs/kep-development-v1/task.json \
+  --tokenizer-path /volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b \
+  --run-dir /volume/pt-dev/qjiu/rsi_context_external/r17-paid-runs/kep-diagnostic-v1
+```
+
+The R16 paid artifact directory must remain immutable. Even if R17 paid
+execution completes, report it as a conditioned mechanism diagnostic, not a
+qualified parent.
