@@ -76,6 +76,7 @@ class _Worker:
     preflight: Preflight
     transport: Transport
     attempts: list[dict[str, object]] = field(default_factory=list)
+    preflight_failures: list[dict[str, str]] = field(default_factory=list)
     failed: bool = False
 
     def __call__(self, prompt: str) -> str:
@@ -84,11 +85,27 @@ class _Worker:
         if len(self.attempts) >= MAX_WORKER_ATTEMPTS:
             self.failed = True
             raise _AbortAfterFailure("worker request cap reached")
-        geometry = self.preflight(prompt)
+        try:
+            geometry = self.preflight(prompt)
+        except Exception as exc:
+            self.failed = True
+            self.preflight_failures.append(
+                {
+                    "prompt_sha256": _sha(prompt.encode("utf-8")),
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            raise
         if not isinstance(geometry, dict) or geometry.get("prompt_sha256") != _sha(
             prompt.encode("utf-8")
         ):
             self.failed = True
+            self.preflight_failures.append(
+                {
+                    "prompt_sha256": _sha(prompt.encode("utf-8")),
+                    "error": "prompt geometry is missing or mismatched",
+                }
+            )
             raise ValueError("prompt geometry is missing or mismatched")
         attempt: dict[str, object] = {
             "index": len(self.attempts),
@@ -317,6 +334,7 @@ def run_development_pilot(
             ),
         },
         "attempts": worker.attempts,
+        "preflight_failures": worker.preflight_failures,
         "cases": cases,
     }
 

@@ -133,6 +133,31 @@ def test_non_stop_finish_reason_is_counted_and_stops() -> None:
     assert result["status"] == "stopped-on-worker-failure"
 
 
+def test_preflight_failure_stops_before_network() -> None:
+    calls = 0
+
+    def preflight(prompt: str) -> dict[str, object]:
+        raise ValueError("source span unavailable")
+
+    def transport(request: urllib.request.Request, timeout: float) -> bytes:
+        nonlocal calls
+        calls += 1
+        return _stream("parameters=copy_data")
+
+    result = run_development_pilot(
+        _pair("16"),
+        _pair("17"),
+        profile=_PROFILE,
+        endpoint=_ENDPOINT,
+        preflight=preflight,
+        transport=transport,
+    )
+    assert calls == 0
+    assert result["status"] == "stopped-on-worker-failure"
+    assert result["worker_attempt_count"] == 0
+    assert len(cast(list[dict[str, str]], result["preflight_failures"])) == 1
+
+
 def test_all_eight_fake_provider_trajectories_respect_global_cap() -> None:
     fake = FakeCatalogWorker()
 
