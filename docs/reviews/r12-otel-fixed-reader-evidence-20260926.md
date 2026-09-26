@@ -109,3 +109,33 @@ complete project outcomes. Already inspected items cannot serve as unseen
 gates. The separate researcher pretest additionally needs a trusted host and
 a new jailed-brokered entrypoint; see the
 [execution-boundary audit](r12-researcher-execution-boundary-audit-20260926.md).
+The distinct-card intake and conditional cost envelope are detailed in the
+[R13 feasibility plan](r13-difficulty-panel-feasibility-20260926.md); it is
+not a frozen or authorized provider campaign.
+
+## Verification and review
+
+The full test run used pinned PEP, PostgreSQL 16/17 and OTel 1.24/1.43 source
+roots, a test-only dummy Siflow key with no live endpoint, and a temporary
+link to the shared PopQA corpus. The corpus SHA256 was
+`ca74dec945e9c837be4d7739da2194fbb09b6f8d5affa9823d979936c63fc89f`
+before and after; the link was removed. **1,416 tests passed, 16 skipped**
+in 573.66 seconds with **80.67% branch coverage** above the configured 80%
+floor. Fifteen skips were the fail-closed `/usr/bin` jail trust gate; the
+remaining live researcher smoke had no endpoint. Raw pytest log SHA256:
+`d15302c793accb88beb34e1e8b557f62983e6544f4691cbbe755bc814a01f6d2`.
+
+Repository-wide Ruff passed and strict mypy found zero issues in **353**
+files. Bandit reported the unchanged baseline of **81 LOW, two existing B102
+MEDIUM, zero HIGH**; no R12 runtime file had a finding. The MEDIUM sites are
+`scripts/arm_comparison_v2.py:119` and `scripts/trajectory_v3.py:375`, whose
+legacy live paths remain closed. Bandit JSON SHA256:
+`4a042cf2d5640bf63c023b42424a5435a8c2837236fb2caf0fc6c153374334b7`.
+
+The pre-API `codex review --base origin/main` reported no actionable code
+regression after the pinned-source focused tests and scoped static checks;
+its raw log SHA256 is
+`cd572e6539667ea59bcb3d708d296ca669db1e5017abfe22fe4d51a29fa370f8`.
+An independent scientific review identified the withheld-arm and residual
+row-deletion cues, which were reflected in the preregistration **before**
+the provider task screen and in the claim boundary above.
