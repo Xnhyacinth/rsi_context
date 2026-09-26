@@ -4,7 +4,7 @@
   "geometry_sha256": "c491cfb800aa3a2bdef794ca2cf4dd01780df1c9663085aaa14f7672cb720f63",
   "canary_registration_sha256": "09e7be58ad1b379d0ca41c403d5bd9dad6bc4203aef885e2d22303af3f3eaecf",
   "canary_script_sha256": "d182b52aacfc3f0fe7a0eb71b081de8bfbb0c86d3e188594d001c71086471f94",
-  "runner_script_sha256": "480b78ee1be40372098ffb6c87c3e2601031819b4ac3395a85b2e67cf5febf24",
+  "runner_script_sha256": "c00f963e078bbc1b304cb32b874d5e954bbcb84e56f1cd70d16fc60103195bb1",
   "endpoint_sha256": "b49d7116deaf5df5ed7102ea5d67a9b4ab6a7d5fb0808bb9ef540e0e400234d7",
   "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
   "task_call_cap": 12,
