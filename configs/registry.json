@@ -20,6 +20,24 @@
       "notes": "Revision existence verified on 2026-08-14. Native 262144-token model; test a newer immutable revision if later model-card updates are required."
     },
     {
+      "id": "gemma-4-31b-it-tokenizer-intake",
+      "name": "Gemma 4 31B IT tokenizer intake",
+      "kind": "model",
+      "integration": "adapter",
+      "source_type": "huggingface",
+      "url": "https://huggingface.co/google/gemma-4-31B-it",
+      "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+      "license": "Apache-2.0",
+      "size_bytes": null,
+      "access": "public",
+      "checksum": {
+        "algorithm": "hf-revision",
+        "value": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+        "verified": true
+      },
+      "notes": "Tokenizer and processor metadata intake only for offline final-chat geometry; acquire only six explicitly audited small files at this revision. The generic full-model download plan must never be executed for this entry. No local weights, serving claim, or reader result."
+    },
+    {
       "id": "llama-3.3-70b-instruct",
       "name": "Llama-3.3-70B-Instruct",
       "kind": "model",

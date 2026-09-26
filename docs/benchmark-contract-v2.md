@@ -146,10 +146,10 @@ action dependency, environment change. Static long-QA items are diagnostics
 and are labeled as such; they never masquerade as long-horizon tasks.
 
 Task-identity rules from the v1 contract remain binding per family:
-complete-evidence solvability, non-saturation over the actual reachable
-policy space, position balance, and causal dependence on gold evidence, each
-enforced with pre-registered difficulty kills (no policy ≥ 0.90; top-two
-policy disagreement ≥ 20% on-screen panels).
+complete-evidence solvability, position balance, and causal dependence on
+gold evidence. The numerical difficulty kills in the earlier v1 contract are
+retired by [`rsi-core-spec-v1.md`](rsi-core-spec-v1.md); legal saturation is
+reported rather than hidden.
 
 ## Participants and controls
 

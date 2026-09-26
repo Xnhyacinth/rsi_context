@@ -1,0 +1,175 @@
+{
+  "auxiliary_call_cap": 0,
+  "canary_call_cap": 2,
+  "canary_registration_sha256": "cd535eecd54f99d4822d631efad942f1e874f15ac535b98bc32d2582293e4953",
+  "case_order": [
+    "authentic-pack",
+    "constructed-file-sequence",
+    "source-free",
+    "identity-only"
+  ],
+  "endpoint_sha256": "b49d7116deaf5df5ed7102ea5d67a9b4ab6a7d5fb0808bb9ef540e0e400234d7",
+  "global_call_cap": 10,
+  "global_local_plus_requested_ceiling": 72052,
+  "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+  "qualified_parent": false,
+  "r18_geometry_sha256": "aec96c97e921163431f306728c5469ce8e9673186a73f19b0de46f90afa35448",
+  "registered_requests": [
+    {
+      "local_template_geometry": {
+        "rendered_input_tokens": 24883
+      },
+      "messages_sha256": "a956d9f9b72413c04214d964e192620f9bc64aaad063479d7f5fcea5dfe3f650",
+      "owner": "authentic-pack",
+      "prompt_sha256": "b0119c662bc788641a9db257b2980fad8e18f4b38ecabe2699c6737da3d6634a",
+      "request_sha256": "6393a21e09e85114f3add279de5142a44449a972c5f3519165fcdb754b525a3a",
+      "stage": "survey"
+    },
+    {
+      "local_template_geometry": {
+        "rendered_input_tokens": 24894
+      },
+      "messages_sha256": "891dc9679074a5eeb123baa26be71da806fe8757e4ad28aefee435d8790bd805",
+      "owner": "constructed-file-sequence",
+      "prompt_sha256": "aefb126a71359d73ef560d1bba217721c0520398f912ca00bd0d82e7acb35dfb",
+      "request_sha256": "5fbfb4e4bbd4385786258acaed148adac068c496f88f92fddf7bafdb8ed3b1c9",
+      "stage": "survey"
+    },
+    {
+      "local_template_geometry": {
+        "rendered_input_tokens": 126
+      },
+      "messages_sha256": "ddb8c4db1c866f78eb01b554a35ab38c8e4ffe34026f374162f7d892e704d7c0",
+      "owner": "source-free",
+      "prompt_sha256": "fd51a1b3c884443b49e5ca0789eea3c24968c426a5f3dbac632f180a7bd9ab30",
+      "request_sha256": "2a7ea400b33fc0e2b4d7b6ab405f9e8c7fdf288e32f8e7f4dae43ada0b2b8942",
+      "stage": "survey"
+    },
+    {
+      "local_template_geometry": {
+        "rendered_input_tokens": 261
+      },
+      "messages_sha256": "99c2d01479e7dd79badbd359992d9dda16926780f2620422116024bfac1d4c27",
+      "owner": "identity-only",
+      "prompt_sha256": "31f5de5a521bd719f1c21fe3a3ee6f6edbf2b24494a994a8f6d08f1f74d3a6dc",
+      "request_sha256": "773fe22685b6b9ccd85b9625fdb5691aacf8d42e3e21eaef06ef4235279994a5",
+      "stage": "survey"
+    },
+    {
+      "local_template_geometry": {
+        "rendered_input_tokens": 321
+      },
+      "messages_sha256": "7367ad8364bc4d1c5f9d00dfaa724282f847d330368770af2347bd33983b1e9d",
+      "owner": "counter=data; bound=strict; partition=same-or-global; row=all-equality-ids",
+      "prompt_sha256": "e6610a22057fec5896e8714dbdcc5b0cd3cbb6eb7afb61237fdbdd1c0531811a",
+      "request_sha256": "b3bec5d51f987ec30f53116c5d64600759e665d56ecbfdf5e495037333c429ed",
+      "stage": "decision"
+    },
+    {
+      "local_template_geometry": {
+        "rendered_input_tokens": 321
+      },
+      "messages_sha256": "985828d423bfcb2438e13d501844e5527592a8fd6e56fdc5e45eb65a1635859e",
+      "owner": "counter=file; bound=strict; partition=same-or-global; row=all-equality-ids",
+      "prompt_sha256": "dc4648824ea8ff0a47450422c48b1ed7b4e1aa10c75cc1f71beec0d697dc7723",
+      "request_sha256": "18ffad6fc052772349dc21f4b071f2bcf5d5bbb8cbbcf313446a1d5af819f24e",
+      "stage": "decision"
+    },
+    {
+      "local_template_geometry": {
+        "rendered_input_tokens": 317
+      },
+      "messages_sha256": "ae981197cbab5f9de98492ff27f7c4c7d1c67f479b0968506339b896e080dbf6",
+      "owner": "counter=unknown; bound=unknown; partition=unknown; row=unknown",
+      "prompt_sha256": "a925407a3d17d44305b94ab2e7f29f0774c99ae265ca458df9dc1719c397414a",
+      "request_sha256": "dc577b543028cfc6119091d8f54db9d35c0406d13fc63ffe011a742fe0d30bc9",
+      "stage": "decision"
+    }
+  ],
+  "registry_sha256": "7ac3a92dcbf9128c2b39ef16978bb9d08854612a85126b98165f62ecd8a9c1a0",
+  "schema_version": 1,
+  "scope": "r19-iceberg-prospective-fixed-reader-offline",
+  "source": {
+    "constructed_not_upstream": true,
+    "constructed_pack_sha256": "a4d0e6a0a3f1e7097d42e1cee3f3ebb83fb9c081e10eebe9ae3c2e10c4925493",
+    "license_sha256": "2c0e4b3b8c7a873194c6517058f9a62c59fa00a37d1e24bf80a538e1c885b9b2",
+    "pack_byte_interval": [
+      6608,
+      125333
+    ],
+    "pack_bytes": 118725,
+    "pack_sha256": "51863fe50379b9fe460206cf0ecb58d9c238239058604f87e209497de548dc45",
+    "revision": "071d5606bc6199a0be9b3f274ec7fbf111d88821",
+    "source_bytes": 184975,
+    "source_sha256": "e68cd90f7e243f33996717f877077e40773a8ffb57978232458b9e5bf2b9c5cb",
+    "source_url": "https://github.com/apache/iceberg/blob/071d5606bc6199a0be9b3f274ec7fbf111d88821/format/spec.md",
+    "spans": [
+      {
+        "end_byte": 8468,
+        "original_sha256": "3ab428d0c30b10462da01c939aa6b9d01e1982f6421bb0f38a685eb4eaf20598",
+        "replacement_bytes": 330,
+        "replacement_sha256": "68b045cd1f13981423f12218f29af6fafc05988613124221f0dd3061e59d223e",
+        "start_byte": 8154
+      },
+      {
+        "end_byte": 70437,
+        "original_sha256": "c26e375bb51ac761e673c8f6b9ff95454a1df5ac84244cae2455416db3d3bb9a",
+        "replacement_bytes": 585,
+        "replacement_sha256": "2a074174827977e8cd45ae52c8e0b796e317a4d37aeda3b3b2281117d7d156b2",
+        "start_byte": 69879
+      },
+      {
+        "end_byte": 89846,
+        "original_sha256": "15ca68c6fb5aaf6d62d8af08ea0e55d98dc46cb610ab86bf6ede8b9f3576687d",
+        "replacement_bytes": 110,
+        "replacement_sha256": "df334f45668f42a01b3b911555754919e50ad39683a1bc368d42b1f21183493c",
+        "start_byte": 89745
+      },
+      {
+        "end_byte": 90137,
+        "original_sha256": "f4ff4b27425c449351999c44aa4f30dd95cc9f9129b6e08f9ba093d6593bb4c5",
+        "replacement_bytes": 169,
+        "replacement_sha256": "365f3a782cae438cc6c366522e13206d40b108cd44a300279a5a61f0ac5707b6",
+        "start_byte": 90014
+      }
+    ],
+    "untouched_segments_exact": true
+  },
+  "source_git": {
+    "clean": true,
+    "detached": true,
+    "head": "071d5606bc6199a0be9b3f274ec7fbf111d88821",
+    "origin": "https://github.com/apache/iceberg.git"
+  },
+  "task_call_cap": 8,
+  "task_local_plus_requested_ceiling": 67832,
+  "task_local_worst_case_input_tokens": 51448,
+  "tokenizer_files_sha256": {
+    "chat_template.jinja": "e84f32a23fdda27689f868aa4a1a5621f41133e51a48d7f3efcbea2839574259",
+    "tokenizer.json": "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+    "tokenizer_config.json": "dbfb3c20ce3d5b8370faeecd548e771c1dcc8e4fdcf636797fc24b0d0733fb02"
+  },
+  "tokenizer_runtime": {
+    "jinja2": "3.1.6",
+    "tokenizers": "0.22.2",
+    "transformers": "5.15.0"
+  },
+  "world_sha256": {
+    "authentic-pack": [
+      "004a3fa0a5e7bad900dc06d2f28eee22ed57dc3b7feca7dec981a3e34e182ebe",
+      "4d1a03f7dc0e21bf6dd3ee306409cb31a350bace1a5030a1be0d740a9367b406"
+    ],
+    "constructed-file-sequence": [
+      "d63708d473b22f028c2d276bfb5497c9ea74a4684bd17038e544d4263d83f815",
+      "90161428c22dc6c2f2d573df5adf11f017670c1bf9ccb6b0b92cc62b7d386ee0"
+    ],
+    "identity-only": [
+      "e0d5fa11ef40be442963faf80444020a19e546a32b7b62b29ac69bae0d26ee08",
+      "4d1a03f7dc0e21bf6dd3ee306409cb31a350bace1a5030a1be0d740a9367b406"
+    ],
+    "source-free": [
+      "ac7af1de0ac77b5dbef04310556389bd57564c1f717efcff14a3809377d3edba",
+      "4d1a03f7dc0e21bf6dd3ee306409cb31a350bace1a5030a1be0d740a9367b406"
+    ]
+  }
+}
