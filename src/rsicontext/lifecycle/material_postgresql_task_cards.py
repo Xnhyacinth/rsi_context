@@ -29,19 +29,22 @@ _REQUESTS: dict[TaskCardId, str] = {
         "can initialize and copy now; otherwise choose plan=stage-disconnected, "
         "which creates a disconnected subscription and defers slot creation, "
         "enablement, and refresh until the publisher is available and the "
-        "operator can complete those steps. Request a "
-        "decision-reviewed receipt for the selected plan before finalizing. "
+        "operator can complete those steps. Create and finalize the project-state "
+        "record task_decision with the selected plan after requesting a "
+        "decision-reviewed receipt. "
         "The receipt confirms local review, not database execution."
     ),
     "binary-initial-copy": (
         "BENCHMARK SANDBOX ONLY. Initial table synchronization is required. "
+        "The publisher is PostgreSQL 16 or newer. "
         "The publisher has a binary send function for one published data type, "
         "but the subscriber lacks its binary receive function. Text input "
         "and output for that type are compatible on both sides, and all "
         "other replication prerequisites are satisfied. Choose "
         "plan=use-binary-copy if binary=true can complete this initial copy; "
-        "otherwise choose plan=use-text-copy with binary=false. Request a "
-        "decision-reviewed receipt for the selected plan before finalizing. "
+        "otherwise choose plan=use-text-copy with binary=false. Create and "
+        "finalize the project-state record task_decision with the selected plan "
+        "after requesting a decision-reviewed receipt. "
         "The receipt confirms local review, not database execution."
     ),
 }

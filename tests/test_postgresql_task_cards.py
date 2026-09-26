@@ -26,6 +26,16 @@ SOURCE_ENV = {
     "17": "RSICONTEXT_POSTGRESQL_SOURCE_ROOT",
 }
 CARDS: tuple[TaskCardId, ...] = ("connect-offline", "binary-initial-copy")
+EXPECTED_REQUEST_IDENTITY = {
+    "connect-offline": (
+        819,
+        "6eef2d6283b3b721d462ea83ea2a4b02fea8dff53097108b49a8b64d5c73267c",
+    ),
+    "binary-initial-copy": (
+        733,
+        "883fa202221f692630f87cd1431a3aaa146c15a86a7d24a9abb2fa0d27335cd6",
+    ),
+}
 EXPECTED_SPAN_SHA256 = {
     "16": {
         "connect": "1266ee9c19eda3fb0da9cebfbc41095a14db7c316a51f7c57dcfb8f9157d55a0",
@@ -83,6 +93,15 @@ def test_revisions_have_identical_non_source_stage_views(card_id: TaskCardId) ->
     assert older[1].stages[2].verification_oracle == newer[1].stages[2].verification_oracle
 
 
+@pytest.mark.parametrize("card_id", CARDS)
+def test_constructed_request_identity_is_pinned_for_both_revisions(card_id: TaskCardId) -> None:
+    expected_size, expected_hash = EXPECTED_REQUEST_IDENTITY[card_id]
+    for revision in ("16", "17"):
+        request = _sessions(revision, card_id)[1].stages[1].documents[0].text.encode("utf-8")
+        assert len(request) == expected_size
+        assert hashlib.sha256(request).hexdigest() == expected_hash
+
+
 @pytest.mark.parametrize("revision", ("16", "17"))
 def test_decisive_sgml_spans_match_reviewed_hashes(revision: str) -> None:
     raw = (_source_root(revision) / "doc/src/sgml/ref/create_subscription.sgml").read_bytes()
@@ -138,6 +157,9 @@ def on_turn(turn):
     if stage == "project-request-stage":
         request = turn.view.documents[0].text
         carry = state.get("carry", {})
+        target = re.search(r"project-state record ([a-z][a-z_]+) with the selected plan", request)
+        if target is None:
+            return {"pack_text": "missing record target", "errors": ["missing record target"]}
         if "connect=false" in request:
             supported = carry.get("connect_forces_false", False)
             plan = "stage-disconnected" if supported else "launch-with-copy"
@@ -147,9 +169,11 @@ def on_turn(turn):
         else:
             return {"pack_text": "unknown request", "errors": ["unknown request"]}
         state["chosen_plan"] = plan
+        state["decision_record"] = target.group(1)
         return {"pack_text": "request resolved from carry"}
     if stage == "decide-task":
         plan = state.get("chosen_plan")
+        record_id = state.get("decision_record")
         phase = state.get("decision_phase", 0)
         state["decision_phase"] = phase + 1
         if phase == 0:
@@ -157,8 +181,8 @@ def on_turn(turn):
                 turn.actions.request_verification("decision-receipt", "decision-reviewed", plan),
             )}
         return {"pack_text": "commit decision", "actions": (
-            turn.actions.create_record("task_decision", {"plan": plan}),
-            turn.actions.finalize("task_decision", {"plan": plan, "status": "final"},
+            turn.actions.create_record(record_id, {"plan": plan}),
+            turn.actions.finalize(record_id, {"plan": plan, "status": "final"},
                                   ("decision-receipt",)),
         )}
     return {"pack_text": "observed"}
@@ -204,6 +228,44 @@ def test_constructed_source_aware_action_and_receipt_chain(
         assert env.records["task_decision"]["plan"] == expected
         assert env.records["decision-receipt"]["verdict"] == "pass"
         assert "decision-receipt" in env.verification_record_ids
+
+
+@pytest.mark.parametrize("card_id", CARDS)
+def test_decision_record_target_comes_from_visible_request(card_id: TaskCardId) -> None:
+    first, second = _sessions("16", card_id)
+    request_stage = second.stages[1]
+    request = request_stage.documents[0]
+    assert "project-state record task_decision with the selected plan" in request.text
+    renamed = "reviewed_project_plan"
+    request_stage = replace(
+        request_stage,
+        documents=(replace(request, text=request.text.replace("task_decision", renamed)),),
+    )
+    decision_stage = second.stages[2]
+    precondition = dict(decision_stage.commit_precondition or {})
+    precondition["record_id"] = renamed
+    decision_stage = replace(
+        decision_stage,
+        expected_state_delta={renamed: {"status": "final"}},
+        commit_precondition=precondition,
+    )
+    second = replace(
+        second,
+        stages=(second.stages[0], request_stage, decision_stage, second.stages[3]),
+        sandbox_spec={
+            "records": ["source_review", renamed],
+            "action_kinds": ["create_record", "finalize", "request_verification"],
+        },
+    )
+    record, env = _run((first, second))
+    assert record.decisions == {"prior": True, "later": True}
+    assert renamed in env.finalized_record_ids
+    assert "task_decision" not in env.records
+
+
+def test_binary_card_excludes_pre_16_publisher_initial_copy_exception() -> None:
+    request = _sessions("16", "binary-initial-copy")[1].stages[1].documents[0].text
+    assert "publisher is PostgreSQL 16 or newer" in request
 
 
 @pytest.mark.parametrize("card_id", CARDS)
