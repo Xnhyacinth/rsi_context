@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import stat
+from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 from typing import cast
 
@@ -14,8 +16,10 @@ from rsicontext.experiment.brokered_researcher_pretest import (
     AdmissionPlan,
     ResearcherDraw,
     preflight_runtime,
-    run_offline_admission,
     stage_audited_snapshot,
+)
+from rsicontext.experiment.brokered_researcher_pretest import (
+    run_offline_admission as _run_offline_admission,
 )
 from rsicontext.security.policy_jail import JailSetupError, StagedPolicyJail
 
@@ -56,6 +60,24 @@ def _complete(policy: bytes = _CHANGED) -> ResearcherDraw:
         output_tokens=20,
         total_tokens=30,
         usage_source="provider",
+    )
+
+
+def run_offline_admission(
+    plan: AdmissionPlan,
+    *,
+    output: Path,
+    preflight: Callable[[], dict[str, str]],
+    draw: Callable[[int], ResearcherDraw],
+) -> dict[str, object]:
+    return _run_offline_admission(
+        plan,
+        baseline_policy_bytes=_BASELINE,
+        source_bytes=b"source",
+        visible_feedback_bytes=b"feedback",
+        output=output,
+        preflight=preflight,
+        draw=draw,
     )
 
 
@@ -296,3 +318,59 @@ def test_preflight_identity_records_only_expected_hashes(tmp_path: Path) -> None
     )
     assert result["host_preflight"] == _host()
     assert "must-not-persist" not in (output / "result.json").read_text()
+
+
+@pytest.mark.parametrize(
+    ("material_name", "replacement"),
+    [
+        ("baseline_policy_bytes", b"other baseline"),
+        ("source_bytes", b"other source"),
+        ("visible_feedback_bytes", b"other visible feedback"),
+    ],
+)
+def test_declared_material_hash_mismatch_refuses_before_preflight_and_draw(
+    tmp_path: Path, material_name: str, replacement: bytes
+) -> None:
+    called: list[str] = []
+
+    def host() -> dict[str, str]:
+        called.append("host")
+        return _host()
+
+    def draw(_index: int) -> ResearcherDraw:
+        called.append("draw")
+        return _complete()
+
+    materials = {
+        "baseline_policy_bytes": _BASELINE,
+        "source_bytes": b"source",
+        "visible_feedback_bytes": b"feedback",
+    }
+    materials[material_name] = replacement
+    with pytest.raises(ValueError, match=f"{material_name} differs"):
+        _run_offline_admission(
+            _plan(1),
+            output=tmp_path / "admission",
+            preflight=host,
+            draw=draw,
+            **materials,
+        )
+    assert called == []
+    assert not (tmp_path / "admission").exists()
+
+
+def test_false_baseline_digest_cannot_turn_unchanged_policy_into_valid_update(
+    tmp_path: Path,
+) -> None:
+    false_plan = replace(_plan(1), baseline_sha256="0" * 64)
+    with pytest.raises(ValueError, match="baseline_policy_bytes differs"):
+        _run_offline_admission(
+            false_plan,
+            baseline_policy_bytes=_BASELINE,
+            source_bytes=b"source",
+            visible_feedback_bytes=b"feedback",
+            output=tmp_path / "admission",
+            preflight=_host,
+            draw=lambda _: _complete(_BASELINE),
+        )
+    assert not (tmp_path / "admission").exists()

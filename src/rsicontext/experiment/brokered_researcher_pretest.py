@@ -270,6 +270,9 @@ def _provider_complete(draw: ResearcherDraw, expected_model: str) -> bool:
 def run_offline_admission(
     plan: AdmissionPlan,
     *,
+    baseline_policy_bytes: bytes,
+    source_bytes: bytes,
+    visible_feedback_bytes: bytes,
     output: Path,
     preflight: Callable[[], dict[str, str]],
     draw: Callable[[int], ResearcherDraw],
@@ -280,6 +283,15 @@ def run_offline_admission(
     live researcher provider is wired, so audited-and-exercised remains zero.
     """
 
+    for name, material, declared_sha256 in (
+        ("baseline_policy_bytes", baseline_policy_bytes, plan.baseline_sha256),
+        ("source_bytes", source_bytes, plan.source_sha256),
+        ("visible_feedback_bytes", visible_feedback_bytes, plan.feedback_sha256),
+    ):
+        if not isinstance(material, bytes):
+            raise TypeError(f"{name} must be exact bytes")
+        if _sha256(material) != declared_sha256:
+            raise ValueError(f"{name} differs from the declared SHA256")
     if output.exists() or output.is_symlink():
         raise FileExistsError(f"admission output exists: {output}")
     parent = output.parent.lstat()
@@ -349,7 +361,7 @@ def run_offline_admission(
                 )
                 record.update(snapshot)
                 if snapshot["status"] == "audited":
-                    if snapshot["policy_sha256"] == plan.baseline_sha256:
+                    if candidate.policy_bytes == baseline_policy_bytes:
                         record["status"] = "unchanged"
                     elif not _provider_complete(candidate, plan.researcher_model):
                         record["status"] = "researcher-response-unverified"

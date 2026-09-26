@@ -30,8 +30,12 @@ incapable of issuing provider requests or evaluating candidate success.
 
 2. `AdmissionPlan` freezes the planned draw count (1–16), source, visible
    feedback, baseline-policy hashes, model names, and candidate byte cap.
-   `run_offline_admission` writes all planned draw rows with denominator before
-   the first offline draw. Timeout, adapter failure, invalid bytes, source
+   `run_offline_admission` requires the exact baseline, source, and visible
+   feedback bytes and checks each against its declared hash **before** host
+   preflight, output creation, or draw. An unchanged candidate is compared
+   with the verified baseline bytes. It writes all planned draw rows with the
+   denominator before the first offline draw. Timeout, adapter failure,
+   invalid bytes, source
    audit failure, unchanged policy, model-echo mismatch, non-stop completion,
    unknown usage, and cap refusal remain in that denominator.
 3. The output parent must be owned and private (0700). The admission output,
