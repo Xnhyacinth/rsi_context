@@ -130,6 +130,8 @@ def test_frozen_geometry_has_exact_budget_and_decisive_rule_spans(
 
 
 def test_constructed_rule_flips_only_second_private_legal_plan() -> None:
+    if not _SOURCE.is_dir():
+        pytest.skip("pinned KEP source checkout unavailable")
     sessions = build_k8s_resource_order_sessions(_SOURCE)
     cases = dict(case_materials(sessions))
     full = cases["full-source"]
