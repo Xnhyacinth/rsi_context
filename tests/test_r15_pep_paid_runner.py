@@ -80,13 +80,15 @@ def _launch() -> dict[str, object]:
     }
 
 
-def _stream(answer: str, model: str, input_tokens: int, sequence: int) -> bytes:
+def _stream(
+    answer: str, model: str, input_tokens: int, sequence: int, completion_tokens: int = 1
+) -> bytes:
     identity = {"id": f"fake-r15-{sequence}", "model": model}
     first = {**identity, "choices": [{"delta": {"content": answer}, "finish_reason": "stop"}]}
     usage = {
         **identity,
         "choices": [],
-        "usage": {"prompt_tokens": input_tokens, "completion_tokens": 1},
+        "usage": {"prompt_tokens": input_tokens, "completion_tokens": completion_tokens},
     }
     return (
         "data: " + json.dumps(first) + "\n\ndata: " + json.dumps(usage) + "\n\ndata: [DONE]\n\n"
@@ -127,8 +129,13 @@ def _fake_transport(
                     if "form=license-string" in prompt
                     else "plan=license-table"
                 )
+                if failure == "full-task-wrong-plan" and len(calls) == 3:
+                    answer = "plan=license-string"
         model = "bad-model" if failure == "pre-canary-model" and len(calls) == 1 else body["model"]
-        return _stream(answer, model, tokens, len(calls))
+        return _stream(
+            answer, model, tokens, len(calls),
+            completion_tokens=2 if prompt == canary.PROMPT else 1,
+        )
 
     return fake
 
@@ -233,6 +240,27 @@ def test_failure_persists_safe_attempt_and_stops_later_dispatch(
     if failure == "transport-secret":
         assert "transport-failed" in journal
         assert cast(dict[str, int], result["synthetic_usage"])["unknown_usage_attempts"] == 1
+
+
+def test_full_source_failure_stops_before_paid_post_canary(
+    prepared: dict[str, object], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(runner, "run_pep_screen", _unverified_test_screen)
+    calls: list[str] = []
+    run_dir = tmp_path / "full-source-failure"
+    result = runner.run_guarded(
+        source_root=_SOURCE,
+        tokenizer_path=_TOKENIZER,
+        run_dir=run_dir,
+        transport_override=_fake_transport(prepared, calls, failure="full-task-wrong-plan"),
+    )
+    assert result["status"] == "stopped-on-full-task-failure"
+    assert result["task_http_calls"] == 2
+    assert result["canary_http_calls"] == 1
+    assert len(calls) == 3
+    assert not (run_dir / "post_canary.json").exists()
+    assert (run_dir / "task.json").exists()
+    assert (run_dir / "final.json").exists()
 
 
 def test_endpoint_drift_refuses_before_canary_with_safe_result(

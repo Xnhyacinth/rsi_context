@@ -458,6 +458,8 @@ def run_guarded(
                 result["status"] = "task-worker-failed"
             elif journal.unknown_usage_attempts:
                 result["status"] = "usage-unverified"
+            elif task.get("status") != "completed-development-screen":
+                result["status"] = "stopped-on-full-task-failure"
             else:
                 journal.phase = "post-canary"
                 post = canary.run_canary(
