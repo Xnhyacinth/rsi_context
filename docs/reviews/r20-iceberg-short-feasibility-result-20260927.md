@@ -45,3 +45,17 @@ failed on its `file` counter arm; neither block justifies a long-context
 dependency or independent-parent claim. A next version should change the
 task/reader design with separately frozen controls and should not treat these
 two Iceberg variants as independent benchmark worlds.
+
+## Combined integration gate
+
+After merging the R19 integration fixes into the R20 branch, the full suite
+with pinned local source/tokenizer fixtures and no Siflow credentials passed
+**1,625 tests, 27 skipped, zero failed**. Branch coverage was **80.48%**,
+above the configured 80% threshold. The
+[full log](/volume/pt-dev/qjiu/rsi_context_external/r20-preflight/full-pytest-combined.log)
+has SHA-256 `40d1c679d2eff236c2af32bbb69a5ca3c9614e8c4a47d0e3bb5dc8fb5f333480`.
+Ruff passed; strict mypy passed **410 source files**. Bandit over `src scripts`
+reported the unchanged **81 LOW, 2 MEDIUM, zero HIGH** findings, with no R20
+finding; the [JSON report](/volume/pt-dev/qjiu/rsi_context_external/r20-preflight/bandit-combined.json)
+has SHA-256 `fcf057302a6f6165c31bdb2ba543cfdc751f545e9cbf3828900bc456ecc2a648`.
+The host jail tests remain skipped at the separately documented trust boundary.
