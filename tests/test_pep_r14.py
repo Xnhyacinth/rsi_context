@@ -76,16 +76,30 @@ def _source_plan(text: str) -> str | None:
 class _Witness:
     """A transparent scripted reader; no evaluator fields are consulted."""
 
-    def __init__(self, state: dict[str, object], *, fixed_plan: str | None) -> None:
+    def __init__(
+        self, state: dict[str, object], *, fixed_plan: str | None, identity_only: bool
+    ) -> None:
         self.state = state
         self.fixed_plan = fixed_plan
+        self.identity_only = identity_only
         self.initial_state = json.loads(json.dumps(state))
         self.views: list[StageView] = []
 
     def on_stage(self, stage: StageView) -> StageResponse:
         self.views.append(stage)
         if stage.stage_id == "source-survey":
-            self.state["source_plan"] = _source_plan(stage.documents[0].text)
+            source = stage.documents[0]
+            if self.identity_only:
+                self.state["source_plan"] = next(
+                    (
+                        _PLANS[variant]
+                        for variant, (relative, _hash) in SOURCE_FILES.items()
+                        if source.source_url.endswith("/" + relative)
+                    ),
+                    None,
+                )
+            else:
+                self.state["source_plan"] = _source_plan(source.text)
             return StageResponse("[[doc:historical-license-source]] Read historical source")
         if stage.stage_id == "source-review":
             if not any(receipt.record_id == "review-v" for receipt in stage.receipts):
@@ -158,13 +172,16 @@ class _Witness:
 
 
 def _run(
-    sessions: tuple[LifecycleInstance, LifecycleInstance], *, fixed_plan: str | None = None
+    sessions: tuple[LifecycleInstance, LifecycleInstance],
+    *,
+    fixed_plan: str | None = None,
+    identity_only: bool = False,
 ) -> tuple[SequenceRecord, ProjectState, list[_Witness]]:
     env = ProjectState()
     witnesses: list[_Witness] = []
 
     def factory(state: dict[str, object]) -> _Witness:
-        witness = _Witness(state, fixed_plan=fixed_plan)
+        witness = _Witness(state, fixed_plan=fixed_plan, identity_only=identity_only)
         witnesses.append(witness)
         return witness
 
@@ -234,6 +251,30 @@ def test_source_free_fixed_action_cannot_pass_both_versions(
         outcomes.append([session.passed for session in record.sessions])
     assert outcomes.count([True, True]) == 1
     assert outcomes.count([True, False]) == 1
+
+
+@pytest.mark.parametrize("variant,pep_number", (("pep621", "621"), ("pep639", "639")))
+def test_source_identity_alone_solves_both_versions(
+    source_root: Path, variant: SourceVariant, pep_number: str
+) -> None:
+    first, second = build_pep_license_sessions(source_root, variant=variant)
+    survey = first.stages[0]
+    source = survey.documents[0]
+    assert f"PEP: {pep_number}" in source.text
+    assert source.source_url.endswith(f"/peps/pep-0{pep_number}.rst")
+    identity_only = replace(
+        source,
+        text=(
+            "[[doc:historical-license-source]] Pinned historical license metadata proposal\n"
+            f"PEP: {pep_number}\n[all rule sections withheld]"
+        ),
+    )
+    assert _source_plan(identity_only.text) is None
+    first = replace(first, stages=(replace(survey, documents=(identity_only,)), *first.stages[1:]))
+    record, env, witnesses = _run((first, second), identity_only=True)
+    assert [session.passed for session in record.sessions] == [True, True], record.to_dict()
+    assert env.records["license_format_decision"]["plan"] == _PLANS[variant]
+    assert witnesses[1].initial_state == {"carry": {"source_plan": _PLANS[variant]}}
 
 
 @pytest.mark.parametrize("variant", ("pep621", "pep639"))
