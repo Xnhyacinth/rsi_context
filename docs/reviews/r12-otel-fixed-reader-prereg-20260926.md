@@ -22,6 +22,15 @@ decisive row byte spans are fixed in
 The source roots must remain clean and detached at
 `cafda7127683b7f667e27cdbd3220510b6f998c9` and
 `89aae438b3b3b0a8dd33003c9d70592baf7dbd0d`.
+The constructed 1.43 deletion removes the sole complete line beginning
+``| [`db.query.text`]`` (including its trailing newline) from the pinned raw
+database-spans file and changes no other byte. The removed row SHA256 is
+`e72da5becec0b61970037df08120d2f2e5f5fd1596405f520224f219237173c8`;
+the resulting raw file SHA256 is
+`09f04822434b135bf4be57406e51e561bb488764cc9e581962425ba11f306946`.
+With the unchanged `[[doc:upstream-db]]\n` marker, the constructed visible
+source-text SHA256 is
+`80fab68f70ce6d1542c5cfeb45b95b1e6cf6dbbfe4d67aadbb59f87dd9ccd97c`.
 
 ## Reader and evidence contract
 
