@@ -9,7 +9,8 @@ researcher provider-token usage is asserted. `live_ready=false`.
 
 ## Verified input identity
 
-The project worktree began clean at `main@b315b6c8aed83ff4c868dc9e483005df7f6d0f54`.
+The budget worktree began clean at `work/r15-integration@b315b6c8aed83ff4c868dc9e483005df7f6d0f54`,
+derived from `main@dc76d798bfc49e58d599fc77bca8529a40cd063d`.
 The PEP source checkout is detached and clean at
 `6822259db9c95f02da739b3e2830a4aa1ae35134`; the KEP-753 checkout is
 detached and clean at `13e8bb54ff7b1777d97c0f7f3cc9691c67414d4a`.
