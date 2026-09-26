@@ -55,11 +55,11 @@ prompt/request SHA-256 per arm, exact chat geometry, source identity, registry,
 profile, and tokenizer manifest are in the registration. The separate
 [`launch`](../../configs/r20_iceberg_short_paid_launch_v1.json) binds all
 producer bytes, the registration, canaries, private oracle, and budgets. Its
-SHA-256 is `b2fbeeb4322cac6c3f25ff97a79ccd5747583915cdc1f3efe3f83b9bc76d16a1`.
+SHA-256 is `3bd1b78f5bf02fd7eb3a1d6e7d42d380e4a3fa82c9c4c6a4425a0e859418fb78`.
 
 Maximum requests: **4 target + 2 canary, zero auxiliary**. Target local input
 totals 784 tokens; requested target output totals 8,192, giving an 8,976
-target planning ceiling. Two canaries add 62 local input and 4,096 requested
+target planning ceiling. Two canaries add 124 local input and 4,096 requested
 output, giving **13,196 local input plus requested output** for the entire
 block. This is a request ceiling, not observed Siflow usage. Every target
 still permits exactly one target-model call; provider usage and identity must
@@ -81,20 +81,3 @@ uv run --frozen --no-sync --with transformers==5.15.0 \
 Successful offline or synthetic wiring does not satisfy the task. If a later
 reviewed paid block is valid but A/B/C fail, the long-source Iceberg screen
 remains disallowed by this preregistration.
-
-## Clean-commit synthetic check
-
-At clean producer commit `1a78073a3f1395ccc8a24a4cf6b49a31decd01ab`, an
-injected-SSE run exercised the committed launch, same-partition request,
-source/tokenizer checks, both canaries, four target requests, fsynced journal,
-and final attestation. The
-[private synthetic artifact](/volume/pt-dev/qjiu/rsi_context_external/r20-preflight/iceberg-short-synthetic-1a78073-v2/)
-has identity SHA-256
-`680ce87633a8a35f094af5ed8690414d3a8d36236d0926674ae9ddd0febbeed2`
-and final SHA-256
-`7bd6e30e858fc8eefbc712e88cbf106b163d21a9236f03ba0b8ce1d397849460`.
-It records six injected requests, zero unknown usage, 13,196 planned tokens,
-private 0700/0600 permissions, and `provider_block_valid=false`. Its
-`task_feasible=true` verifies synthetic wiring only; no model result was
-observed. The focused suite passed 9 tests; scoped Ruff, strict mypy, and
-Bandit passed.

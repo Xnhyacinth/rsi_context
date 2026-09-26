@@ -11,7 +11,7 @@
     "scripts/r20_iceberg_short_offline.py": "9d0d024fe2575c8ee64d25ae2059ced3739e311fae351e4af19bf52d5b432799",
     "scripts/r20_iceberg_short_paid_runner.py": "1f3755d69c3042310502d6b901464e89f21ffd34fc7e9e47845b22e2ec69127e",
     "src/rsicontext/analysis/chat_geometry.py": "807913096f43069632b6d208f172a6fc42986a1ee815eb6d62757a5eab1b0342",
-    "src/rsicontext/analysis/iceberg_short_private_r20.py": "80f7775a36e750f591a0f9bdf51ed4e0f830765d686ff441a19cd1a6a5a07a98",
+    "src/rsicontext/analysis/iceberg_short_private_r20.py": "0497533c44db899313adb1ff649fa0dfe75e54df5cd7fe24dbba3cc79134bfd0",
     "src/rsicontext/analysis/otel_siflow_pilot.py": "28cc12d1bfcf2b541d4b6618af45ab6b357ad816bf88aa723f5b5e9c65785cfc",
     "src/rsicontext/eval/openai_compatible.py": "a211146589023418e43a92aff5be7bf6426511132e3567a1b2dd24df0b7c8816",
     "src/rsicontext/experiment/api.py": "53039df4ddaa59dca5c47990d51d3fff939e80e7aec1abaebb09fc2506e015bc",

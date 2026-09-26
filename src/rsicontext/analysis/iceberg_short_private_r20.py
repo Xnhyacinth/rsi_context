@@ -15,7 +15,7 @@ ORACLE_SHA256 = "2597ec91086c07304288eb624fdd61c5bc60a9c1bfd015de8d022b7c0c1a86f
 
 
 def _plan(counter: str, delete_value: int) -> str:
-    """Apply strict sequence, global partition, and equality value matching."""
+    """Apply sequence and value checks for the fixed same-partition fixture."""
 
     data_sequence, file_sequence, delete_sequence, row_value = 7, 12, 8, 42
     earlier = (data_sequence if counter == "data" else file_sequence) < delete_sequence
