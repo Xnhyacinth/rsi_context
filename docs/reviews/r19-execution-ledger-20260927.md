@@ -11,6 +11,7 @@ The original untracked `logs/` in main is untouched.
 | --- | --- |
 | `work/r19-reader` | Prospective, guarded Iceberg two-session fixed-reader screen, versioned prompts/launch and offline failure tests; no provider execution by the worker. |
 | `work/r19-runtime` | Trusted researcher runtime and B/C opportunity/budget audit; no host mutation, candidate execution or provider call. |
+| `work/r19-gemma` | Independently pin a second reader family's tokenizer metadata through registry dry run and selective acquisition; no model weights or provider call. |
 | `work/r19-integration` | Reconcile science and code review, admit at most a bounded live reader screen after frozen checks, run project gates, merge/push main and clean worktrees. |
 
 The official Iceberg source checkout has been rechecked clean and detached at
