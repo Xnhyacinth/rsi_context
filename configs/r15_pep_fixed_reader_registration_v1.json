@@ -5,5 +5,5 @@
   "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
   "tokenizer_manifest_sha256": "8ff74a229e5d1771200efaaa7e411028fd6ab68a080d93138d76476e9e494290",
   "source_revision": "6822259db9c95f02da739b3e2830a4aa1ae35134",
-  "total_provider_token_ceiling": 42747
+  "local_plus_requested_token_ceiling": 42747
 }

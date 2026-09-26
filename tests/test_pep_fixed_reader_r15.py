@@ -320,7 +320,7 @@ def test_public_screen_rejects_forged_identity_before_transport(
         "profile_sha256": _PROFILE.profile_hash,
         "tokenizer_manifest_sha256": tokenizer_manifest,
         "source_revision": SOURCE_REVISION,
-        "total_provider_token_ceiling": (
+        "local_plus_requested_token_ceiling": (
             cast(int, report["local_worst_case_total_input_tokens"])
             + cast(int, report["profile_max_total_output_tokens"])
         ),
