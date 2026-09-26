@@ -37,7 +37,18 @@ uv run --frozen --no-sync --with transformers==5.15.0 \
   --tokenizer-path /volume/pt-dev/qjiu/rsi_context/models/qwen3.6-27b
 ```
 
-An independently reviewed, clean-commit synthetic run is required before
-the parent performs the single paid block. The CLI uses a fresh external
-private run directory and fails closed on any launch, material, credential,
-or provider-protocol drift.
+At clean producer commit `d29c1d8a764a8fd3e68c01a94342a0ea38c84484`, an
+injected-SSE run passed the real committed-launch, source, tokenizer,
+runtime, canary, journal, and end-attestation checks. Its
+[private artifact](/volume/pt-dev/qjiu/rsi_context_external/r20-live-preflight/iceberg-short-live-v2-synthetic-d29c1d8/)
+has identity SHA-256
+`698e8b46a9dff19a9950c5802fc48e9505586c7dbe4008e80a215915fafcf1d7`
+and final SHA-256
+`7bd6e30e858fc8eefbc712e88cbf106b163d21a9236f03ba0b8ce1d397849460`.
+It records four injected target requests, two injected canaries, zero unknown
+usage, 13,196 planned tokens, private 0700/0600 permissions, and
+`provider_block_valid=false`. Its `task_feasible=true` verifies wiring only;
+no model behavior was observed. The committed focused suite passed 9 tests;
+scoped Ruff, strict mypy, and Bandit passed. Independent review precedes any
+paid block. The CLI uses a fresh external private run directory and fails
+closed on launch, material, credential, or provider-protocol drift.
