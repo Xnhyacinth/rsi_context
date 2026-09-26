@@ -188,12 +188,15 @@ def test_source_formula_withheld_breaks_later_decision_without_changing_receipt(
     assert env.records["review-resource_reassessment"]["verdict"] == "pass"
 
 
-def test_target_formula_removal_breaks_later_decision_but_unrelated_text_does_not() -> None:
+def test_scripted_literal_lookup_changes_but_equivalent_source_rule_remains() -> None:
     first, second = _sessions()
     survey = first.stages[0]
     source = survey.documents[0]
     assert _FORMULA in source.text
     targeted = replace(source, text=source.text.replace(_FORMULA, "[target formula withheld]"))
+    # The README restates the ordered-prefix rule later. This intervention
+    # checks the scripted hook's literal lookup, not rule-level dependence.
+    assert "Sum(sidecar containers with index < i) + Max(" in targeted.text
     targeted_first = replace(
         first, stages=(replace(survey, documents=(targeted,)), *first.stages[1:])
     )

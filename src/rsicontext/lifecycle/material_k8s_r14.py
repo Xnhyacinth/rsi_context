@@ -1,4 +1,4 @@
-"""Development-only KEP-753 resource-order C card from pinned upstream bytes.
+"""Development-only two-session B card for KEP-753 resource ordering.
 
 The scheduling request, node capacity, review receipts, and project records are
 constructed benchmark state. This builder does not simulate a Kubernetes node.
