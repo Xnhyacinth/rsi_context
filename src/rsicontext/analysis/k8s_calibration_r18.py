@@ -22,6 +22,7 @@ from rsicontext.experiment.api import APIProfile
 from rsicontext.lifecycle.material_k8s_r14 import SOURCE_FILES, SOURCE_REVISION
 
 R17_TASK_SHA256 = "c3ec0144de17c477e64d2aae97c2c3ec48d3ebb201e6c74c111b09b412ad84ec"
+REGISTRY_SHA256 = "16807ab8ae22734f2a90cc64df843587a9b290bdf8b4dba79f154efabc81c934"
 CASE_ORDER = (
     "coarse-membership",
     "coarse-numeric",
@@ -34,6 +35,7 @@ _RULE_SPANS = (
     (835, 838, "4704a8c456cfa800a08d64e11cd7f2416ec68dd648b8ce91fe76e61fbda9b3f2"),
 )
 _COARSE = "formula=prefix"
+_REGISTRY_PATH = Path(__file__).resolve().parents[3] / "configs/registry.json"
 
 
 def _sha(raw: bytes) -> str:
@@ -174,6 +176,8 @@ def build_registration(
 
     if profile.chat_template_enable_thinking is not False or profile.system_prompt is None:
         raise ValueError("R18 requires the frozen non-thinking two-message profile")
+    if _sha(_REGISTRY_PATH.read_bytes()) != REGISTRY_SHA256:
+        raise ValueError("R18 source registry differs from pinned integrated bytes")
     r16 = require_r16_observation(r16_task)
     r17 = require_r17_observation(r17_task)
     amendment = amendment_text(source_root)
@@ -224,6 +228,7 @@ def build_registration(
         "r16_observation": r16,
         "r17_observation": r17,
         "source_revision": SOURCE_REVISION,
+        "registry_sha256": REGISTRY_SHA256,
         "source_readme_sha256": SOURCE_FILES[_README],
         "source_rule_spans": spans,
         "projected_rule_sha256": _sha(rule.encode()),

@@ -28,6 +28,7 @@
     "observed_plan": "hold-at-1000m",
     "r17_task_sha256": "c3ec0144de17c477e64d2aae97c2c3ec48d3ebb201e6c74c111b09b412ad84ec"
   },
+  "registry_sha256": "16807ab8ae22734f2a90cc64df843587a9b290bdf8b4dba79f154efabc81c934",
   "requested_output_tokens": 8192,
   "requests": [
     {
