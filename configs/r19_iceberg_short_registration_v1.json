@@ -1,0 +1,71 @@
+{
+  "auxiliary_call_cap": 0,
+  "case_order": [
+    "data-counter",
+    "file-counter"
+  ],
+  "fixed_request_sha256": "270713688e20ce9a1e8a4f7a9236746a1f9707f6188d838efc0c0ae6436ccc81",
+  "interpretation": "short rule application only; no long-source or parent qualification",
+  "local_input_plus_requested_ceiling": 4738,
+  "local_input_tokens": 642,
+  "profile_sha256": "b9e0df1d39f4c74b684661a7b7e4a714f33a7b0fd8741c3e183d1203ca21ce69",
+  "r18_geometry_sha256": "aec96c97e921163431f306728c5469ce8e9673186a73f19b0de46f90afa35448",
+  "registry_sha256": "7ac3a92dcbf9128c2b39ef16978bb9d08854612a85126b98165f62ecd8a9c1a0",
+  "requested_output_tokens": 4096,
+  "requests": [
+    {
+      "case": "data-counter",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          30,
+          55
+        ],
+        "evidence_to_query_tokens": 233,
+        "query_span_tokens": [
+          288,
+          312
+        ],
+        "rendered_input_tokens": 321,
+        "rendered_utf8_bytes": 1443,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          312
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "e6610a22057fec5896e8714dbdcc5b0cd3cbb6eb7afb61237fdbdd1c0531811a",
+      "request_sha256": "b3bec5d51f987ec30f53116c5d64600759e665d56ecbfdf5e495037333c429ed"
+    },
+    {
+      "case": "file-counter",
+      "local_template_geometry": {
+        "evidence_span_tokens": [
+          30,
+          55
+        ],
+        "evidence_to_query_tokens": 233,
+        "query_span_tokens": [
+          288,
+          312
+        ],
+        "rendered_input_tokens": 321,
+        "rendered_utf8_bytes": 1443,
+        "span_status": "unique_later_query",
+        "user_span_tokens": [
+          30,
+          312
+        ],
+        "user_trailing_whitespace_trimmed_chars": 0
+      },
+      "prompt_sha256": "dc4648824ea8ff0a47450422c48b1ed7b4e1aa10c75cc1f71beec0d697dc7723",
+      "request_sha256": "18ffad6fc052772349dc21f4b071f2bcf5d5bbb8cbbcf313446a1d5af819f24e"
+    }
+  ],
+  "schema_version": 1,
+  "scope": "r19-iceberg-s2-only-feasibility",
+  "source_revision": "071d5606bc6199a0be9b3f274ec7fbf111d88821",
+  "source_sha256": "e68cd90f7e243f33996717f877077e40773a8ffb57978232458b9e5bf2b9c5cb",
+  "target_call_cap": 2,
+  "tokenizer_manifest_sha256": "8ff74a229e5d1771200efaaa7e411028fd6ab68a080d93138d76476e9e494290"
+}
